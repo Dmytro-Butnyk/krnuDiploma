@@ -7,11 +7,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="fb1018e7-29e5-4659-94fa-2ea36a046335" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.MiniWordGenTestProject/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.MiniWordGenTestProject/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MiniWordGenTestProject/MiniWordGenTestProject.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/MiniWordGenTestProject/MiniWordGenTestProject.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/MiniWordGenTestProject/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/MiniWordGenTestProject/Program.cs" afterDir="false" />
-    </list>
+    <list default="true" id="fb1018e7-29e5-4659-94fa-2ea36a046335" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -110,7 +106,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1769611526972</updated>
-      <workItem from="1769611529434" duration="5301000" />
+      <workItem from="1769611529434" duration="5448000" />
     </task>
     <task id="LOCAL-00001" summary="Initialize project with .NET 8, solution structure, .gitignore, and IDE settings.">
       <option name="closed" value="true" />
@@ -120,7 +116,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769611625825</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Add document generation logic using MiniWord and `TestTemplate.docx`">
+      <option name="closed" value="true" />
+      <created>1769618850087</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1769618850087</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -131,7 +135,8 @@
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
     <MESSAGE value="Initialize project with .NET 8, solution structure, .gitignore, and IDE settings." />
-    <option name="LAST_COMMIT_MESSAGE" value="Initialize project with .NET 8, solution structure, .gitignore, and IDE settings." />
+    <MESSAGE value="Add document generation logic using MiniWord and `TestTemplate.docx`" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add document generation logic using MiniWord and `TestTemplate.docx`" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
