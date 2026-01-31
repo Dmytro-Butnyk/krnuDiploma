@@ -1,10 +1,12 @@
+using documentGenerationSubsystem.Api.Extensions;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication();
 
 builder.Services.AddProblemDetails();
-
+builder.Services.AddScrutorDiScanning();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

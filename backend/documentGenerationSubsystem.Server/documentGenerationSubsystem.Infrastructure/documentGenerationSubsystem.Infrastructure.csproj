@@ -6,4 +6,9 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\documentGenerationSubsystem.Application\documentGenerationSubsystem.Application.csproj" />
+      <ProjectReference Include="..\documentGenerationSubsystem.Domain\documentGenerationSubsystem.Domain.csproj" />
+    </ItemGroup>
+
 </Project>
