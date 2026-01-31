@@ -10,13 +10,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dad8ff5-da54-4894-9884-b5ffc4ab2161" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/documentGenerationSubsystem.Api/Extensions/ConfigurationExtensions.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/documentGenerationSubsystem.Api/Extensions/WebApplicationBuilderExtension.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/documentGenerationSubsystem.Api/ExceptionHandler/ExceptionHandler.cs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/documentGenerationSubsystem.Api/ExceptionHandler/UnknownStatusCodeException.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.documentGenerationSubsystem.Server/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.documentGenerationSubsystem.Server/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/documentGenerationSubsystem.Api/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/documentGenerationSubsystem.Api/Program.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/documentGenerationSubsystem.Application/Class1.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/documentGenerationSubsystem.Domain/Class1.cs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/documentGenerationSubsystem.Infrastructure/Class1.cs" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -53,8 +49,11 @@
   }
 }</component>
   <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/documentGenerationSubsystem.Api/ExceptionHandler/ExceptionHandler.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/documentGenerationSubsystem.Api/ExceptionHandler/UnknownStatusCodeException.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/documentGenerationSubsystem.Api/Extensions/ConfigurationExtensions.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/documentGenerationSubsystem.Api/Extensions/WebApplicationBuilderExtension.cs" root0="FORCE_HIGHLIGHTING" />
+    <setting file="file://$PROJECT_DIR$/documentGenerationSubsystem.Api/Extensions/WebApplicationExtension.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/documentGenerationSubsystem.Api/Program.cs" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/documentGenerationSubsystem.Api/appsettings.Development.json" root0="FORCE_HIGHLIGHTING" />
     <setting file="file://$PROJECT_DIR$/documentGenerationSubsystem.Api/appsettings.json" root0="FORCE_HIGHLIGHTING" />
@@ -147,7 +146,7 @@
       <option name="presentableId" value="Default" />
       <updated>1769872527405</updated>
       <workItem from="1769872532720" duration="858000" />
-      <workItem from="1769873426385" duration="1705000" />
+      <workItem from="1769873426385" duration="2742000" />
     </task>
     <task id="LOCAL-00001" summary="Initialize document generation subsystem with .NET 8, solution structure, and configuration files.">
       <option name="closed" value="true" />
@@ -157,7 +156,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769873072066</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Configure API services and add startup extensions&#10;&#10;- Remove default `Class1.cs` files from Application, Domain, and Infrastructure projects.&#10;- Register Authentication, Authorization, and ProblemDetails services in `Program.cs`.&#10;- Add `ConfigurationExtensions`, `WebApplicationExtension`, and `WebApplicationBuilderExtension` classes to organize startup logic.&#10;- Implement response compression and dependency injection validation in builder extensions.">
+      <option name="closed" value="true" />
+      <created>1769875654423</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1769875654423</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -168,7 +175,8 @@
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
     <MESSAGE value="Initialize document generation subsystem with .NET 8, solution structure, and configuration files." />
-    <option name="LAST_COMMIT_MESSAGE" value="Initialize document generation subsystem with .NET 8, solution structure, and configuration files." />
+    <MESSAGE value="Configure API services and add startup extensions&#10;&#10;- Remove default `Class1.cs` files from Application, Domain, and Infrastructure projects.&#10;- Register Authentication, Authorization, and ProblemDetails services in `Program.cs`.&#10;- Add `ConfigurationExtensions`, `WebApplicationExtension`, and `WebApplicationBuilderExtension` classes to organize startup logic.&#10;- Implement response compression and dependency injection validation in builder extensions." />
+    <option name="LAST_COMMIT_MESSAGE" value="Configure API services and add startup extensions&#10;&#10;- Remove default `Class1.cs` files from Application, Domain, and Infrastructure projects.&#10;- Register Authentication, Authorization, and ProblemDetails services in `Program.cs`.&#10;- Add `ConfigurationExtensions`, `WebApplicationExtension`, and `WebApplicationBuilderExtension` classes to organize startup logic.&#10;- Implement response compression and dependency injection validation in builder extensions." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -32,6 +32,7 @@ Desktop.ini
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
+.idea.sonarlint/
 
 # Visual Studio Code
 .vscode/*
@@ -47,7 +48,6 @@ Desktop.ini
 # Build results
 [Bb]in/
 [Oo]bj/
-build/
 
 # NuGet
 *.nupkg
@@ -63,6 +63,7 @@ project.fragment.lock.json
 artifacts/
 
 # User-specific files
+# Файлы, которые генерируются IDE и содержат личные настройки
 *.rsuser
 *.suo
 *.user
@@ -82,6 +83,18 @@ coverage.xml
 component.json
 profiler/
 
+# Secrets & Local Config
+# Файлы секретов и локальные конфигурации не должны быть в репозитории.
+# Используйте 'user-secrets' для .NET Core.
+# https://docs.microsoft.com/en-us/aspnet/core/security/app-secrets
+secrets.json
+appsettings.*.json
+!appsettings.json
+!appsettings.Production.json
+!appsettings.Staging.json
+appsettings.Local.json
+appsettings.*.Local.json
+
 ######################################################################
 # 4. NODE.JS & REACT (Frontend)
 ######################################################################
@@ -89,9 +102,13 @@ profiler/
 node_modules/
 .pnp
 .pnp.js
-
-# Testing
-coverage/
+# Yarn 2+
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
 
 # Production Build Artifacts (React / Vite / Next.js)
 build/
@@ -114,25 +131,21 @@ pnpm-debug.log*
 .env.production.local
 # Исключение: .env.example (шаблон) стоит оставить
 !.env.example
+!.env.defaults
 
 # Cache mechanisms
 .eslintcache
 .stylelintcache
 *.tsbuildinfo
+.vite-cache
 
 # Parcel-bundler cache
 .cache
 .parcel-cache
 
 ######################################################################
-# 5. SECURITY & CONFIGURATION
+# 5. SECURITY
 ######################################################################
-# Secrets for .NET (User Secrets id is usually in csproj, actual secrets outside)
-# Но если вдруг кто-то создал json локально:
-secrets.json
-appsettings.Local.json
-appsettings.Development.local.json
-
 # Игнорируем PEM ключи и сертификаты (если они случайно попали в папку)
 *.pem
 *.key
