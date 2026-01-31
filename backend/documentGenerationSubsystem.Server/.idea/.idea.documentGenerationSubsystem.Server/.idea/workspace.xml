@@ -10,8 +10,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="4dad8ff5-da54-4894-9884-b5ffc4ab2161" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/documentGenerationSubsystem.Api/ExceptionHandler/ExceptionHandler.cs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/documentGenerationSubsystem.Api/ExceptionHandler/UnknownStatusCodeException.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../../.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.documentGenerationSubsystem.Server/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.documentGenerationSubsystem.Server/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -76,6 +75,7 @@
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.MCP Project settings loaded": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "git-widget-placeholder": "feature/pre-setup-for-the-project-documentGenerationSubsystem-server",
@@ -146,7 +146,7 @@
       <option name="presentableId" value="Default" />
       <updated>1769872527405</updated>
       <workItem from="1769872532720" duration="858000" />
-      <workItem from="1769873426385" duration="2742000" />
+      <workItem from="1769873426385" duration="3838000" />
     </task>
     <task id="LOCAL-00001" summary="Initialize document generation subsystem with .NET 8, solution structure, and configuration files.">
       <option name="closed" value="true" />
@@ -164,7 +164,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769875654423</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Implement global exception handling and update .gitignore&#10;&#10;- Add `ExceptionHandler` to standardize API error responses using `IProblemDetailsService`.&#10;- Create `UnknownStatusCodeException` for specific endpoint errors.&#10;- Update `.gitignore` to exclude local secrets, configuration files, and additional frontend artifacts.">
+      <option name="closed" value="true" />
+      <created>1769876733055</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1769876733055</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -176,7 +184,8 @@
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
     <MESSAGE value="Initialize document generation subsystem with .NET 8, solution structure, and configuration files." />
     <MESSAGE value="Configure API services and add startup extensions&#10;&#10;- Remove default `Class1.cs` files from Application, Domain, and Infrastructure projects.&#10;- Register Authentication, Authorization, and ProblemDetails services in `Program.cs`.&#10;- Add `ConfigurationExtensions`, `WebApplicationExtension`, and `WebApplicationBuilderExtension` classes to organize startup logic.&#10;- Implement response compression and dependency injection validation in builder extensions." />
-    <option name="LAST_COMMIT_MESSAGE" value="Configure API services and add startup extensions&#10;&#10;- Remove default `Class1.cs` files from Application, Domain, and Infrastructure projects.&#10;- Register Authentication, Authorization, and ProblemDetails services in `Program.cs`.&#10;- Add `ConfigurationExtensions`, `WebApplicationExtension`, and `WebApplicationBuilderExtension` classes to organize startup logic.&#10;- Implement response compression and dependency injection validation in builder extensions." />
+    <MESSAGE value="Implement global exception handling and update .gitignore&#10;&#10;- Add `ExceptionHandler` to standardize API error responses using `IProblemDetailsService`.&#10;- Create `UnknownStatusCodeException` for specific endpoint errors.&#10;- Update `.gitignore` to exclude local secrets, configuration files, and additional frontend artifacts." />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement global exception handling and update .gitignore&#10;&#10;- Add `ExceptionHandler` to standardize API error responses using `IProblemDetailsService`.&#10;- Create `UnknownStatusCodeException` for specific endpoint errors.&#10;- Update `.gitignore` to exclude local secrets, configuration files, and additional frontend artifacts." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
