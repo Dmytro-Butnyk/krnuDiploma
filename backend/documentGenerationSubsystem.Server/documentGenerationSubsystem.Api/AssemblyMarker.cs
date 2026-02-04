@@ -1,6 +1,2 @@
 namespace documentGenerationSubsystem.Api;
-
-public sealed class AssemblyMarker
-{
-    
-}
+public sealed class AssemblyMarker {}
