@@ -91,8 +91,8 @@ public static class WebApplicationBuilderExtension
             .FromAssemblies(
                 typeof(AssemblyMarker).Assembly,
                 typeof(Application.AssemblyMarker).Assembly,
-                typeof(DocumentGenerationSubsystem.Domain.AssemblyMarker).Assembly,
-                typeof(DocumentGenerationSubsystem.Infrastructure.AssemblyMarker).Assembly
+                typeof(Domain.AssemblyMarker).Assembly,
+                typeof(Infrastructure.AssemblyMarker).Assembly
             )
 
             // Register data providers
