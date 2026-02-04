@@ -77,6 +77,38 @@ public static class WebApplicationBuilderExtension
     // {
     //     
     // }
+    
+    
+    /// <summary>
+    /// Configures Scrutor to automatically register services from the application's assemblies based on naming conventions.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The updated service collection.</returns>
+    public static IServiceCollection AddScrutor(this IServiceCollection services)
+    {
+        services.Scan(scan => scan
+            // Follow to assemblies with marker classes
+            .FromAssemblies(
+                typeof(AssemblyMarker).Assembly,
+                typeof(documentGenerationSubsystem.Application.AssemblyMarker).Assembly,
+                typeof(documentGenerationSubsystem.Domain.AssemblyMarker).Assembly,
+                typeof(documentGenerationSubsystem.Infrastructure.AssemblyMarker).Assembly
+            )
+
+            // Register data providers
+            // .AddClasses(classes => classes.AssignableTo<IDataProvider>())
+            // .AsImplementedInterfaces() // IDataProvider
+            // .WithScopedLifetime()
+
+            // Register services with and without interfaces
+            .AddClasses(classes => classes.Where(type => type.Name.EndsWith("Service")))
+            .AsImplementedInterfaces() 
+            .AsSelf()
+            .WithScopedLifetime()
+        );
+
+        return services;
+    }
 
     public static void ValidateDIOnBuild(this WebApplicationBuilder builder)
     {
