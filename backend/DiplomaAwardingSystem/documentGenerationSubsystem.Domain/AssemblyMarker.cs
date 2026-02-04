@@ -1,2 +1,2 @@
-namespace documentGenerationSubsystem.Domain;
+namespace DocumentGenerationSubsystem.Domain;
 public sealed class AssemblyMarker {}

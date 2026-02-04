@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.ResponseCompression;
 
-namespace documentGenerationSubsystem.Api.Extensions;
+namespace DocumentGenerationSubsystem.Api.Extensions;
 
 public static class WebApplicationBuilderExtension
 {
@@ -90,9 +90,9 @@ public static class WebApplicationBuilderExtension
             // Follow to assemblies with marker classes
             .FromAssemblies(
                 typeof(AssemblyMarker).Assembly,
-                typeof(documentGenerationSubsystem.Application.AssemblyMarker).Assembly,
-                typeof(documentGenerationSubsystem.Domain.AssemblyMarker).Assembly,
-                typeof(documentGenerationSubsystem.Infrastructure.AssemblyMarker).Assembly
+                typeof(Application.AssemblyMarker).Assembly,
+                typeof(DocumentGenerationSubsystem.Domain.AssemblyMarker).Assembly,
+                typeof(DocumentGenerationSubsystem.Infrastructure.AssemblyMarker).Assembly
             )
 
             // Register data providers

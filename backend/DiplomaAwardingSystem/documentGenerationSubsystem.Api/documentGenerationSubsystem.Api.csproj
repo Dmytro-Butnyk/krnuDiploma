@@ -13,8 +13,8 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\documentGenerationSubsystem.Application\documentGenerationSubsystem.Application.csproj" />
-      <ProjectReference Include="..\documentGenerationSubsystem.Infrastructure\documentGenerationSubsystem.Infrastructure.csproj" />
+      <ProjectReference Include="..\DocumentGenerationSubsystem.Application\DocumentGenerationSubsystem.Application.csproj" />
+      <ProjectReference Include="..\DocumentGenerationSubsystem.Infrastructure\DocumentGenerationSubsystem.Infrastructure.csproj" />
     </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-using documentGenerationSubsystem.Api.Extensions;
+using DocumentGenerationSubsystem.Api.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 

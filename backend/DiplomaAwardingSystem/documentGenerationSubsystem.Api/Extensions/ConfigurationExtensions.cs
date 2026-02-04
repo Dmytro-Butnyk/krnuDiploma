@@ -1,4 +1,4 @@
-namespace documentGenerationSubsystem.Api.Extensions;
+namespace DocumentGenerationSubsystem.Api.Extensions;
 
 public static class ConfigurationExtensions
 {

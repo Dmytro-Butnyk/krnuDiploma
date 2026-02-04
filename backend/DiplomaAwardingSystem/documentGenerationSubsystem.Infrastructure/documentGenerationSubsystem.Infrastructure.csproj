@@ -7,8 +7,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\documentGenerationSubsystem.Application\documentGenerationSubsystem.Application.csproj" />
-      <ProjectReference Include="..\documentGenerationSubsystem.Domain\documentGenerationSubsystem.Domain.csproj" />
+      <ProjectReference Include="..\DocumentGenerationSubsystem.Application\DocumentGenerationSubsystem.Application.csproj" />
+      <ProjectReference Include="..\DocumentGenerationSubsystem.Domain\DocumentGenerationSubsystem.Domain.csproj" />
     </ItemGroup>
 
 </Project>

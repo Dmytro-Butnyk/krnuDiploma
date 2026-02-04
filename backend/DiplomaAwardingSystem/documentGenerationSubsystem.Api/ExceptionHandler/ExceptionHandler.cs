@@ -2,7 +2,7 @@ using System.Net;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
-namespace documentGenerationSubsystem.Api.ExceptionHandler;
+namespace DocumentGenerationSubsystem.Api.ExceptionHandler;
 
 public sealed class ExceptionHandler(
     IProblemDetailsService problemDetailsService,
