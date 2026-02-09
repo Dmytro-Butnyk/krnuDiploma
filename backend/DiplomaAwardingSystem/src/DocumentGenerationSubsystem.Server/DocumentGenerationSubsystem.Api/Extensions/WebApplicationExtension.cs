@@ -10,11 +10,10 @@ public static class WebApplicationExtension
     {
         await using var scope = app.Services.CreateAsyncScope();
         var services = scope.ServiceProvider;
-        
     }
 
-    public static async Task EnsureRolesValid(this WebApplication app)
-    {
+    // public static async Task EnsureRolesValid(this WebApplication app)
+    // {
         // await using var scope = app.Services.CreateAsyncScope();
         // var services = scope.ServiceProvider;
         //
@@ -22,5 +21,5 @@ public static class WebApplicationExtension
         // var roleManager = services.GetRequiredService<RoleManager<Role>>();
         //
         // await context.EnsureAllRolesExist(roleManager);
-    }
+    // }
 }

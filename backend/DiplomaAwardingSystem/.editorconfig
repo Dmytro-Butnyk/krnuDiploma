@@ -1,0 +1,65 @@
+root = true
+
+[*.cs]
+# Настройки отступов
+indent_style = space
+indent_size = 4
+
+# Настройки using
+csharp_using_directive_placement = outside_namespace:error
+
+# Настройки переноса строк (важно для StyleCop)
+end_of_line = crlf
+insert_final_newline = true
+
+# --- ОТКЛЮЧАЕМ ЛИШНЕЕ (Severity = none) ---
+
+# SA1600: Требование писать XML-документацию ко всем элементам.
+# В Web API это нужно только для публичных контрактов (Swagger), но не для всего кода.
+dotnet_diagnostic.SA1600.severity = none
+dotnet_diagnostic.SA1601.severity = none
+dotnet_diagnostic.SA1602.severity = none
+dotnet_diagnostic.SA1005.severity = none
+dotnet_diagnostic.SA1502.severity = none
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.SA1111.severity = none
+dotnet_diagnostic.SA1512.severity = none
+dotnet_diagnostic.SA1518.severity = none
+dotnet_diagnostic.SA1313.severity = none
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1711.severity = none
+dotnet_diagnostic.SA1028.severity = none
+dotnet_diagnostic.SA1009.severity = none
+dotnet_diagnostic.CA1515.severity = none
+dotnet_diagnostic.CA1040.severity = none
+dotnet_diagnostic.CA1034.severity = none
+dotnet_diagnostic.SA1201.severity = none
+dotnet_diagnostic.SA1202.severity = none
+dotnet_diagnostic.CA1032.severity = none
+dotnet_diagnostic.SA1413.severity = none
+dotnet_diagnostic.CA1031.severity = none
+
+# SA1633: Требование заголовка файла (File Header) с копирайтом.
+# В 2024 году это мусор, засоряющий начало файла.
+dotnet_diagnostic.SA1633.severity = none
+
+# SA1101: Требование всегда писать "this." перед полями (this.field).
+# Современный стандарт C# — НЕ писать this, если нет конфликта имен.
+dotnet_diagnostic.SA1101.severity = none
+
+# SA1309: Запрет на использование нижнего подчеркивания в полях (_repository).
+# Но в ASP.NET Core стандартом считается использование `_` для приватных полей (DI).
+# Поэтому отключаем это правило, чтобы разрешить _fields.
+dotnet_diagnostic.SA1309.severity = none
+
+# SA1200: Требование выносить using внутрь namespace.
+# С появлением file-scoped namespace (namespace MyApi;) это правило устарело и глючит.
+dotnet_diagnostic.SA1200.severity = none
+
+# SA1413: Требование запятой в конце многострочных инициализаторов.
+# Полезно, но иногда бесит. Можно оставить warning, можно отключить.
+dotnet_diagnostic.SA1413.severity = suggestion
+
+# SA1516: Требование пустой строки между элементами.
+# Иногда хочется сгруппировать мелкие свойства без пробелов.
+dotnet_diagnostic.SA1516.severity = none

@@ -1,8 +1,10 @@
 using System.Net;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
-namespace DocumentGenerationSubsystem.Api.ExceptionHandler;
+namespace Core.Api.ExceptionHandler;
 
 public sealed class ExceptionHandler(
     IProblemDetailsService problemDetailsService,
@@ -26,8 +28,7 @@ public sealed class ExceptionHandler(
             Instance = httpContext.Request.Path
         };
         
-        logger.LogError(
-            "Title: {Title}, Status: {Status}, Detail: {Detail}, Instance: {Instance}, Exception: {Exception}",
+        logger.LogProblemDetails(
             problemDetails.Title,
             problemDetails.Status,
             problemDetails.Detail,

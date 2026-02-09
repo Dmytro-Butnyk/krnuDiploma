@@ -18,7 +18,6 @@ public static class WebApplicationBuilderExtension
 
     public static WebApplicationBuilder AddAppCache(this WebApplicationBuilder builder)
     {
-        
         return builder;
     }
     
@@ -40,7 +39,6 @@ public static class WebApplicationBuilderExtension
     
     public static WebApplicationBuilder AddSwaggerJwtBearer(this WebApplicationBuilder builder)
     {
-
         return builder;
     }
     
@@ -58,10 +56,9 @@ public static class WebApplicationBuilderExtension
 
     public static WebApplicationBuilder AddLoggingToMongoDb(this WebApplicationBuilder builder)
     {
-        
         return builder;
     }
-    //
+    
     // public static WebApplicationBuilder AddRateLimiter(this WebApplicationBuilder builder)
     // {
     //     
@@ -78,7 +75,6 @@ public static class WebApplicationBuilderExtension
     //     
     // }
     
-    
     /// <summary>
     /// Configures Scrutor to automatically register services from the application's assemblies based on naming conventions.
     /// </summary>
@@ -87,6 +83,7 @@ public static class WebApplicationBuilderExtension
     public static IServiceCollection AddScrutor(this IServiceCollection services)
     {
         services.Scan(scan => scan
+                
             // Follow to assemblies with marker classes
             .FromAssemblies(
                 typeof(AssemblyMarker).Assembly,
@@ -101,7 +98,7 @@ public static class WebApplicationBuilderExtension
             // .WithScopedLifetime()
 
             // Register services with and without interfaces
-            .AddClasses(classes => classes.Where(type => type.Name.EndsWith("Service")))
+            .AddClasses(classes => classes.Where(type => type.Name.EndsWith("Service", StringComparison.OrdinalIgnoreCase)))
             .AsImplementedInterfaces() 
             .AsSelf()
             .WithScopedLifetime()

@@ -1,18 +1,28 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentGenerationSubsystem.Api", "DocumentGenerationSubsystem.Api\DocumentGenerationSubsystem.Api.csproj", "{18495CF2-FE56-4F73-9500-3DAEAED1D4C1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentGenerationSubsystem.Api", "src\DocumentGenerationSubsystem.Server\DocumentGenerationSubsystem.Api\DocumentGenerationSubsystem.Api.csproj", "{18495CF2-FE56-4F73-9500-3DAEAED1D4C1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentGenerationSubsystem.Domain", "DocumentGenerationSubsystem.Domain\DocumentGenerationSubsystem.Domain.csproj", "{A202C8A9-2418-4B8E-857B-F9C6C4167D19}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentGenerationSubsystem.Domain", "src\DocumentGenerationSubsystem.Server\DocumentGenerationSubsystem.Domain\DocumentGenerationSubsystem.Domain.csproj", "{A202C8A9-2418-4B8E-857B-F9C6C4167D19}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentGenerationSubsystem.Infrastructure", "DocumentGenerationSubsystem.Infrastructure\DocumentGenerationSubsystem.Infrastructure.csproj", "{8C62A5F1-C00F-40F4-B863-4118345FCF22}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentGenerationSubsystem.Infrastructure", "src\DocumentGenerationSubsystem.Server\DocumentGenerationSubsystem.Infrastructure\DocumentGenerationSubsystem.Infrastructure.csproj", "{8C62A5F1-C00F-40F4-B863-4118345FCF22}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentGenerationSubsystem.Application", "DocumentGenerationSubsystem.Application\DocumentGenerationSubsystem.Application.csproj", "{BBE30E22-7E17-41EC-B6FC-4C2A9F912E6C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentGenerationSubsystem.Application", "src\DocumentGenerationSubsystem.Server\DocumentGenerationSubsystem.Application\DocumentGenerationSubsystem.Application.csproj", "{BBE30E22-7E17-41EC-B6FC-4C2A9F912E6C}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DocumentGenerationSubsystem", "DocumentGenerationSubsystem", "{F73C8B0D-80D0-40B1-9F54-8633C5F3EEA4}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DocumentGenerationSubsystem", "src\DocumentGenerationSubsystem.Server\DocumentGenerationSubsystem", "{F73C8B0D-80D0-40B1-9F54-8633C5F3EEA4}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DiplomaControlSystem", "DiplomaControlSystem", "{DE666AC4-15F2-4475-B746-04BCB1D2DCEF}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "DiplomaControlSystem", "src\DiplomaControlSystem.Server\DiplomaControlSystem", "{DE666AC4-15F2-4475-B746-04BCB1D2DCEF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomaControlSystem.Api", "DiplomaControlSystem.Api\DiplomaControlSystem.Api.csproj", "{117368BE-B3A2-4594-A1CD-DEF2055497EC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomaControlSystem.Api", "src\DiplomaControlSystem.Server\DiplomaControlSystem.Api\DiplomaControlSystem.Api.csproj", "{117368BE-B3A2-4594-A1CD-DEF2055497EC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{862C5C5B-C0DB-447E-AD23-4C311D2431AF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core.Api", "src\Core\Core.Api\Core.Api.csproj", "{B8965CE7-4AD0-4FA5-B0A6-03661911B5B5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomaControlSystem.Application", "src\DiplomaControlSystem.Server\DiplomaControlSystem.Application\DiplomaControlSystem.Application.csproj", "{1BBBAC35-7E8A-413F-A3C3-1D4F0126DE20}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomaControlSystem.Domain", "src\DiplomaControlSystem.Server\DiplomaControlSystem.Domain\DiplomaControlSystem.Domain.csproj", "{91D5A623-9CD7-4B59-9C52-7562672D0304}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomaControlSystem.Infrastructure", "src\DiplomaControlSystem.Server\DiplomaControlSystem.Infrastructure\DiplomaControlSystem.Infrastructure.csproj", "{495D4A84-7B41-4534-BFC0-09C8608E2124}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -40,6 +50,22 @@ Global
 		{117368BE-B3A2-4594-A1CD-DEF2055497EC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{117368BE-B3A2-4594-A1CD-DEF2055497EC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{117368BE-B3A2-4594-A1CD-DEF2055497EC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8965CE7-4AD0-4FA5-B0A6-03661911B5B5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8965CE7-4AD0-4FA5-B0A6-03661911B5B5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8965CE7-4AD0-4FA5-B0A6-03661911B5B5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8965CE7-4AD0-4FA5-B0A6-03661911B5B5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1BBBAC35-7E8A-413F-A3C3-1D4F0126DE20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1BBBAC35-7E8A-413F-A3C3-1D4F0126DE20}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1BBBAC35-7E8A-413F-A3C3-1D4F0126DE20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1BBBAC35-7E8A-413F-A3C3-1D4F0126DE20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{91D5A623-9CD7-4B59-9C52-7562672D0304}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{91D5A623-9CD7-4B59-9C52-7562672D0304}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{91D5A623-9CD7-4B59-9C52-7562672D0304}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{91D5A623-9CD7-4B59-9C52-7562672D0304}.Release|Any CPU.Build.0 = Release|Any CPU
+		{495D4A84-7B41-4534-BFC0-09C8608E2124}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{495D4A84-7B41-4534-BFC0-09C8608E2124}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{495D4A84-7B41-4534-BFC0-09C8608E2124}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{495D4A84-7B41-4534-BFC0-09C8608E2124}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{18495CF2-FE56-4F73-9500-3DAEAED1D4C1} = {F73C8B0D-80D0-40B1-9F54-8633C5F3EEA4}
@@ -47,5 +73,9 @@ Global
 		{A202C8A9-2418-4B8E-857B-F9C6C4167D19} = {F73C8B0D-80D0-40B1-9F54-8633C5F3EEA4}
 		{8C62A5F1-C00F-40F4-B863-4118345FCF22} = {F73C8B0D-80D0-40B1-9F54-8633C5F3EEA4}
 		{117368BE-B3A2-4594-A1CD-DEF2055497EC} = {DE666AC4-15F2-4475-B746-04BCB1D2DCEF}
+		{B8965CE7-4AD0-4FA5-B0A6-03661911B5B5} = {862C5C5B-C0DB-447E-AD23-4C311D2431AF}
+		{1BBBAC35-7E8A-413F-A3C3-1D4F0126DE20} = {DE666AC4-15F2-4475-B746-04BCB1D2DCEF}
+		{91D5A623-9CD7-4B59-9C52-7562672D0304} = {DE666AC4-15F2-4475-B746-04BCB1D2DCEF}
+		{495D4A84-7B41-4534-BFC0-09C8608E2124} = {DE666AC4-15F2-4475-B746-04BCB1D2DCEF}
 	EndGlobalSection
 EndGlobal

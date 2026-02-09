@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.23"/>
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\Core\Core.Api\Core.Api.csproj" />
+      <ProjectReference Include="..\DiplomaControlSystem.Application\DiplomaControlSystem.Application.csproj" />
+      <ProjectReference Include="..\DiplomaControlSystem.Infrastructure\DiplomaControlSystem.Infrastructure.csproj" />
+    </ItemGroup>
+
+</Project>
