@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
-namespace Core.Api.ExceptionHandler;
+namespace Core.Api.ExceptionHandlers;
 
 public sealed class ExceptionHandler(
     IProblemDetailsService problemDetailsService,
