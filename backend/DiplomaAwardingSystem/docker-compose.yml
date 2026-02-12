@@ -1,0 +1,30 @@
+﻿services:
+  db:
+    image: postgres:18-alpine
+    container_name: my_project_db_v18
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: project_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_v18:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_manage
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  pgdata_v18:
+  pgadmin_data:

@@ -24,6 +24,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomaControlSystem.Domain
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiplomaControlSystem.Infrastructure", "src\DiplomaControlSystem.Server\DiplomaControlSystem.Infrastructure\DiplomaControlSystem.Infrastructure.csproj", "{495D4A84-7B41-4534-BFC0-09C8608E2124}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core.Domain", "src\Core\Core.Domain\Core.Domain.csproj", "{D4563ED2-17F7-4854-A9FF-E8833A83455B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -66,6 +68,10 @@ Global
 		{495D4A84-7B41-4534-BFC0-09C8608E2124}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{495D4A84-7B41-4534-BFC0-09C8608E2124}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{495D4A84-7B41-4534-BFC0-09C8608E2124}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4563ED2-17F7-4854-A9FF-E8833A83455B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4563ED2-17F7-4854-A9FF-E8833A83455B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4563ED2-17F7-4854-A9FF-E8833A83455B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4563ED2-17F7-4854-A9FF-E8833A83455B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{18495CF2-FE56-4F73-9500-3DAEAED1D4C1} = {F73C8B0D-80D0-40B1-9F54-8633C5F3EEA4}
@@ -77,5 +83,6 @@ Global
 		{1BBBAC35-7E8A-413F-A3C3-1D4F0126DE20} = {DE666AC4-15F2-4475-B746-04BCB1D2DCEF}
 		{91D5A623-9CD7-4B59-9C52-7562672D0304} = {DE666AC4-15F2-4475-B746-04BCB1D2DCEF}
 		{495D4A84-7B41-4534-BFC0-09C8608E2124} = {DE666AC4-15F2-4475-B746-04BCB1D2DCEF}
+		{D4563ED2-17F7-4854-A9FF-E8833A83455B} = {862C5C5B-C0DB-447E-AD23-4C311D2431AF}
 	EndGlobalSection
 EndGlobal
