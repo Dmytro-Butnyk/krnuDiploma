@@ -2,8 +2,8 @@ namespace Core.Domain.Entities;
 
 public sealed class Teacher : BaseEntity
 {
-    public required string FullName { get; set; }
-    public required string Position { get; set; }
+    public required string FullName { get; init; }
+    public required string Position { get; init; }
     
     private Teacher()
     {

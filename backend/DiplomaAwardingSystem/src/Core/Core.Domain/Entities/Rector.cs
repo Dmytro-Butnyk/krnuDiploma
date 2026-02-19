@@ -2,8 +2,8 @@ namespace Core.Domain.Entities;
 
 public sealed class Rector : BaseEntity
 {
-    public required string FullName { get; set; }
-    public required bool IsActive { get; set; }
+    public required string FullName { get; init; }
+    public required bool IsActive { get; init; }
     
     private Rector()
     {

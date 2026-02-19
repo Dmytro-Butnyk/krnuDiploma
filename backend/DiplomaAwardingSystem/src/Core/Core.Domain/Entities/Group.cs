@@ -2,13 +2,17 @@ namespace Core.Domain.Entities;
 
 public sealed class Group : BaseEntity
 {
-    public required string Name { get; set; }
-    public required string Specialty { get; set; }
-    public required int TeacherId { get; set; }
-    public required Teacher Teacher { get; set; }
-
+    public string Name { get; init; }
+    public string Specialty { get; init; }
+    public int TeacherId { get; init; }
+    public Teacher? Teacher { get; init; }
+    
+    public ICollection<Student> Students { get; init; } = new List<Student>();
+    
     private Group()
     {
+        Name = string.Empty;
+        Specialty = string.Empty;
     }
 
     public Group(string name, string specialty, int teacherId)
@@ -16,13 +20,5 @@ public sealed class Group : BaseEntity
         Name = name;
         Specialty = specialty;
         TeacherId = teacherId;
-    }
-
-    public Group(int id, string name, string specialty, Teacher teacher)
-    {
-        Id = id;
-        Name = name;
-        Specialty = specialty;
-        Teacher = teacher;
     }
 }

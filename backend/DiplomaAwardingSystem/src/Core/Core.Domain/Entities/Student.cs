@@ -1,27 +1,22 @@
+using Core.Domain.Enums;
+
 namespace Core.Domain.Entities;
 
 public sealed class Student : BaseEntity
 {
-    public required string FullName { get; set; }
-    public required string Sex { get; set; }
-    public required int GroupId { get; set; }
-    public required Group Group { get; set; }
+    public string FullName { get; init; } = string.Empty;
+    public Gender Gender { get; init; }
+    public int GroupId { get; init; }
+    public Group? Group { get; init; }
 
     private Student()
     {
     }
 
-    public Student(string fullName, string sex, int groupId)
+    public Student(string fullName, Gender gender, int groupId)
     {
         FullName = fullName;
-        Sex = sex;
+        Gender = gender;
         GroupId = groupId;
-    }
-    
-    public Student(string fullName, string sex, Group group)
-    {
-        FullName = fullName;
-        Sex = sex;
-        Group = group;
     }
 }

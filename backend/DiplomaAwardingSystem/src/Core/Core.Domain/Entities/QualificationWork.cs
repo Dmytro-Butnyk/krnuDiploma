@@ -2,11 +2,11 @@ namespace Core.Domain.Entities;
 
 public sealed class QualificationWork : BaseEntity
 {
-    public required string Name { get; set; }
-    public required int StudentId { get; set; }
-    public required Student Student { get; set; }
-    public required int TeacherId { get; set; }
-    public required Teacher Teacher { get; set; }
+    public required string Name { get; init; }
+    public required int StudentId { get; init; }
+    public required Student Student { get; init; }
+    public required int TeacherId { get; init; }
+    public required Teacher Teacher { get; init; }
 
     private QualificationWork()
     {

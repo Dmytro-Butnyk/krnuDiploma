@@ -54,11 +54,6 @@ public static class WebApplicationBuilderExtension
         return builder;
     }
 
-    public static WebApplicationBuilder AddLoggingToMongoDb(this WebApplicationBuilder builder)
-    {
-        return builder;
-    }
-    
     // public static WebApplicationBuilder AddRateLimiter(this WebApplicationBuilder builder)
     // {
     //     
