@@ -63,3 +63,10 @@ dotnet_diagnostic.SA1413.severity = suggestion
 # SA1516: Требование пустой строки между элементами.
 # Иногда хочется сгруппировать мелкие свойства без пробелов.
 dotnet_diagnostic.SA1516.severity = none
+
+# CA1815: следует переопределять равенства и равенства операторов в типах значений
+dotnet_diagnostic.CA1815.severity = none
+
+# SA1503: Braces should not be omitted
+# The opening and closing braces for a C# statement have been omitted.
+dotnet_diagnostic.SA1503.severity = suggestion
