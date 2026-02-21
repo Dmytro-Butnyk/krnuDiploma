@@ -4,44 +4,6 @@ namespace DocumentGenerationSubsystem.Api.Extensions;
 
 public static class WebApplicationBuilderExtension
 {
-    private static WebApplicationBuilder AddIdentityModule(this WebApplicationBuilder builder, string connectionString)
-    {
-        // string tokenIssuer = builder.Configuration.GetOrThrow("TOKEN_ISSUER");
-        // string tokenAudience = builder.Configuration.GetOrThrow("TOKEN_AUDIENCE");
-        // string tokenKey = builder.Configuration.GetOrThrow("TOKEN_KEY");
-        // string tokenLifetime = builder.Configuration.GetOrThrow("TOKEN_LIFETIME");
-        //
-        // builder.Services.AddIdentityModule(connectionString, tokenIssuer, tokenAudience, tokenKey, tokenLifetime);
-        
-        return builder;
-    }
-
-    public static WebApplicationBuilder AddAppCache(this WebApplicationBuilder builder)
-    {
-        return builder;
-    }
-    
-    public static WebApplicationBuilder AddCors(this WebApplicationBuilder builder)
-    {
-        // builder.Services.AddCors(options =>
-        // {
-        //     options.AddPolicy("AllowNextClient", policy =>
-        //     {
-        //         policy.WithOrigins("http://localhost:3000")
-        //             .AllowAnyHeader()
-        //             .AllowAnyMethod()
-        //             .AllowCredentials();
-        //     });
-        // });
-
-        return builder;
-    }
-    
-    public static WebApplicationBuilder AddSwaggerJwtBearer(this WebApplicationBuilder builder)
-    {
-        return builder;
-    }
-    
     public static WebApplicationBuilder AddResponseCompression(this WebApplicationBuilder builder)
     {
         builder.Services.AddResponseCompression(options =>
@@ -54,22 +16,6 @@ public static class WebApplicationBuilderExtension
         return builder;
     }
 
-    // public static WebApplicationBuilder AddRateLimiter(this WebApplicationBuilder builder)
-    // {
-    //     
-    // }
-    //
-    // private static void AddRateLimiterPolicy(RateLimiterOptions options, string policyName, int limit,
-    //     TimeSpan expiration)
-    // {
-    //     
-    // }
-    //
-    // public static WebApplicationBuilder AddHealthChecks(this WebApplicationBuilder builder)
-    // {
-    //     
-    // }
-    
     /// <summary>
     /// Configures Scrutor to automatically register services from the application's assemblies based on naming conventions.
     /// </summary>
