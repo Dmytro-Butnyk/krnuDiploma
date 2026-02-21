@@ -1,4 +1,5 @@
 using Core.Domain.Entities;
+using DocumentGenerationSubsystem.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 

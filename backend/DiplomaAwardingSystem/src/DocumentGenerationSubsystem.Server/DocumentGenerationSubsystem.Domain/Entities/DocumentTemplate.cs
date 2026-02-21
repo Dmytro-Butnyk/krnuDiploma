@@ -1,4 +1,6 @@
-namespace Core.Domain.Entities;
+using Core.Domain.Entities;
+
+namespace DocumentGenerationSubsystem.Domain.Entities;
 
 public sealed class DocumentTemplate : BaseEntity 
 {

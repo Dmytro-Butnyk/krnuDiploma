@@ -1,14 +1,12 @@
 using System.Reflection;
 using Core.Domain.Entities;
+using DocumentGenerationSubsystem.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace DocumentGenerationSubsystem.Infrastructure;
 
-public sealed class DbDocGenContext : DbContext
+public sealed class DbDocGenContext(DbContextOptions<DbDocGenContext> options) : DbContext(options)
 {
-    public DbDocGenContext(DbContextOptions<DbDocGenContext> options)
-        : base(options) { }
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
