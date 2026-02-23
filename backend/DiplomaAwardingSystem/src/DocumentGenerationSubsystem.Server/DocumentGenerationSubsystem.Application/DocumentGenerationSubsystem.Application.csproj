@@ -5,8 +5,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Contracts\" />
-      <Folder Include="Services\" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
     </ItemGroup>
 
 </Project>

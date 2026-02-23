@@ -1,5 +1,8 @@
+using DocumentGenerationSubsystem.Application.Interfaces;
 using DocumentGenerationSubsystem.Domain.DependencyInjectionInterfaces;
+using DocumentGenerationSubsystem.Infrastructure;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.EntityFrameworkCore;
 
 namespace DocumentGenerationSubsystem.Api.Extensions;
 
@@ -15,6 +18,17 @@ public static class WebApplicationBuilderExtension
         });
 
         return builder;
+    }
+
+    public static IServiceCollection AddPostgresql(this IServiceCollection services, string connectionString)
+    {
+        services.AddDbContext<DbDocGenContext>(options =>
+            options.UseNpgsql(connectionString));
+        
+        services.AddScoped<IDbDocGenContext>(provider => 
+            provider.GetRequiredService<DbDocGenContext>());
+        
+        return services;
     }
 
     /// <summary>

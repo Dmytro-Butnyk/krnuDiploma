@@ -1,4 +1,5 @@
 using DocumentGenerationSubsystem.Api.Extensions;
+using DocumentGenerationSubsystem.Application.Interfaces;
 using DocumentGenerationSubsystem.Infrastructure;
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
@@ -12,8 +13,8 @@ builder.Services.AddAuthorization();
 builder.Services.AddAuthentication();
 
 string? connectionString = builder.Configuration["DataBase"];
-builder.Services.AddDbContext<DbDocGenContext>(options =>
-    options.UseNpgsql(connectionString));
+if (connectionString is not null)
+    builder.Services.AddPostgresql(connectionString);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddScrutor();

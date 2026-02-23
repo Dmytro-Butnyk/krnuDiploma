@@ -1,4 +1,7 @@
+using DocumentGenerationSubsystem.Application.Dto;
+using DocumentGenerationSubsystem.Application.Handlers;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 
 #pragma warning disable SA1122
 
@@ -12,7 +15,7 @@ public static class DocumentGenerationEndpoints
     {
         RouteGroupBuilder documentGenerationGroup = app.MapGroup(Route)
             .WithTags("DocumentGeneration");
-        
+
         MapGenerationEndpoints(documentGenerationGroup);
     }
 
@@ -22,10 +25,27 @@ public static class DocumentGenerationEndpoints
             .WithSummary("Generates document");
     }
 
-    private static async Task<Results<NoContent, BadRequest<string>>> GenerateDocument(
+    private static async Task<Results<FileStreamHttpResult, BadRequest<ProblemDetails>, NotFound<ProblemDetails>>> GenerateDocument(
+        [FromBody] GenerateDocumentRequest request,
+        [FromServices] GenerateDocumentHandler handler,
         CancellationToken ct)
     {
-        await Task.Delay(1, ct);
-        return TypedResults.NoContent();
+        // Вызываем бизнес-логику
+        var result = await handler.HandleAsync(request, ct);
+
+        return result switch
+        {
+            { IsSuccess: true, Value: var document } => TypedResults.Stream(
+                stream: document.Stream,
+                contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                fileDownloadName: document.FileName),
+            { ErrorDetails.Code: "NotFound" } => TypedResults.NotFound(
+                new ProblemDetails { Detail = result.ErrorDetails.Message }),
+            
+            _ => TypedResults.BadRequest(
+                new ProblemDetails { Detail = result.ErrorDetails.Message })
+        };
     }
 }
+
+
