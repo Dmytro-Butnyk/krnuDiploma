@@ -12,7 +12,6 @@ builder.Services.AddAuthorization();
 builder.Services.AddAuthentication();
 
 string? connectionString = builder.Configuration["DataBase"];
-
 builder.Services.AddDbContext<DbDocGenContext>(options =>
     options.UseNpgsql(connectionString));
 

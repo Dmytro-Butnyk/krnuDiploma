@@ -22,32 +22,6 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Core.Domain.Entities.DocumentTemplate", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ConfigurationJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.PrimitiveCollection<byte[]>("WordTemplate")
-                        .IsRequired()
-                        .HasColumnType("smallint[]");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("document_templates", "diploma");
-                });
-
             modelBuilder.Entity("Core.Domain.Entities.Group", b =>
                 {
                     b.Property<int>("Id")
@@ -176,6 +150,32 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("teachers", "diploma");
+                });
+
+            modelBuilder.Entity("DocumentGenerationSubsystem.Domain.Entities.DocumentTemplate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ConfigurationJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.PrimitiveCollection<byte[]>("WordTemplate")
+                        .IsRequired()
+                        .HasColumnType("smallint[]");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("document_templates", "diploma");
                 });
 
             modelBuilder.Entity("Core.Domain.Entities.Group", b =>

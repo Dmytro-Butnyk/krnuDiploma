@@ -1,3 +1,4 @@
+using DocumentGenerationSubsystem.Domain.DependencyInjectionInterfaces;
 using Microsoft.AspNetCore.ResponseCompression;
 
 namespace DocumentGenerationSubsystem.Api.Extensions;
@@ -32,17 +33,21 @@ public static class WebApplicationBuilderExtension
                 typeof(Domain.AssemblyMarker).Assembly,
                 typeof(Infrastructure.AssemblyMarker).Assembly
             )
-
-            // Register data providers
-            // .AddClasses(classes => classes.AssignableTo<IDataProvider>())
-            // .AsImplementedInterfaces() // IDataProvider
-            // .WithScopedLifetime()
-
-            // Register services with and without interfaces
-            .AddClasses(classes => classes.Where(type => type.Name.EndsWith("Service", StringComparison.OrdinalIgnoreCase)))
-            .AsImplementedInterfaces() 
+            
+            .AddClasses(classes => classes.AssignableTo<ITransientService>())
+            .AsImplementedInterfaces()
+            .AsSelf()
+            .WithTransientLifetime()
+            
+            .AddClasses(classes => classes.AssignableTo<IScopedService>())
+            .AsImplementedInterfaces()
             .AsSelf()
             .WithScopedLifetime()
+            
+            .AddClasses(classes => classes.AssignableTo<ISingletonService>())
+            .AsImplementedInterfaces()
+            .AsSelf()
+            .WithSingletonLifetime()
         );
 
         return services;

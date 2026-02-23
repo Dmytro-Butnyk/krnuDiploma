@@ -12,7 +12,7 @@ public sealed class DocumentTemplate : BaseEntity
     public string ConfigurationJson { get; init; } = string.Empty;
     
     private DocumentTemplate()
-    {
+    {   
     }
 
     public DocumentTemplate(string name, byte[] wordTemplate, string configurationJson)

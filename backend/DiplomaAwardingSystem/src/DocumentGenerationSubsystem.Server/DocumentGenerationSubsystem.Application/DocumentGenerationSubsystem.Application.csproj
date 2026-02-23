@@ -4,4 +4,9 @@
       <ProjectReference Include="..\DocumentGenerationSubsystem.Domain\DocumentGenerationSubsystem.Domain.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Contracts\" />
+      <Folder Include="Services\" />
+    </ItemGroup>
+
 </Project>
