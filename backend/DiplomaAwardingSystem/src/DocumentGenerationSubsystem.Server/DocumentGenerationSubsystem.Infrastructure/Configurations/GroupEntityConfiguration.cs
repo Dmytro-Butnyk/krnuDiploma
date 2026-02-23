@@ -12,7 +12,6 @@ public sealed class GroupEntityConfiguration : IEntityTypeConfiguration<Group>
 
         ConfigureBasicProperties(builder);
         ConfigureTeacherRelation(builder);
-        ConfigureStudentRelation(builder);
     }
 
     private static void ConfigureBasicProperties(EntityTypeBuilder<Group> builder)
@@ -34,11 +33,5 @@ public sealed class GroupEntityConfiguration : IEntityTypeConfiguration<Group>
             .WithOne()
             .HasForeignKey<Group>(g => g.TeacherId)
             .OnDelete(DeleteBehavior.Restrict);
-    }
-
-    private static void ConfigureStudentRelation(EntityTypeBuilder<Group> builder)
-    {
-        builder.Metadata.FindNavigation(nameof(Group.Students))?
-            .SetPropertyAccessMode(PropertyAccessMode.Field);
     }
 }
