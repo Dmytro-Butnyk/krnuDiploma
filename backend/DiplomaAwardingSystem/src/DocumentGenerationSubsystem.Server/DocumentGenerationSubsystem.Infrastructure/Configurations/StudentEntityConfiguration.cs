@@ -12,6 +12,7 @@ public sealed class StudentEntityConfiguration : IEntityTypeConfiguration<Studen
         
         ConfigureBasicProperties(builder);
         ConfigureGroupRelation(builder);
+        ConfigureQualificationWorkRelation(builder);
     }
 
     private static void ConfigureBasicProperties(EntityTypeBuilder<Student> builder)
@@ -33,6 +34,14 @@ public sealed class StudentEntityConfiguration : IEntityTypeConfiguration<Studen
         builder.HasOne(s => s.Group)
             .WithMany(g => g.Students)
             .HasForeignKey(s => s.GroupId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    private static void ConfigureQualificationWorkRelation(EntityTypeBuilder<Student> builder)
+    {
+        builder.HasOne(s => s.QualificationWork)
+            .WithOne(qw => qw.Student)
+            .HasForeignKey<QualificationWork>(qw => qw.StudentId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

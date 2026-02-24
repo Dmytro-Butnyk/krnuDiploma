@@ -64,7 +64,8 @@ public sealed class DynamicDocumentEngine(IDbDocGenContext dbContext)
 
                     foreach (var (columnTag, columnPath) in tableConfig.RowMapping)
                     {
-                        rowDict[columnTag] = ExtractValueByPath(itemNode, columnPath);
+                        var value = ExtractValueByPath(itemNode, columnPath);
+                        rowDict[columnTag] = value;
                     }
                         
                     listResult.Add(rowDict);

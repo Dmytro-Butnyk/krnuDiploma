@@ -26,7 +26,7 @@ public sealed class GenerateDocumentHandler(
 
         Stream documentStream = await documentEngine.GenerateAsync(
             template.ConfigurationJson,
-            (byte[])template.WordTemplate,
+            template.WordTemplate,
             request.Parameters,
             cancellationToken);
 

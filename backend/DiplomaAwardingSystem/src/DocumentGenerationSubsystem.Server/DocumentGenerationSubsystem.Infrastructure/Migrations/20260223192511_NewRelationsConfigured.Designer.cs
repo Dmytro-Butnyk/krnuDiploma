@@ -2,6 +2,7 @@
 using DocumentGenerationSubsystem.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,9 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DocumentGenerationSubsystem.Infrastructure.Migrations
 {
     [DbContext(typeof(DbDocGenContext))]
-    partial class DbDocGenContextModelSnapshot : ModelSnapshot
+    [Migration("20260223192511_NewRelationsConfigured")]
+    partial class NewRelationsConfigured
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

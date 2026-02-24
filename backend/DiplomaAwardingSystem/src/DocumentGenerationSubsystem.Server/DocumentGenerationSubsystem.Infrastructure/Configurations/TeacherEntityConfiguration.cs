@@ -11,6 +11,8 @@ public sealed class TeacherEntityConfiguration : IEntityTypeConfiguration<Teache
         builder.ToTable("teachers");
 
         ConfigureBasicProperties(builder);
+        ConfigureGroupRelation(builder);
+        ConfigureQualificationWorksRelation(builder);
     }
 
     private static void ConfigureBasicProperties(EntityTypeBuilder<Teacher> builder)
@@ -25,4 +27,20 @@ public sealed class TeacherEntityConfiguration : IEntityTypeConfiguration<Teache
             .IsRequired()
             .HasMaxLength(500);
     }
- }
+
+    private static void ConfigureGroupRelation(EntityTypeBuilder<Teacher> builder)
+    {
+        builder.HasOne(t => t.CuratedGroup)
+            .WithOne(g => g.Teacher)
+            .HasForeignKey<Group>(g => g.TeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+
+    private static void ConfigureQualificationWorksRelation(EntityTypeBuilder<Teacher> builder)
+    {
+        builder.HasMany(t => t.SupervisedWorks)
+            .WithOne(qw => qw.Teacher)
+            .HasForeignKey(qw => qw.TeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}

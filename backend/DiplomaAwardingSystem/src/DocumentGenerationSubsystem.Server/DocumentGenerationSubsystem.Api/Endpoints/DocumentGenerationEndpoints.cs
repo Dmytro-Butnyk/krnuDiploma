@@ -1,5 +1,8 @@
+using System.Text.Json;
 using DocumentGenerationSubsystem.Application.Dto;
 using DocumentGenerationSubsystem.Application.Handlers;
+using DocumentGenerationSubsystem.Application.Interfaces;
+using DocumentGenerationSubsystem.Domain.Entities;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
@@ -16,13 +19,12 @@ public static class DocumentGenerationEndpoints
         RouteGroupBuilder documentGenerationGroup = app.MapGroup(Route)
             .WithTags("DocumentGeneration");
 
-        MapGenerationEndpoints(documentGenerationGroup);
-    }
-
-    private static void MapGenerationEndpoints(RouteGroupBuilder group)
-    {
-        group.MapPost("", GenerateDocument)
+        documentGenerationGroup.MapPost("", GenerateDocument)
             .WithSummary("Generates document");
+
+        documentGenerationGroup.MapPost("uploadTemplate", UploadTemplate)
+            .DisableAntiforgery()
+            .WithSummary("Uploads template");
     }
 
     private static async Task<Results<FileStreamHttpResult, BadRequest<ProblemDetails>, NotFound<ProblemDetails>>> GenerateDocument(
@@ -30,7 +32,6 @@ public static class DocumentGenerationEndpoints
         [FromServices] GenerateDocumentHandler handler,
         CancellationToken ct)
     {
-        // Вызываем бизнес-логику
         var result = await handler.HandleAsync(request, ct);
 
         return result switch
@@ -46,6 +47,39 @@ public static class DocumentGenerationEndpoints
                 new ProblemDetails { Detail = result.ErrorDetails.Message })
         };
     }
+
+    private static async Task<Results<Ok<string>, BadRequest<ProblemDetails>>> UploadTemplate(
+        [AsParameters] UploadTemplateRequest request,
+        [FromServices] IDbDocGenContext dbContext,
+        CancellationToken ct)
+    {
+        try
+        {
+            JsonDocument.Parse(request.ConfigurationJson);
+        }
+        catch (JsonException)
+        {
+            return TypedResults.BadRequest(
+                new ProblemDetails { Detail = "Wrong configuration format." });
+        }
+
+        // 2. Читаем файл из потока HTTP-запроса
+        if (request.File.Length == 0 || !request.File.FileName.EndsWith(".docx", StringComparison.Ordinal))
+        {
+            return TypedResults.BadRequest(
+                new ProblemDetails { Detail = "Wrong configuration format." });
+        }
+
+        using var memoryStream = new MemoryStream();
+        await request.File.CopyToAsync(memoryStream, ct);
+        var fileBytes = memoryStream.ToArray();
+
+        // 3. Создаем доменную сущность и сохраняем в БД
+        var template = new DocumentTemplate(request.Name, fileBytes, request.ConfigurationJson);
+    
+        dbContext.DocumentTemplates.Add(template);
+        await dbContext.SaveChangesAsync(ct);
+
+        return TypedResults.Ok("Template uploaded successfully.");
+    } 
 }
-
-

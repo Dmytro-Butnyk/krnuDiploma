@@ -1,4 +1,7 @@
+using System.Diagnostics.CodeAnalysis;
 using Core.Domain.Entities;
+
+#pragma warning disable CA1819
 
 namespace DocumentGenerationSubsystem.Domain.Entities;
 
@@ -6,8 +9,7 @@ public sealed class DocumentTemplate : BaseEntity
 {
     public string Name { get; init; } = string.Empty;
 
-    private readonly byte[] _wordTemplate = [];
-    public IReadOnlyList<byte> WordTemplate => _wordTemplate;
+    public byte[] WordTemplate { get; init; } = [];
     
     public string ConfigurationJson { get; init; } = string.Empty;
     
@@ -18,7 +20,7 @@ public sealed class DocumentTemplate : BaseEntity
     public DocumentTemplate(string name, byte[] wordTemplate, string configurationJson)
     {
         Name = name;
-        _wordTemplate = wordTemplate;
+        WordTemplate = wordTemplate;
         ConfigurationJson = configurationJson;
     }
 }

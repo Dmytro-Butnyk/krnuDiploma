@@ -2,6 +2,7 @@
 using DocumentGenerationSubsystem.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -10,9 +11,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DocumentGenerationSubsystem.Infrastructure.Migrations
 {
     [DbContext(typeof(DbDocGenContext))]
-    partial class DbDocGenContextModelSnapshot : ModelSnapshot
+    [Migration("20260223184442_DocumentTemplateChanging")]
+    partial class DocumentTemplateChanging
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -181,7 +184,7 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
             modelBuilder.Entity("Core.Domain.Entities.Group", b =>
                 {
                     b.HasOne("Core.Domain.Entities.Teacher", "Teacher")
-                        .WithOne("CuratedGroup")
+                        .WithOne()
                         .HasForeignKey("Core.Domain.Entities.Group", "TeacherId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -192,13 +195,13 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
             modelBuilder.Entity("Core.Domain.Entities.QualificationWork", b =>
                 {
                     b.HasOne("Core.Domain.Entities.Student", "Student")
-                        .WithOne("QualificationWork")
+                        .WithOne()
                         .HasForeignKey("Core.Domain.Entities.QualificationWork", "StudentId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("Core.Domain.Entities.Teacher", "Teacher")
-                        .WithMany("SupervisedWorks")
+                        .WithMany()
                         .HasForeignKey("TeacherId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -222,18 +225,6 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
             modelBuilder.Entity("Core.Domain.Entities.Group", b =>
                 {
                     b.Navigation("Students");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Student", b =>
-                {
-                    b.Navigation("QualificationWork");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.Teacher", b =>
-                {
-                    b.Navigation("CuratedGroup");
-
-                    b.Navigation("SupervisedWorks");
                 });
 #pragma warning restore 612, 618
         }
