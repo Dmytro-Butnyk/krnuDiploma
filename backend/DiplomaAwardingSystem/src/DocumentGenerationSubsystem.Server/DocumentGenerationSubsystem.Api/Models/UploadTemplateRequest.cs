@@ -1,6 +1,4 @@
-using Microsoft.AspNetCore.Http;
-
-namespace DocumentGenerationSubsystem.Application.Dto;
+namespace DocumentGenerationSubsystem.Api.Models;
 
 public record UploadTemplateRequest(
     string Name,

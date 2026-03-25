@@ -70,3 +70,6 @@ dotnet_diagnostic.CA1815.severity = none
 # SA1503: Braces should not be omitted
 # The opening and closing braces for a C# statement have been omitted.
 dotnet_diagnostic.SA1503.severity = suggestion
+
+# SA1210: Using directives should be ordered alphabetically by the namespaces
+dotnet_diagnostic.SA1210.severity = none

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using DocumentGenerationSubsystem.Api.Models;
 using DocumentGenerationSubsystem.Application.Dto;
 using DocumentGenerationSubsystem.Application.Handlers;
 using DocumentGenerationSubsystem.Application.Interfaces;
@@ -28,11 +29,11 @@ public static class DocumentGenerationEndpoints
     }
 
     private static async Task<Results<FileStreamHttpResult, BadRequest<ProblemDetails>, NotFound<ProblemDetails>>> GenerateDocument(
-        [FromBody] GenerateDocumentRequest request,
+        [FromBody] GenerateDocumentDto dto,
         [FromServices] GenerateDocumentHandler handler,
         CancellationToken ct)
     {
-        var result = await handler.HandleAsync(request, ct);
+        var result = await handler.HandleAsync(dto, ct);
 
         return result switch
         {

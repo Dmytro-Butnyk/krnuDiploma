@@ -12,22 +12,22 @@ public sealed class GenerateDocumentHandler(
     IDocumentGeneratorEngine documentEngine) : IScopedService
 {
     public async Task<Result<(Stream Stream, string FileName)>> HandleAsync(
-        GenerateDocumentRequest request, 
+        GenerateDocumentDto dto, 
         CancellationToken cancellationToken)
     {
         DocumentTemplate? template = await context.DocumentTemplates
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == request.TemplateId, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Id == dto.TemplateId, cancellationToken);
 
         if (template is null)
         {
-            return new ErrorDetails("NotFound", $"Template with ID {request.TemplateId} not found.");
+            return new ErrorDetails("NotFound", $"Template with ID {dto.TemplateId} not found.");
         }
 
         Stream documentStream = await documentEngine.GenerateAsync(
             template.ConfigurationJson,
             template.WordTemplate,
-            request.Parameters,
+            dto.Parameters,
             cancellationToken);
 
         if (documentStream.CanSeek)
