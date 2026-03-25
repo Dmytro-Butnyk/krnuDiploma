@@ -24,19 +24,24 @@ public sealed class GenerateDocumentHandler(
             return new ErrorDetails("NotFound", $"Template with ID {dto.TemplateId} not found.");
         }
 
-        Stream documentStream = await documentEngine.GenerateAsync(
+        Result<Stream> documentStreamResult = await documentEngine.GenerateAsync(
             template.ConfigurationJson,
             template.WordTemplate,
             dto.Parameters,
             cancellationToken);
 
-        if (documentStream.CanSeek)
+        if (documentStreamResult.IsFailure)
         {
-            documentStream.Position = 0;
+            return documentStreamResult.ErrorDetails;
+        }
+
+        if (documentStreamResult.Value!.CanSeek)
+        {
+            documentStreamResult.Value!.Position = 0;
         }
 
         string fileName = $"{template.Name}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.docx";
 
-        return (documentStream, fileName);
+        return (documentStreamResult.Value!, fileName);
     }
 }
