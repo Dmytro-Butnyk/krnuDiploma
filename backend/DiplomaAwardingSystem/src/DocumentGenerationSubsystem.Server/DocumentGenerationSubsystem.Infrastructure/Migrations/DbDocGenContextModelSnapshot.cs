@@ -211,7 +211,7 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
             modelBuilder.Entity("Core.Domain.Entities.Student", b =>
                 {
                     b.HasOne("Core.Domain.Entities.Group", "Group")
-                        .WithMany("Students")
+                        .WithMany("Student")
                         .HasForeignKey("GroupId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -221,7 +221,7 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
 
             modelBuilder.Entity("Core.Domain.Entities.Group", b =>
                 {
-                    b.Navigation("Students");
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Core.Domain.Entities.Student", b =>

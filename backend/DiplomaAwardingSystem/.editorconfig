@@ -77,3 +77,6 @@ dotnet_diagnostic.SA1210.severity = none
 # CA1848: Для повышения производительности используйте делегаты LoggerMessage вместо вызова 
 # "LoggerExtensions.LogError(ILogger, Exception?, string?, params object?[])"
 dotnet_diagnostic.CA1848.severity = none
+
+# SA1117: The parameters should all be placed on the same line or each parameter should be placed on its own line
+dotnet_diagnostic.SA1117.severity = none
