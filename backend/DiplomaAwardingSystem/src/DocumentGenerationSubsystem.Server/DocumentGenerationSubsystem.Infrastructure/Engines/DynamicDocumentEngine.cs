@@ -310,12 +310,24 @@ public sealed class DynamicDocumentEngine(
 
     private Result<IQueryable> GetDynamicQueryable(DataSourceConfig source) => source.Entity switch
     {
-        "Group" => Result.Success((IQueryable)BuildQuery(dbContext.Groups, source.Includes)),
-        "Rector" => Result.Success((IQueryable)BuildQuery(dbContext.Rectors, source.Includes)),
-        "Student" => Result.Success((IQueryable)BuildQuery(dbContext.Students, source.Includes)),
-        "Teacher" => Result.Success((IQueryable)BuildQuery(dbContext.Teachers, source.Includes)),
+        // Archive group
+        "Archive" => Result.Success((IQueryable)BuildQuery(dbContext.Archives, source.Includes)),
+        "Defence" => Result.Success((IQueryable)BuildQuery(dbContext.Defences, source.Includes)),
         "QualificationWork" => Result.Success((IQueryable)BuildQuery(dbContext.QualificationWorks, source.Includes)),
-
+        
+        // Study group
+        "Department" => Result.Success((IQueryable)BuildQuery(dbContext.Departments, source.Includes)),
+        "Group" => Result.Success((IQueryable)BuildQuery(dbContext.Groups, source.Includes)),
+        "Specialty" => Result.Success((IQueryable)BuildQuery(dbContext.Specialties, source.Includes)),
+        "Student" => Result.Success((IQueryable)BuildQuery(dbContext.Students, source.Includes)),
+        
+        // Teacher staff
+        "AcademicDegree" => Result.Success((IQueryable)BuildQuery(dbContext.AcademicDegrees, source.Includes)),
+        "DecMember" => Result.Success((IQueryable)BuildQuery(dbContext.DecMembers, source.Includes)),
+        "DecToMember" => Result.Success((IQueryable)BuildQuery(dbContext.DecToMembers, source.Includes)),
+        "DiplomaExaminationCommission" => Result.Success((IQueryable)BuildQuery(dbContext.DiplomaExaminationCommissions, source.Includes)),
+        "Teacher" => Result.Success((IQueryable)BuildQuery(dbContext.Teachers, source.Includes)),
+        
         _ => DocumentErrors.UnauthorizedEntity
     };
 }
