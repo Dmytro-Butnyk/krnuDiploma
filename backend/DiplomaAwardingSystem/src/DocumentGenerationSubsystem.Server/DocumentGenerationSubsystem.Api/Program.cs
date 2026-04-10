@@ -4,104 +4,87 @@ using DocumentGenerationSubsystem.Api.Extensions;
 using DocumentGenerationSubsystem.Infrastructure;
 using DocumentGenerationSubsystem.Infrastructure.Seeding;
 using DotNetEnv;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
+using Scalar.AspNetCore;
 
-LoadOptions loadOptions = new(onlyExactPath: true);
-Env.Load("../../../.env", loadOptions);
+// Load environment variables early
+Env.Load("../../../.env", new LoadOptions(onlyExactPath: true));
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddAuthorization();
-builder.Services.AddAuthentication();
+// --- Services Configuration ---
 
-string? connectionString = builder.Configuration["DataBase"];
-if (connectionString is not null)
-    builder.Services.AddPostgresql(connectionString);
+// Basic auth setup. Ready for JWT later, but does nothing strict right now.
+builder.Services.AddAuthentication();
+builder.Services.AddAuthorization();
+
+// Postgres configuration with null-check fail-fast
+var connectionString = builder.Configuration["DataBase"];
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("Database connection string is missing in configuration.");
+}
+
+builder.Services.AddPostgresql(connectionString);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddScrutor();
 
-builder.Services.AddEndpointsApiExplorer();
-
-builder.Services.AddSwaggerGen(options =>
+// 2. Native OpenAPI setup (Requires: Microsoft.AspNetCore.OpenApi)
+builder.Services.AddOpenApi("v1", options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
+    options.AddDocumentTransformer((document, context, cancellationToken) =>
     {
-        Title = "DocumentGeneration API",
-        Version = "v1",
-        Description = "API для динамической генерации документов (Clean Architecture)",
-        Contact = new OpenApiContact { Name = "Backend Team" }
-    });
-
-    var securityScheme = new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Description = "Введите JWT токен. Формат: Bearer {токен}",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        Reference = new OpenApiReference
+        document.Info = new OpenApiInfo
         {
-            Type = ReferenceType.SecurityScheme,
-            Id = "Bearer"
-        }
-    };
+            Title = "DocumentGeneration API",
+            Version = "v1",
+            Description = "API for dynamic document generation (Clean Architecture)",
+            Contact = new OpenApiContact { Name = "Backend Team" }
+        };
 
-    options.AddSecurityDefinition("Bearer", securityScheme);
+        // Note: JWT Security definitions removed here since auth is not implemented yet.
+        // Add them back when you introduce tokens.
 
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
+        return Task.CompletedTask;
     });
-
-    options.CustomSchemaIds(type => type.FullName?.Replace("+", ".", StringComparison.Ordinal));
-
-    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (File.Exists(xmlPath))
-    {
-        options.IncludeXmlComments(xmlPath);
-    }
 });
 
 var app = builder.Build();
 
+// --- Middleware Pipeline ---
+
+// 1. Global Exception Handler
+app.UseExceptionHandler();
+
+// --- Infrastructure / Seeding ---
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<DbDocGenContext>();
-    
-    // Если нужно, чтобы EF Core сам создавал БД 
-    // await context.Database.MigrateAsync(); 
-    
     await DatabaseSeeder.SeedAsync(context);
 }
 
+// 2. Security / Routing
+app.UseHttpsRedirection();
+
+// 3. Identity Verification
+app.UseAuthentication();
+app.UseAuthorization();
+
+// 4. Endpoints execution
 app.MapDocumentGenerationEndpoints();
 
+// 5. Documentation UI
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
+    app.MapOpenApi();
+    
+    app.MapScalarApiReference("/docs", options => 
     {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "DocumentGeneration API v1");
-        
-        options.DisplayRequestDuration(); 
-        
-        options.EnableTryItOutByDefault(); 
+        options.WithTitle("DocumentGeneration API")
+               .WithTheme(ScalarTheme.Moon)
+               .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
     });
 }
-
-app.UseHttpsRedirection();
 
 await app.RunAsync();
