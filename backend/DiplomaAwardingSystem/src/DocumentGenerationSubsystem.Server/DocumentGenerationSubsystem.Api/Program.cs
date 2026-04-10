@@ -1,6 +1,8 @@
 using System.Reflection;
 using DocumentGenerationSubsystem.Api.Endpoints;
 using DocumentGenerationSubsystem.Api.Extensions;
+using DocumentGenerationSubsystem.Infrastructure;
+using DocumentGenerationSubsystem.Infrastructure.Seeding;
 using DotNetEnv;
 using Microsoft.OpenApi.Models;
 
@@ -75,6 +77,16 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<DbDocGenContext>();
+    
+    // Если нужно, чтобы EF Core сам создавал БД 
+    // await context.Database.MigrateAsync(); 
+    
+    await DatabaseSeeder.SeedAsync(context);
+}
+
 app.MapDocumentGenerationEndpoints();
 
 if (app.Environment.IsDevelopment())
@@ -92,4 +104,4 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.Run();
+await app.RunAsync();
