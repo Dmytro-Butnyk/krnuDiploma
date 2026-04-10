@@ -8,8 +8,6 @@ public sealed class DocumentTemplateEntityConfiguration : IEntityTypeConfigurati
 {
     public void Configure(EntityTypeBuilder<DocumentTemplate> builder)
     {
-        builder.ToTable("document_templates");
-
         builder.HasKey(dt => dt.Id);
 
         builder.Property(dt => dt.Name)
