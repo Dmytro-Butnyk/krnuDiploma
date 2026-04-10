@@ -10,6 +10,7 @@ public sealed class Archive : BaseEntity
     public DateOnly EndDate { get; init; }
     public int TotalPages { get; init; }
     
+    // 1-to-1 with DiplomaExaminationCommission
     public int DiplomaExaminationCommissionId { get; init; }
     public DiplomaExaminationCommission? DiplomaExaminationCommission { get; init; }
 
@@ -19,13 +20,7 @@ public sealed class Archive : BaseEntity
         CaseNumber = string.Empty;
     }
 
-    public Archive(
-        string protocolRange,
-        string caseNumber,
-        DateOnly startDate,
-        DateOnly endDate,
-        int totalPages,
-        int diplomaExaminationCommissionId)
+    public Archive(string protocolRange, string caseNumber, DateOnly startDate, DateOnly endDate, int totalPages, int diplomaExaminationCommissionId)
     {
         ProtocolRange = protocolRange;
         CaseNumber = caseNumber;

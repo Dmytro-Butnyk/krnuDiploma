@@ -1,5 +1,8 @@
 using System.Reflection;
 using Core.Domain.Entities;
+using Core.Domain.Entities.ArchiveGroup;
+using Core.Domain.Entities.StudyGroup;
+using Core.Domain.Entities.TeacherStaff;
 using DocumentGenerationSubsystem.Application.Interfaces;
 using DocumentGenerationSubsystem.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -22,10 +25,25 @@ public sealed class DbDocGenContext(DbContextOptions<DbDocGenContext> options) :
     //     optionsBuilder.UseNpgsql("");
     // }
 
-    public DbSet<Group> Groups => Set<Group>();
+    // Archive group
+    public DbSet<Archive> Archives => Set<Archive>();
+    public DbSet<Defence> Defences => Set<Defence>();
     public DbSet<QualificationWork> QualificationWorks => Set<QualificationWork>();
-    public DbSet<Rector> Rectors => Set<Rector>();
+    
+    // Study group
+    public DbSet<Department> Departments => Set<Department>();
+    public DbSet<Group> Groups => Set<Group>();
+    public DbSet<Specialty> Specialties => Set<Specialty>();
     public DbSet<Student> Students => Set<Student>();
+    
+    // Teacher staff
+    public DbSet<AcademicDegree> AcademicDegrees => Set<AcademicDegree>();
+    public DbSet<DecMember> DecMembers => Set<DecMember>();
+    public DbSet<DecToMember> DecToMembers => Set<DecToMember>();
+    public DbSet<DiplomaExaminationCommission> DiplomaExaminationCommissions => Set<DiplomaExaminationCommission>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
+    
+    // Document generation
+
     public DbSet<DocumentTemplate> DocumentTemplates => Set<DocumentTemplate>();
 }

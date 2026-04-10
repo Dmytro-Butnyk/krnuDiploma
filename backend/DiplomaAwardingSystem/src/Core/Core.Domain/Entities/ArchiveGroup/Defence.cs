@@ -8,23 +8,20 @@ public sealed class Defence : BaseEntity
     public int QueueNumber { get; init; }
     public string ProtocolNumber { get; init; }
 
+    // 1-to-1 with QualificationWork
     public int QualificationWorkId { get; init; }
     public QualificationWork? QualificationWork { get; init; }
 
+    // N-to-1 with DiplomaExaminationCommission
     public int DiplomaExaminationCommissionId { get; init; }
-    public DiplomaExaminationCommission? Dec { get; init; }
+    public DiplomaExaminationCommission? DiplomaExaminationCommission { get; init; }
 
     private Defence()
     {
         ProtocolNumber = string.Empty;
     }
 
-    public Defence(
-        DateOnly defenceDate, 
-        int queueNumber, 
-        string protocolNumber, 
-        int qualificationWorkId, 
-        int diplomaExaminationCommissionId)
+    public Defence(DateOnly defenceDate, int queueNumber, string protocolNumber, int qualificationWorkId, int diplomaExaminationCommissionId)
     {
         DefenceDate = defenceDate;
         QueueNumber = queueNumber;
