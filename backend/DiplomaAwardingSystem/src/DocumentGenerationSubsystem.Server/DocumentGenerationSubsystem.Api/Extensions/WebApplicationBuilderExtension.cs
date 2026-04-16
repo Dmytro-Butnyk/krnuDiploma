@@ -1,6 +1,7 @@
-using DocumentGenerationSubsystem.Application.Interfaces;
-using DocumentGenerationSubsystem.Domain.DependencyInjectionInterfaces;
-using DocumentGenerationSubsystem.Infrastructure;
+using Core.Domain;
+using Core.Domain.DependencyInjectionInterfaces;
+using Core.Infrastructure;
+using FluentValidation;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,51 +21,51 @@ public static class WebApplicationBuilderExtension
         return builder;
     }
 
-    public static IServiceCollection AddPostgresql(this IServiceCollection services, string connectionString)
-    {
-        services.AddDbContext<DbDocGenContext>(options =>
-            options.UseNpgsql(connectionString));
-        
-        services.AddScoped<IDbDocGenContext>(provider => 
-            provider.GetRequiredService<DbDocGenContext>());
-        
-        return services;
-    }
-
-    /// <summary>
-    /// Configures Scrutor to automatically register services from the application's assemblies based on naming conventions.
-    /// </summary>
     /// <param name="services">The service collection.</param>
-    /// <returns>The updated service collection.</returns>
-    public static IServiceCollection AddScrutor(this IServiceCollection services)
+    extension(IServiceCollection services)
     {
-        services.Scan(scan => scan
-                
-            // Follow to assemblies with marker classes
-            .FromAssemblies(
-                typeof(AssemblyMarker).Assembly,
-                typeof(Application.AssemblyMarker).Assembly,
-                typeof(Domain.AssemblyMarker).Assembly,
-                typeof(Infrastructure.AssemblyMarker).Assembly
-            )
-            
-            .AddClasses(classes => classes.AssignableTo<ITransientService>())
-            .AsImplementedInterfaces()
-            .AsSelf()
-            .WithTransientLifetime()
-            
-            .AddClasses(classes => classes.AssignableTo<IScopedService>())
-            .AsImplementedInterfaces()
-            .AsSelf()
-            .WithScopedLifetime()
-            
-            .AddClasses(classes => classes.AssignableTo<ISingletonService>())
-            .AsImplementedInterfaces()
-            .AsSelf()
-            .WithSingletonLifetime()
-        );
+        public IServiceCollection AddPostgresql(string connectionString)
+        {
+            services.AddSingleton<IEntityConfigurationMarker, AssemblyMarker>();
 
-        return services;
+            services.AddDbContext<DbDocGenContext>(options =>
+                options.UseNpgsql(connectionString));
+
+            services.AddScoped<DbDocGenContext>(provider =>
+                provider.GetRequiredService<DbDocGenContext>());
+
+            return services;
+        }
+
+        /// <summary>
+        /// Configures Scrutor to automatically register services from the application's assemblies based on naming conventions.
+        /// </summary>
+        /// <returns>The updated service collection.</returns>
+        public IServiceCollection AddScrutor() =>
+            services.Scan(scan => scan
+
+                // Follow to assemblies with marker classes
+                .FromAssemblies(
+                    typeof(AssemblyMarker).Assembly
+                )
+                .AddClasses(classes => classes.AssignableTo<ITransientService>(), publicOnly: false)
+                .AsImplementedInterfaces()
+                .AsSelf()
+                .WithTransientLifetime()
+                .AddClasses(classes => classes.AssignableTo<IScopedService>(), publicOnly: false)
+                .AsImplementedInterfaces()
+                .AsSelf()
+                .WithScopedLifetime()
+                .AddClasses(classes => classes.AssignableTo<ISingletonService>(), publicOnly: false)
+                .AsImplementedInterfaces()
+                .AsSelf()
+                .WithSingletonLifetime()
+            );
+
+        public IServiceCollection AddFluentValidation() =>
+            services.AddValidatorsFromAssembly(
+                assembly: typeof(AssemblyMarker).Assembly,
+                includeInternalTypes: true);
     }
 
     public static void ValidateDIOnBuild(this WebApplicationBuilder builder)

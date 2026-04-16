@@ -1,8 +1,9 @@
 using System.Reflection;
+using Core.Infrastructure;
+using Core.Infrastructure.Seeding;
+using DocumentGenerationSubsystem.Api;
 using DocumentGenerationSubsystem.Api.Endpoints;
 using DocumentGenerationSubsystem.Api.Extensions;
-using DocumentGenerationSubsystem.Infrastructure;
-using DocumentGenerationSubsystem.Infrastructure.Seeding;
 using DotNetEnv;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
@@ -17,6 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Basic auth setup. Ready for JWT later, but does nothing strict right now.
 builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
+builder.Services.AddValidation();
 
 // Postgres configuration with null-check fail-fast
 var connectionString = builder.Configuration["DataBase"];

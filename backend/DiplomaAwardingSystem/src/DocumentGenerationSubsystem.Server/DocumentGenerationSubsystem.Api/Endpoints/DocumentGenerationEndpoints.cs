@@ -1,10 +1,7 @@
 using System.Text.Json;
-using Core.Api.Extensions;
+using Core.Infrastructure;
+using DocumentGenerationSubsystem.Api.Entities;
 using DocumentGenerationSubsystem.Api.Models;
-using DocumentGenerationSubsystem.Application.Dto;
-using DocumentGenerationSubsystem.Application.Handlers;
-using DocumentGenerationSubsystem.Application.Interfaces;
-using DocumentGenerationSubsystem.Domain.Entities;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
@@ -21,37 +18,14 @@ public static class DocumentGenerationEndpoints
         RouteGroupBuilder documentGenerationGroup = app.MapGroup(Route)
             .WithTags("DocumentGeneration");
 
-        documentGenerationGroup.MapPost("", GenerateDocument)
-            .WithSummary("Generates document");
-
         documentGenerationGroup.MapPost("uploadTemplate", UploadTemplate)
             .DisableAntiforgery()
             .WithSummary("Uploads template");
     }
 
-    private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> GenerateDocument(
-        [FromBody] GenerateDocumentDto dto,
-        [FromServices] GenerateDocumentHandler handler,
-        CancellationToken ct)
-    {
-        var result = await handler.HandleAsync(dto, ct);
-
-        if (result.IsFailure)
-        {
-            return result.ToProblemDetails();
-        }
-
-        var document = result.Value!;
-
-        return TypedResults.Stream(
-            stream: document.Stream,
-            contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            fileDownloadName: document.FileName);
-    }
-
     private static async Task<Results<Ok<string>, BadRequest<ProblemDetails>>> UploadTemplate(
         [AsParameters] UploadTemplateRequest request,
-        [FromServices] IDbDocGenContext dbContext,
+        [FromServices] DbDocGenContext dbContext,
         CancellationToken ct)
     {
         try
@@ -76,9 +50,9 @@ public static class DocumentGenerationEndpoints
         var fileBytes = memoryStream.ToArray();
 
         // 3. Создаем доменную сущность и сохраняем в БД
-        var template = new DocumentTemplate(request.Name, fileBytes, request.ConfigurationJson);
+        DocumentTemplate template = new DocumentTemplate(request.Name, fileBytes, request.ConfigurationJson);
 
-        dbContext.DocumentTemplates.Add(template);
+        dbContext.Set<DocumentTemplate>().Add(template);
         await dbContext.SaveChangesAsync(ct);
 
         return TypedResults.Ok("Template uploaded successfully.");

@@ -80,3 +80,6 @@ dotnet_diagnostic.CA1848.severity = none
 
 # SA1117: The parameters should all be placed on the same line or each parameter should be placed on its own line
 dotnet_diagnostic.SA1117.severity = none
+
+# SA1204: Static members should appear before non-static members
+dotnet_diagnostic.SA1204.severity = none
