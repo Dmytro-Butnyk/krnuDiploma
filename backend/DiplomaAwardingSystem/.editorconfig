@@ -83,3 +83,7 @@ dotnet_diagnostic.SA1117.severity = none
 
 # SA1204: Static members should appear before non-static members
 dotnet_diagnostic.SA1204.severity = none
+
+# Отключаем предупреждение о неиспользуемых internal классах, 
+# так как в VSA они инжектятся через DI (Scrutor/Minimal APIs)
+dotnet_diagnostic.CA1812.severity = none

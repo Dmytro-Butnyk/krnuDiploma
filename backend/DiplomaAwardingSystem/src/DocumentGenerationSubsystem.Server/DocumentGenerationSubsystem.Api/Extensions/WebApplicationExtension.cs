@@ -1,9 +1,14 @@
+using DocumentGenerationSubsystem.Api.Features.Documents;
+
 namespace DocumentGenerationSubsystem.Api.Extensions;
 
 public static class WebApplicationExtension
 {
     public static void MapAllEndpoints(this WebApplication app)
     {
+        var apiGroup = app.MapGroup("/api");
+        
+        GenerateDocument.Endpoint.MapEndpoint(apiGroup);
     }
 
     // public static async Task EnsureDatabaseExistAndMigrationsApplied(this WebApplication app)

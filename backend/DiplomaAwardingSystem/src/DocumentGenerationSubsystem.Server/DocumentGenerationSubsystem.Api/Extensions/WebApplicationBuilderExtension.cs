@@ -31,9 +31,6 @@ public static class WebApplicationBuilderExtension
             services.AddDbContext<DbDocGenContext>(options =>
                 options.UseNpgsql(connectionString));
 
-            services.AddScoped<DbDocGenContext>(provider =>
-                provider.GetRequiredService<DbDocGenContext>());
-
             return services;
         }
 
@@ -64,8 +61,9 @@ public static class WebApplicationBuilderExtension
 
         public IServiceCollection AddFluentValidation() =>
             services.AddValidatorsFromAssembly(
-                assembly: typeof(AssemblyMarker).Assembly,
-                includeInternalTypes: true);
+                assembly: typeof(AssemblyMarker).Assembly, 
+                includeInternalTypes: true, 
+                lifetime: ServiceLifetime.Scoped);
     }
 
     public static void ValidateDIOnBuild(this WebApplicationBuilder builder)

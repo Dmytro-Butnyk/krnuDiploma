@@ -6,7 +6,6 @@ using DocumentGenerationSubsystem.Api.Entities;
 using DocumentGenerationSubsystem.Api.Infrastructure.Engines;
 using FluentValidation;
 using FluentValidation.Results;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -44,7 +43,7 @@ internal static class GenerateDocument
     {
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapPost("/api/docGen", Handle)
+            app.MapPost("/docGen", Handle)
                 .WithSummary("Generates document from template")
                 .Produces<FileStreamHttpResult>(StatusCodes.Status200OK, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 .ProducesValidationProblem()

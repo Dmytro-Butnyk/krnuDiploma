@@ -18,7 +18,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Basic auth setup. Ready for JWT later, but does nothing strict right now.
 builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
-builder.Services.AddValidation();
+builder.Services.AddFluentValidation();
+builder.Services.AddProblemDetails();
 
 // Postgres configuration with null-check fail-fast
 var connectionString = builder.Configuration["DataBase"];
@@ -66,6 +67,8 @@ await using (var scope = app.Services.CreateAsyncScope())
     await DatabaseSeeder.SeedAsync(context);
 }
 
+app.UseExceptionHandler();
+
 // 2. Security / Routing
 app.UseHttpsRedirection();
 
@@ -74,7 +77,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // 4. Endpoints execution
-app.MapDocumentGenerationEndpoints();
+app.MapAllEndpoints();
 
 // 5. Documentation UI
 if (app.Environment.IsDevelopment())
