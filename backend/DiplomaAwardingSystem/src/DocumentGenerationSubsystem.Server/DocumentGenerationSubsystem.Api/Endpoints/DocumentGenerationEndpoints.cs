@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Core.Api.Extensions;
 using DocumentGenerationSubsystem.Api.Models;
 using DocumentGenerationSubsystem.Application.Dto;
 using DocumentGenerationSubsystem.Application.Handlers;
@@ -28,25 +29,24 @@ public static class DocumentGenerationEndpoints
             .WithSummary("Uploads template");
     }
 
-    private static async Task<Results<FileStreamHttpResult, BadRequest<ProblemDetails>, NotFound<ProblemDetails>>> GenerateDocument(
+    private static async Task<Results<FileStreamHttpResult, ProblemHttpResult>> GenerateDocument(
         [FromBody] GenerateDocumentDto dto,
         [FromServices] GenerateDocumentHandler handler,
         CancellationToken ct)
     {
         var result = await handler.HandleAsync(dto, ct);
 
-        return result switch
+        if (result.IsFailure)
         {
-            { IsSuccess: true, Value: var document } => TypedResults.Stream(
-                stream: document.Stream,
-                contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                fileDownloadName: document.FileName),
-            { ErrorDetails.Code: "NotFound" } => TypedResults.NotFound(
-                new ProblemDetails { Detail = result.ErrorDetails.Message }),
-            
-            _ => TypedResults.BadRequest(
-                new ProblemDetails { Detail = result.ErrorDetails.Message })
-        };
+            return result.ToProblemDetails();
+        }
+
+        var document = result.Value!;
+
+        return TypedResults.Stream(
+            stream: document.Stream,
+            contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            fileDownloadName: document.FileName);
     }
 
     private static async Task<Results<Ok<string>, BadRequest<ProblemDetails>>> UploadTemplate(
@@ -77,10 +77,10 @@ public static class DocumentGenerationEndpoints
 
         // 3. Создаем доменную сущность и сохраняем в БД
         var template = new DocumentTemplate(request.Name, fileBytes, request.ConfigurationJson);
-    
+
         dbContext.DocumentTemplates.Add(template);
         await dbContext.SaveChangesAsync(ct);
 
         return TypedResults.Ok("Template uploaded successfully.");
-    } 
+    }
 }

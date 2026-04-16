@@ -126,7 +126,7 @@ public sealed class DynamicDocumentEngine(
                     if (parameters == null || !parameters.TryGetValue(requiredArg, out var val) || string.IsNullOrWhiteSpace(val))
                     {
                         logger.LogWarning("Missing or empty required parameter '{Parameter}' for data source '{SourceKey}'", requiredArg, source.Key);
-                        return new ErrorDetails("DocGen.MissingParameter", $"Missing required parameter: '{requiredArg}' for '{source.Key}'.");
+                        return DocumentErrors.MissingParameter(requiredArg, source.Key);
                     }
                 }
             }

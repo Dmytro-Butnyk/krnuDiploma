@@ -21,7 +21,7 @@ public sealed class GenerateDocumentHandler(
 
         if (template is null)
         {
-            return new ErrorDetails("NotFound", $"Template with ID {dto.TemplateId} not found.");
+            return ErrorDetails.NotFound("NotFound", $"Template with ID {dto.TemplateId} not found.");
         }
 
         Result<Stream> documentStreamResult = await documentEngine.GenerateAsync(
