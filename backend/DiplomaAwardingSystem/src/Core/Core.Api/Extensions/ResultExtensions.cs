@@ -38,14 +38,20 @@ public static class ResultExtensions
             _ => StatusCodes.Status500InternalServerError
         };
 
+        Dictionary<string, object?>? extensions = null;
+        if (!string.IsNullOrWhiteSpace(error.Code))
+        {
+            extensions = new Dictionary<string, object?>
+            {
+                { "errorCode", error.Code } 
+            };
+        }
+        
         return TypedResults.Problem(
             statusCode: statusCode,
             title: GetTitle(error.Type),
             detail: error.Message,
-            extensions: new Dictionary<string, object?>
-            {
-                { "errors", new[] { error.Code } }
-            });
+            extensions: extensions);
     }
 
     private static string GetTitle(ErrorType errorType) => errorType switch

@@ -1,4 +1,3 @@
-using System.Net;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -8,33 +7,30 @@ namespace Core.Api.ExceptionHandlers;
 
 public sealed class ExceptionHandler(
     IProblemDetailsService problemDetailsService,
-    ILogger<ExceptionHandler> logger
-) : IExceptionHandler
+    ILogger<ExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        (int statusCode, string title) = exception switch
+        (int statusCode, string title, string clientDetail) = exception switch
         {
-            OperationCanceledException => (StatusCodes.Status499ClientClosedRequest, "ClientClosedRequest"),
-            UnknownStatusCodeException => (StatusCodes.Status500InternalServerError, exception.Message),
-            _ => (StatusCodes.Status500InternalServerError, nameof(HttpStatusCode.InternalServerError))
+            OperationCanceledException => 
+                (StatusCodes.Status499ClientClosedRequest, "Client Closed Request", "The request was canceled by the client."),
+            
+            _ => (StatusCodes.Status500InternalServerError, "Internal Server Error", "An unexpected problem occurred.")
         };
+
+        logger.LogError(
+            exception,
+            "Unhandled exception occurred. Status: {StatusCode}, Title: {Title}, Path: {Instance}",
+            statusCode, title, httpContext.Request.Path);
 
         ProblemDetails problemDetails = new()
         {
             Title = title,
             Status = statusCode,
-            Detail = exception.Message,
+            Detail = clientDetail,
             Instance = httpContext.Request.Path
         };
-        
-        logger.LogProblemDetails(
-            problemDetails.Title,
-            problemDetails.Status,
-            problemDetails.Detail,
-            problemDetails.Instance,
-            exception
-        );
         
         httpContext.Response.StatusCode = statusCode;
 

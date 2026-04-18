@@ -17,7 +17,7 @@ internal static class GenerateDocument
     // --------------------------------------------------------------------------
     // 1. КОНТРАКТЫ (DTO)
     // --------------------------------------------------------------------------
-    internal sealed record Request(int TemplateId, Dictionary<string, string> Parameters);
+    internal sealed record Request(Dictionary<string, string> Parameters);
 
     // --------------------------------------------------------------------------
     // 2. ВАЛИДАЦИЯ
@@ -26,10 +26,6 @@ internal static class GenerateDocument
     {
         public Validator()
         {
-            RuleFor(x => x.TemplateId)
-                .GreaterThan(0)
-                .WithMessage("Template ID must be greater than 0.");
-
             RuleFor(x => x.Parameters)
                 .NotNull()
                 .WithMessage("Parameters dictionary cannot be null.");
@@ -43,7 +39,7 @@ internal static class GenerateDocument
     {
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapPost("/docGen", Handle)
+            app.MapPost("/documents/{id:int:min(1)}/generate", Handle)
                 .WithSummary("Generates document from template")
                 .Produces<FileStreamHttpResult>(StatusCodes.Status200OK, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 .ProducesValidationProblem()
@@ -54,20 +50,21 @@ internal static class GenerateDocument
         }
 
         private static async Task<Results<FileStreamHttpResult, ProblemHttpResult, ValidationProblem>> Handle(
+            [FromRoute] int id,
             [FromBody] Request request,
             [FromServices] IValidator<Request> validator,
             [FromServices] Handler handler,
-            CancellationToken cancellationToken)
+            CancellationToken ct)
         {
             // 1. Fail-fast валидация
-            ValidationResult validationResult = await validator.ValidateAsync(request, cancellationToken);
+            ValidationResult validationResult = await validator.ValidateAsync(request, ct);
             if (!validationResult.IsValid)
             {
                 return TypedResults.ValidationProblem(validationResult.ToDictionary());
             }
 
             // 2. Вызов бизнес-логики
-            var result = await handler.HandleAsync(request, cancellationToken);
+            var result = await handler.HandleAsync(id, request, ct);
 
             // 3. Fail-fast проверка на ошибки домена/БД
             if (result.IsFailure)
@@ -94,18 +91,19 @@ internal static class GenerateDocument
         DynamicDocumentEngine documentEngine) : IScopedService
     {
         public async Task<Result<(Stream Stream, string FileName)>> HandleAsync(
+            int templateId,
             Request request,
             CancellationToken cancellationToken)
         {
             DocumentTemplate? template = await context.Set<DocumentTemplate>()
                 .AsNoTracking()
-                .FirstOrDefaultAsync(t => t.Id == request.TemplateId, cancellationToken);
+                .FirstOrDefaultAsync(t => t.Id == templateId, cancellationToken);
 
             if (template is null)
             {
                 return ErrorDetails.NotFound(
                     "DocGen.TemplateNotFound",
-                    $"Template with ID {request.TemplateId} not found.");
+                    $"Template with ID {templateId} not found.");
             }
 
             Result<Stream> documentStreamResult = await documentEngine.GenerateAsync(
