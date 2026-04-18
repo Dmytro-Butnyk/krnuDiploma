@@ -9,6 +9,7 @@ public static class WebApplicationExtension
         var apiGroup = app.MapGroup("/api");
         
         GenerateDocument.Endpoint.MapEndpoint(apiGroup);
+        UploadTemplate.Endpoint.MapEndpoint(apiGroup);
     }
 
     // public static async Task EnsureDatabaseExistAndMigrationsApplied(this WebApplication app)

@@ -1,27 +1,19 @@
-using System.Reflection;
 using Core.Infrastructure;
 using Core.Infrastructure.Seeding;
-using DocumentGenerationSubsystem.Api;
-using DocumentGenerationSubsystem.Api.Endpoints;
 using DocumentGenerationSubsystem.Api.Extensions;
 using DotNetEnv;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 
-// Load environment variables early
 Env.Load("../../../.env", new LoadOptions(onlyExactPath: true));
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- Services Configuration ---
-
-// Basic auth setup. Ready for JWT later, but does nothing strict right now.
 builder.Services.AddAuthentication();
 builder.Services.AddAuthorization();
 builder.Services.AddFluentValidation();
 builder.Services.AddProblemDetails();
 
-// Postgres configuration with null-check fail-fast
 var connectionString = builder.Configuration["DataBase"];
 if (string.IsNullOrEmpty(connectionString))
 {
@@ -33,7 +25,6 @@ builder.Services.AddPostgresql(connectionString);
 builder.Services.AddProblemDetails();
 builder.Services.AddScrutor();
 
-// 2. Native OpenAPI setup (Requires: Microsoft.AspNetCore.OpenApi)
 builder.Services.AddOpenApi("v1", options =>
 {
     options.AddDocumentTransformer((document, context, cancellationToken) =>
@@ -46,21 +37,14 @@ builder.Services.AddOpenApi("v1", options =>
             Contact = new OpenApiContact { Name = "Backend Team" }
         };
 
-        // Note: JWT Security definitions removed here since auth is not implemented yet.
-        // Add them back when you introduce tokens.
-
         return Task.CompletedTask;
     });
 });
 
 var app = builder.Build();
 
-// --- Middleware Pipeline ---
-
-// 1. Global Exception Handler
 app.UseExceptionHandler();
 
-// --- Infrastructure / Seeding ---
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<DbDocGenContext>();
@@ -69,17 +53,13 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 app.UseExceptionHandler();
 
-// 2. Security / Routing
 app.UseHttpsRedirection();
 
-// 3. Identity Verification
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 4. Endpoints execution
 app.MapAllEndpoints();
 
-// 5. Documentation UI
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
