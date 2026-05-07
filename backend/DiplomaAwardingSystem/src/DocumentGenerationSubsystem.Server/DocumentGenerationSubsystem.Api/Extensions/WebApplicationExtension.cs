@@ -1,3 +1,4 @@
+using DocumentGenerationSubsystem.Api.Features.Constructor;
 using DocumentGenerationSubsystem.Api.Features.Documents;
 
 namespace DocumentGenerationSubsystem.Api.Extensions;
@@ -10,6 +11,7 @@ public static class WebApplicationExtension
         
         GenerateDocument.Endpoint.MapEndpoint(apiGroup);
         UploadTemplate.Endpoint.MapEndpoint(apiGroup);
+        GetTemplateSchema.Endpoint.MapEndpoint(apiGroup);
     }
 
     // public static async Task EnsureDatabaseExistAndMigrationsApplied(this WebApplication app)

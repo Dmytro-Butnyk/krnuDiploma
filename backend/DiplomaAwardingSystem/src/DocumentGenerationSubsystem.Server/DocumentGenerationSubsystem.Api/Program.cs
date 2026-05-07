@@ -22,7 +22,6 @@ if (string.IsNullOrEmpty(connectionString))
 
 builder.Services.AddPostgresql(connectionString);
 
-builder.Services.AddProblemDetails();
 builder.Services.AddScrutor();
 
 builder.Services.AddOpenApi("v1", options =>
