@@ -6,11 +6,11 @@ namespace DocumentGenerationSubsystem.Api.Entities;
 
 public sealed class DocumentTemplate : BaseEntity 
 {
-    public string Name { get; init; } = string.Empty;
+    public string Name { get; internal set; } = string.Empty;
 
-    public byte[] WordTemplate { get; init; } = [];
+    public byte[] WordTemplate { get; internal set; } = [];
     
-    public string ConfigurationJson { get; init; } = string.Empty;
+    public string ConfigurationJson { get; internal set; } = string.Empty;
     
     private DocumentTemplate()
     {   

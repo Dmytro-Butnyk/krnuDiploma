@@ -13,6 +13,7 @@ public static class WebApplicationExtension
         UploadTemplate.Endpoint.MapEndpoint(apiGroup);
         GetTemplateSchema.Endpoint.MapEndpoint(apiGroup);
         ScanTemplateForTags.Endpoint.MapEndpoint(apiGroup);
+        UpdateTemplate.Endpoint.MapEndpoints(apiGroup);
     }
 
     // public static async Task EnsureDatabaseExistAndMigrationsApplied(this WebApplication app)
