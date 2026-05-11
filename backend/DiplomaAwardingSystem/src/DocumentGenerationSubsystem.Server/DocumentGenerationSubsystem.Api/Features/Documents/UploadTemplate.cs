@@ -14,7 +14,7 @@ namespace DocumentGenerationSubsystem.Api.Features.Documents;
 
 public static class UploadTemplate
 {
-    public record Request(string Name, string ConfigurationJson, IFormFile File);
+    public record Request(string Name, string ConfigurationJson, IFormFile Template);
 
     public record Response(string Name, int TemplateId);
 
@@ -32,17 +32,17 @@ public static class UploadTemplate
                 .Must(BeValidJson)
                 .WithMessage("Configuration must be a valid JSON format.");
             
-            RuleFor(x => x.File)
+            RuleFor(x => x.Template)
                 .NotNull()
-                .WithMessage("File cannot be null.")
+                .WithMessage("Template cannot be null.")
                 .DependentRules(() =>
                 {
-                    RuleFor(x => x.File.Length)
+                    RuleFor(x => x.Template.Length)
                         .GreaterThan(0)
                         .LessThanOrEqualTo(5_242_880) // 5 MB limit
-                        .WithMessage("File size must be between 1 byte and 5 MB.");
+                        .WithMessage("Template size must be between 1 byte and 5 MB.");
 
-                    RuleFor(x => x.File.FileName)
+                    RuleFor(x => x.Template.FileName)
                         .Must(name => name.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
                         .WithMessage("Only .docx files are allowed.");
                 });
@@ -67,7 +67,7 @@ public static class UploadTemplate
     {
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapPost("/templates", Handle)
+            app.MapPost("/documents/templates", Handle)
                 .DisableAntiforgery()
                 .WithSummary("Uploads a new document template")
                 .Produces<Response>(StatusCodes.Status201Created)
@@ -101,7 +101,7 @@ public static class UploadTemplate
         }
     }
     
-    internal sealed class Handler(
+    private sealed class Handler(
         DbDocGenContext context) : IScopedService
     {
         public async Task<Result<Response>> HandleAsync(
@@ -119,7 +119,7 @@ public static class UploadTemplate
             }
             
             using var memoryStream = new MemoryStream();
-            await request.File.CopyToAsync(memoryStream, ct);
+            await request.Template.CopyToAsync(memoryStream, ct);
             var fileBytes = memoryStream.ToArray();
 
             DocumentTemplate template = new DocumentTemplate(request.Name, fileBytes, request.ConfigurationJson);

@@ -86,7 +86,7 @@ internal static class GenerateDocument
     // --------------------------------------------------------------------------
     // 4. БИЗНЕС-ЛОГИКА (Handler)
     // --------------------------------------------------------------------------
-    internal sealed class Handler(
+    private sealed class Handler(
         DbDocGenContext context,
         DynamicDocumentEngine documentEngine) : IScopedService
     {

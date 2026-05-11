@@ -22,7 +22,7 @@ internal static class GetTemplateSchema
     {
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapGet("/documents/constructor/schema", Handle)
+            app.MapGet("/constructor/schema", Handle)
                 .WithSummary("Gets the allowed database schema for the template constructor")
                 .Produces<Ok<IReadOnlyDictionary<string, EntitySchemaNode>>>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status500InternalServerError)
@@ -44,7 +44,7 @@ internal static class GetTemplateSchema
         }
     }
 
-    internal sealed class Handler(IEntitySchemaProvider schemaProvider) : IScopedService
+    private sealed class Handler(IEntitySchemaProvider schemaProvider) : IScopedService
     {
         public Task<Result<IReadOnlyDictionary<string, EntitySchemaNode>>> HandleAsync(
             CancellationToken cancellationToken)
