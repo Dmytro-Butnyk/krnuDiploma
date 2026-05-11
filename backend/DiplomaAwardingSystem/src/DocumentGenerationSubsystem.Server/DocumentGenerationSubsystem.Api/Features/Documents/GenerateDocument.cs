@@ -17,12 +17,12 @@ internal static class GenerateDocument
     // --------------------------------------------------------------------------
     // 1. КОНТРАКТЫ (DTO)
     // --------------------------------------------------------------------------
-    internal sealed record Request(Dictionary<string, string> Parameters);
+    internal sealed record GenerateDocumentRequest(Dictionary<string, string> Parameters);
 
     // --------------------------------------------------------------------------
     // 2. ВАЛИДАЦИЯ
     // --------------------------------------------------------------------------
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<GenerateDocumentRequest>
     {
         public Validator()
         {
@@ -51,20 +51,20 @@ internal static class GenerateDocument
 
         private static async Task<Results<FileStreamHttpResult, ProblemHttpResult, ValidationProblem>> Handle(
             [FromRoute] int id,
-            [FromBody] Request request,
-            [FromServices] IValidator<Request> validator,
+            [FromBody] GenerateDocumentRequest generateDocumentRequest,
+            [FromServices] IValidator<GenerateDocumentRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
             // 1. Fail-fast валидация
-            ValidationResult validationResult = await validator.ValidateAsync(request, ct);
+            ValidationResult validationResult = await validator.ValidateAsync(generateDocumentRequest, ct);
             if (!validationResult.IsValid)
             {
                 return TypedResults.ValidationProblem(validationResult.ToDictionary());
             }
 
             // 2. Вызов бизнес-логики
-            var result = await handler.HandleAsync(id, request, ct);
+            var result = await handler.HandleAsync(id, generateDocumentRequest, ct);
 
             // 3. Fail-fast проверка на ошибки домена/БД
             if (result.IsFailure)
@@ -92,7 +92,7 @@ internal static class GenerateDocument
     {
         public async Task<Result<(Stream Stream, string FileName)>> HandleAsync(
             int templateId,
-            Request request,
+            GenerateDocumentRequest generateDocumentRequest,
             CancellationToken cancellationToken)
         {
             DocumentTemplate? template = await context.Set<DocumentTemplate>()
@@ -109,7 +109,7 @@ internal static class GenerateDocument
             Result<Stream> documentStreamResult = await documentEngine.GenerateAsync(
                 template.ConfigurationJson,
                 template.WordTemplate,
-                request.Parameters,
+                generateDocumentRequest.Parameters,
                 cancellationToken);
 
             if (documentStreamResult.IsFailure)

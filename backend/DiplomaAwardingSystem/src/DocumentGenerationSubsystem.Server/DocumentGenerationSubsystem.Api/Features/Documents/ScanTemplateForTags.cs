@@ -11,11 +11,11 @@ namespace DocumentGenerationSubsystem.Api.Features.Documents;
 
 public static class ScanTemplateForTags
 {
-    public record Request(IFormFile Template);
+    public record ScanTemplateForTagsRequest(IFormFile Template);
 
-    public record Response(IReadOnlyList<string> Tags);
+    public record ScanTemplateForTagsResponse(IReadOnlyList<string> Tags);
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<ScanTemplateForTagsRequest>
     {
         public Validator()
         {
@@ -43,26 +43,26 @@ public static class ScanTemplateForTags
             app.MapPost("/documents/scan", Handle)
                 .DisableAntiforgery()
                 .WithSummary("Scans a document template for tags")
-                .Produces<Response>()
+                .Produces<ScanTemplateForTagsResponse>()
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status409Conflict)
                 .ProducesProblem(StatusCodes.Status500InternalServerError)
                 .WithTags("DocumentGeneration");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult, ValidationProblem>> Handle(
-            [FromForm] Request request,
-            [FromServices] IValidator<Request> validator,
+        private static async Task<Results<Ok<ScanTemplateForTagsResponse>, ProblemHttpResult, ValidationProblem>> Handle(
+            [FromForm] ScanTemplateForTagsRequest scanTemplateForTagsRequest,
+            [FromServices] IValidator<ScanTemplateForTagsRequest> validator,
             CancellationToken ct)
         {
-            ValidationResult validationResult = await validator.ValidateAsync(request, ct);
+            ValidationResult validationResult = await validator.ValidateAsync(scanTemplateForTagsRequest, ct);
 
             if (!validationResult.IsValid)
             {
                 return TypedResults.ValidationProblem(validationResult.ToDictionary());
             }
             
-            var result = await Handler.HandleAsync(request, ct);
+            var result = await Handler.HandleAsync(scanTemplateForTagsRequest, ct);
 
             if (result.IsFailure)
             {
@@ -75,19 +75,19 @@ public static class ScanTemplateForTags
 
     private static class Handler
     {
-        public static async Task<Result<Response>> HandleAsync(
-            Request request,
+        public static async Task<Result<ScanTemplateForTagsResponse>> HandleAsync(
+            ScanTemplateForTagsRequest scanTemplateForTagsRequest,
             CancellationToken ct)
         {
             try
             {
                 using var memoryStream = new MemoryStream();
-                await request.Template.CopyToAsync(memoryStream, ct);
+                await scanTemplateForTagsRequest.Template.CopyToAsync(memoryStream, ct);
                 byte[] fileBytes = memoryStream.ToArray();
 
                 var tags = ExtractTagsFromDocx(fileBytes);
 
-                return Result.Success(new Response(tags));
+                return Result.Success(new ScanTemplateForTagsResponse(tags));
             }
             catch (Exception)
             {

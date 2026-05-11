@@ -14,11 +14,11 @@ namespace DocumentGenerationSubsystem.Api.Features.Documents;
 
 public static class UploadTemplate
 {
-    public record Request(string Name, string ConfigurationJson, IFormFile Template);
+    public record UploadTemplateRequest(string Name, string ConfigurationJson, IFormFile Template);
 
-    public record Response(string Name, int TemplateId);
+    public record UploadTemplateResponse(string Name, int TemplateId);
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<UploadTemplateRequest>
     {
         public Validator()
         {
@@ -70,27 +70,27 @@ public static class UploadTemplate
             app.MapPost("/documents/templates", Handle)
                 .DisableAntiforgery()
                 .WithSummary("Uploads a new document template")
-                .Produces<Response>(StatusCodes.Status201Created)
+                .Produces<UploadTemplateResponse>(StatusCodes.Status201Created)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status409Conflict)
                 .ProducesProblem(StatusCodes.Status500InternalServerError)
                 .WithTags("DocumentGeneration");
         }
         
-        private static async Task<Results<Created<Response>, ProblemHttpResult, ValidationProblem>> Handle(
-            [FromForm] Request request,
-            [FromServices] IValidator<Request> validator,
+        private static async Task<Results<Created<UploadTemplateResponse>, ProblemHttpResult, ValidationProblem>> Handle(
+            [FromForm] UploadTemplateRequest uploadTemplateRequest,
+            [FromServices] IValidator<UploadTemplateRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
-            ValidationResult validationResult = await validator.ValidateAsync(request, ct);
+            ValidationResult validationResult = await validator.ValidateAsync(uploadTemplateRequest, ct);
             
             if (!validationResult.IsValid)
             {
                 return TypedResults.ValidationProblem(validationResult.ToDictionary());
             }
             
-            var result = await handler.HandleAsync(request, ct);
+            var result = await handler.HandleAsync(uploadTemplateRequest, ct);
 
             if (result.IsFailure)
             {
@@ -104,12 +104,12 @@ public static class UploadTemplate
     private sealed class Handler(
         DbDocGenContext context) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
-            Request request,
+        public async Task<Result<UploadTemplateResponse>> HandleAsync(
+            UploadTemplateRequest uploadTemplateRequest,
             CancellationToken ct)
         {
             bool nameExists = await context.Set<DocumentTemplate>()
-                .AnyAsync(t => t.Name == request.Name, ct);
+                .AnyAsync(t => t.Name == uploadTemplateRequest.Name, ct);
                 
             if (nameExists)
             {
@@ -119,15 +119,15 @@ public static class UploadTemplate
             }
             
             using var memoryStream = new MemoryStream();
-            await request.Template.CopyToAsync(memoryStream, ct);
+            await uploadTemplateRequest.Template.CopyToAsync(memoryStream, ct);
             var fileBytes = memoryStream.ToArray();
 
-            DocumentTemplate template = new DocumentTemplate(request.Name, fileBytes, request.ConfigurationJson);
+            DocumentTemplate template = new DocumentTemplate(uploadTemplateRequest.Name, fileBytes, uploadTemplateRequest.ConfigurationJson);
 
             await context.Set<DocumentTemplate>().AddAsync(template, ct);
             await context.SaveChangesAsync(ct);
             
-            return new Response(template.Name, template.Id);
+            return new UploadTemplateResponse(template.Name, template.Id);
         }
     }
 }
