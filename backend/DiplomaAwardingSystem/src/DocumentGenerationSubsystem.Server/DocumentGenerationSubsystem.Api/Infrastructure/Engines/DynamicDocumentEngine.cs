@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Linq.Dynamic.Core;
@@ -32,13 +33,14 @@ public sealed class DynamicDocumentEngine(
 
         var result = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
+        // 1. Map Scalars
         if (mapping.Scalars != null)
         {
             foreach (var (wordTag, fullPath) in mapping.Scalars)
             {
                 var val = ExtractValueFromContext(dataContext, fullPath);
 
-                if (val is System.Collections.IEnumerable and not string)
+                if (val is IEnumerable and not string)
                 {
                     return DocumentErrors.NestedListNotSupported;
                 }
@@ -47,21 +49,25 @@ public sealed class DynamicDocumentEngine(
             }
         }
 
+        // 2. Map Tables
         if (mapping.Tables != null)
         {
             foreach (var (tableName, tableConfig) in mapping.Tables)
             {
                 if (tableConfig == null) continue;
 
-                var listResult = new List<Dictionary<string, object>>();
                 var collectionObj = ExtractValueFromContext(dataContext, tableConfig.SourceArray);
 
+                // FIX: Bulletproof IEnumerable extraction to avoid covariance casting failures
                 IEnumerable<object>? collection = collectionObj switch
                 {
-                    IEnumerable<object> enumerableObj => enumerableObj,
+                    string str => [str], // Prevent string from being iterated as chars
+                    IEnumerable enumerable => enumerable.Cast<object>(), // Safely box elements
                     not null => [collectionObj],
                     _ => null
                 };
+
+                var listResult = new List<Dictionary<string, object>>();
 
                 if (collection != null)
                 {
@@ -77,7 +83,7 @@ public sealed class DynamicDocumentEngine(
                         {
                             var rawValue = TraverseObjectGraph(item, columnPath);
 
-                            if (rawValue is System.Collections.IEnumerable and not string)
+                            if (rawValue is IEnumerable and not string)
                             {
                                 return DocumentErrors.NestedListNotSupported;
                             }
@@ -110,10 +116,11 @@ public sealed class DynamicDocumentEngine(
         }
         catch (JsonException ex)
         {
-            logger.LogError(ex, "Failed to deserialize template configuration");
+            logger.LogError(ex, "Failed to deserialize template configuration.");
             return DocumentErrors.InvalidConfiguration;
         }
 
+        // Validate required parameters (Fail-Fast)
         if (config.DataSources != null)
         {
             foreach (var source in config.DataSources)
@@ -125,7 +132,7 @@ public sealed class DynamicDocumentEngine(
                 {
                     if (parameters == null || !parameters.TryGetValue(requiredArg, out var val) || string.IsNullOrWhiteSpace(val))
                     {
-                        logger.LogWarning("Missing or empty required parameter '{Parameter}' for data source '{SourceKey}'", requiredArg, source.Key);
+                        logger.LogWarning("Missing required parameter '{Parameter}' for data source '{SourceKey}'", requiredArg, source.Key);
                         return DocumentErrors.MissingParameter(requiredArg, source.Key);
                     }
                 }
@@ -134,6 +141,7 @@ public sealed class DynamicDocumentEngine(
         
         var dataContext = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
+        // Fetch data via Dynamic LINQ
         if (config.DataSources != null)
         {
             foreach (var source in config.DataSources)
@@ -164,7 +172,7 @@ public sealed class DynamicDocumentEngine(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "MiniWord engine crashed during document generation");
+            logger.LogError(ex, "MiniWord engine crashed during document generation.");
             await memoryStream.DisposeAsync();
             return DocumentErrors.MiniWordGenerationFailed;
         }
@@ -181,6 +189,7 @@ public sealed class DynamicDocumentEngine(
             return dataContext.TryGetValue(fullPath, out var val) ? val : null;
         }
 
+        // Using ranges for allocation reduction (although strings are still allocated, it's cleaner)
         var rootKey = fullPath[..dotIndex];
         var propPath = fullPath[(dotIndex + 1)..];
 
@@ -214,6 +223,7 @@ public sealed class DynamicDocumentEngine(
                 }
                 catch (ArgumentOutOfRangeException)
                 {
+                    // FastMember throws this if the property doesn't exist on the type.
                     return null;
                 }
 
@@ -228,8 +238,12 @@ public sealed class DynamicDocumentEngine(
         DataSourceConfig source,
         IReadOnlyDictionary<string, string> parameters)
     {
-        var filterArgsList = source.FilterArgs as IList<string> ?? source.FilterArgs!.ToList();
-        var args = new object?[source.FilterArgs!.Count];
+        if (source.FilterArgs == null || source.FilterArgs.Count == 0)
+            return [];
+
+        // Optimize to avoid allocations if it's already an array/list
+        var filterArgsList = source.FilterArgs as IList<string> ?? source.FilterArgs.ToList();
+        var args = new object?[filterArgsList.Count];
 
         for (int i = 0; i < filterArgsList.Count; i++)
         {
@@ -241,6 +255,7 @@ public sealed class DynamicDocumentEngine(
                 continue;
             }
 
+            // Simple fast-path type parsing
             if (Guid.TryParse(stringValue, out var guidVal))
                 args[i] = guidVal;
             else if (int.TryParse(stringValue, out var intVal))
@@ -293,6 +308,7 @@ public sealed class DynamicDocumentEngine(
                 query = query.Where(source.Filter, args);
             }
 
+            // Optimization: Grab exactly one via dynamic LINQ
             var resultList = await query.Take(1).ToDynamicListAsync(cancellationToken);
             return resultList.FirstOrDefault();
         }
