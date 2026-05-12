@@ -1,8 +1,8 @@
 using Core.Domain.ResultPattern;
 
-namespace DocumentGenerationSubsystem.Api.Errors;
+namespace DocumentGenerationSubsystem.Api.ErrorsAndLogs;
 
-public static class DocumentErrors
+internal static class DynamicDocumentEngineErrors
 {
     public static readonly ErrorDetails InvalidConfiguration = ErrorDetails.Validation("DocGen.InvalidConfig", "Failed to parse template configuration.");
     public static readonly ErrorDetails DynamicLinqError = ErrorDetails.Validation("DocGen.DynamicLinqError", "Invalid filter syntax.");

@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DocumentGenerationSubsystem.Api.Extensions;
 
-public static class WebApplicationBuilderExtension
+public static class ServiceCollectionExtensions
 {
     public static WebApplicationBuilder AddResponseCompression(this WebApplicationBuilder builder)
     {
