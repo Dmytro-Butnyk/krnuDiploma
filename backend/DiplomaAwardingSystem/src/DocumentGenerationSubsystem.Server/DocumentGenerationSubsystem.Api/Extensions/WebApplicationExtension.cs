@@ -10,10 +10,15 @@ public static class WebApplicationExtension
         var apiGroup = app.MapGroup("/api");
         
         GenerateDocument.Endpoint.MapEndpoint(apiGroup);
-        UploadTemplate.Endpoint.MapEndpoint(apiGroup);
         GetTemplateSchema.Endpoint.MapEndpoint(apiGroup);
         ScanTemplateForTags.Endpoint.MapEndpoint(apiGroup);
+        
+        UploadTemplate.Endpoint.MapEndpoint(apiGroup);
         UpdateTemplate.Endpoint.MapEndpoints(apiGroup);
+        
+        GetTemplateDetails.Endpoint.MapEndpoints(apiGroup);
+        GetTemplatesList.Endpoint.MapEndpoints(apiGroup);
+        DownloadTemplate.Endpoint.MapEndpoints(apiGroup);
     }
 
     // public static async Task EnsureDatabaseExistAndMigrationsApplied(this WebApplication app)
