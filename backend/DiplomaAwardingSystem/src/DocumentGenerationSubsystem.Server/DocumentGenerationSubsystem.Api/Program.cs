@@ -38,6 +38,7 @@ try
     builder.Services.AddAuthentication();
     builder.Services.AddAuthorization();
     builder.Services.AddFluentValidation();
+    builder.Services.AddCustomCors(builder.Configuration);
 
     // 2.2. Error Handling & Observability
     builder.Services.AddExceptionHandler<ExceptionHandler>();
@@ -80,6 +81,9 @@ try
 
     // LAYER 1: Global Error Catching (Outermost shell)
     app.UseExceptionHandler();
+    
+    app.UseRouting();
+    app.UseCors(BuilderExtensions.CorsPolicyName);
 
     // LAYER 2: Request Logging (Needs to know if the ExceptionHandler changed status to 500)
     app.UseSerilogRequestLogging(options =>

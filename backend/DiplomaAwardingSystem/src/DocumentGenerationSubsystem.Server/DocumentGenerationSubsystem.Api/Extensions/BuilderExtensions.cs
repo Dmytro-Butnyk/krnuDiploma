@@ -7,8 +7,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DocumentGenerationSubsystem.Api.Extensions;
 
-public static class ServiceCollectionExtensions
+public static class BuilderExtensions
 {
+    internal const string CorsPolicyName = "DefaultCorsPolicy";
+    
     public static WebApplicationBuilder AddResponseCompression(this WebApplicationBuilder builder)
     {
         builder.Services.AddResponseCompression(options =>
@@ -24,6 +26,24 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     extension(IServiceCollection services)
     {
+        public IServiceCollection AddCustomCors(IConfiguration configuration)
+        {
+            var origins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
+                          ?? ["http://localhost:5173"];
+
+            return services.AddCors(options =>
+            {
+                options.AddPolicy(CorsPolicyName, policy =>
+                {
+                    policy.WithOrigins(origins)
+                        .AllowAnyMethod()
+                        .AllowAnyHeader()
+                        .AllowCredentials()
+                        .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
+                });
+            });
+        }
+        
         public IServiceCollection AddPostgresql(string connectionString)
         {
             services.AddSingleton<IEntityConfigurationMarker, AssemblyMarker>();

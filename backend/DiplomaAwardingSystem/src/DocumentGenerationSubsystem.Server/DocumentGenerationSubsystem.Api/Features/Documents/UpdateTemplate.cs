@@ -14,7 +14,7 @@ namespace DocumentGenerationSubsystem.Api.Features.Documents;
 
 public static class UpdateTemplate
 {
-    public record UpdateTemplateRequest(int TemplateId, string? Name, IFormFile? Template, string? ConfigurationJson);
+    public record UpdateTemplateRequest(string? Name, IFormFile? Template, string? ConfigurationJson);
 
     internal sealed class Validator : AbstractValidator<UpdateTemplateRequest>
     {
@@ -74,16 +74,14 @@ public static class UpdateTemplate
             [FromServices] Handler handler,
             CancellationToken ct)
         {
-            var finalRequest = request with { TemplateId = id };
-
-            ValidationResult validationResult = await validator.ValidateAsync(finalRequest, ct);
+            ValidationResult validationResult = await validator.ValidateAsync(request, ct);
 
             if (!validationResult.IsValid)
             {
                 return TypedResults.ValidationProblem(validationResult.ToDictionary());
             }
 
-            var result = await handler.HandleAsync(finalRequest, ct);
+            var result = await handler.HandleAsync(id, request, ct);
 
             if (result.IsFailure)
             {
@@ -96,10 +94,10 @@ public static class UpdateTemplate
 
     private sealed class Handler(DbDocGenContext context) : IScopedService
     {
-        public async Task<Result> HandleAsync(UpdateTemplateRequest request, CancellationToken ct)
+        public async Task<Result> HandleAsync(int id, UpdateTemplateRequest request, CancellationToken ct)
         {
             var template = await context.Set<DocumentTemplate>()
-                .FirstOrDefaultAsync(dt => dt.Id == request.TemplateId, ct);
+                .FirstOrDefaultAsync(dt => dt.Id == id, ct);
 
             if (template == null)
             {
@@ -109,7 +107,7 @@ public static class UpdateTemplate
             if (!string.IsNullOrWhiteSpace(request.Name) && request.Name != template.Name)
             {
                 bool nameExists = await context.Set<DocumentTemplate>()
-                    .AnyAsync(dt => dt.Name == request.Name && dt.Id != request.TemplateId, ct);
+                    .AnyAsync(dt => dt.Name == request.Name && dt.Id != id, ct);
 
                 if (nameExists)
                 {
