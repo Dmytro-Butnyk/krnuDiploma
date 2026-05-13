@@ -15,15 +15,10 @@ public static class WebApplicationExtension
         
         UploadTemplate.Endpoint.MapEndpoint(apiGroup);
         UpdateTemplate.Endpoint.MapEndpoints(apiGroup);
+        DeleteTemplate.Endpoint.MapEndpoints(apiGroup);
         
         GetTemplateDetails.Endpoint.MapEndpoints(apiGroup);
         GetTemplatesList.Endpoint.MapEndpoints(apiGroup);
         DownloadTemplate.Endpoint.MapEndpoints(apiGroup);
     }
-
-    // public static async Task EnsureDatabaseExistAndMigrationsApplied(this WebApplication app)
-    // {
-    //     await using var scope = app.Services.CreateAsyncScope();
-    //     var services = scope.ServiceProvider;
-    // }
 }
