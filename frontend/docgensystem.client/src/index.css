@@ -16,6 +16,13 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow: hidden;
+}
+
+html,
+body,
+#root {
+  height: 100%;
 }
 
 button,
@@ -26,19 +33,51 @@ textarea {
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 9px;
+  height: 9px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  background: #eaf4fb;
+  border-radius: 999px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #c7d2fe;
+  background: #91b8dd;
+  border: 2px solid #eaf4fb;
+  border-radius: 999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6f9fce;
+}
+
+.custom-scrollbar {
+  scrollbar-color: #91b8dd #eaf4fb;
+  scrollbar-width: thin;
+}
+
+.json-scrollbar::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+.json-scrollbar::-webkit-scrollbar-track {
+  background: #2d3d50;
   border-radius: 999px;
 }
 
 .json-scrollbar::-webkit-scrollbar-thumb {
-  background: #475569;
+  background: #647c96;
+  border: 2px solid #2d3d50;
+  border-radius: 999px;
+}
+
+.json-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #7890aa;
+}
+
+.json-scrollbar {
+  scrollbar-color: #647c96 #2d3d50;
+  scrollbar-width: thin;
 }

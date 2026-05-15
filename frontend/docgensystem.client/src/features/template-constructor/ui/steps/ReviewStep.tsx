@@ -8,6 +8,7 @@ type Props = {
   onBack: () => void
   onSave: () => void
   isSaving: boolean
+  showDocumentBackButton?: boolean
 }
 
 export function ReviewStep({
@@ -17,23 +18,26 @@ export function ReviewStep({
   onBack,
   onSave,
   isSaving,
+  showDocumentBackButton = true,
 }: Props) {
   return (
-    <div className="flex min-h-[515px] flex-col items-center">
+    <div className="custom-scrollbar flex h-full min-h-0 w-full flex-col items-center overflow-y-auto overflow-x-hidden px-1 pb-6">
+      {showDocumentBackButton && (
       <button
-        className="self-start rounded-full border border-blue-200 px-4 py-1 text-xs font-semibold text-blue-700"
+        className="max-w-full self-start rounded-full border border-blue-200 px-4 py-1 text-xs font-semibold text-blue-700"
         onClick={onBack}
       >
         <ArrowLeft className="mr-1 inline" size={13} />
         Повернутися до документу
       </button>
+      )}
 
-      <div className="mt-20 flex w-full max-w-[420px] flex-col items-center text-center">
+      <div className="mt-[clamp(28px,8vh,96px)] flex w-full max-w-[420px] shrink-0 flex-col items-center text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-lime-500 text-white">
           <CheckCircle2 size={40} />
         </div>
         <h3 className="mt-5 text-2xl font-black uppercase text-blue-700">Конфігурація успішна!</h3>
-        <div className="mt-3 rounded-full border border-blue-100 bg-white px-4 py-1 text-xs font-semibold text-blue-700">
+        <div className="mt-3 max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-blue-100 bg-white px-4 py-1 text-xs font-semibold text-blue-700">
           {documentName}
         </div>
 
@@ -50,7 +54,7 @@ export function ReviewStep({
         </label>
 
         <Button
-          className="mt-6 w-64 rounded-full bg-blue-600 py-3 text-base hover:bg-blue-700"
+          className="mt-6 w-64 max-w-full rounded-full bg-blue-600 py-3 text-base hover:bg-blue-700"
           onClick={onSave}
           disabled={isSaving}
         >

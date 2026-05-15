@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react'
 import { useConstructorSchema } from '../../../entities/schema/api/schemaApi'
 import { cn } from '../../../shared/lib/cn'
 import { Button } from '../../../shared/ui/Button'
-import { useConstructorStore } from '../model/store'
+import { getTableRowTagName, useConstructorStore } from '../model/store'
 import type { TemplateConfiguration } from '../model/types'
 import { DataSourcesStep } from './steps/DataSourcesStep'
 import { MappingStep } from './steps/MappingStep'
@@ -15,6 +15,7 @@ type TemplateConstructorProps = {
   templateName: string
   tags: string[]
   initialConfiguration?: TemplateConfiguration
+  sessionKey: string
   isSaving?: boolean
   canBackFromFirstStep?: boolean
   onTemplateNameChange: (name: string) => void
@@ -30,6 +31,7 @@ export function TemplateConstructor({
   templateName,
   tags,
   initialConfiguration,
+  sessionKey,
   isSaving = false,
   canBackFromFirstStep = true,
   onTemplateNameChange,
@@ -56,7 +58,8 @@ export function TemplateConstructor({
     const totalTags = activeTags.length
     const scalarTags = Object.keys(config.Mapping.Scalars)
     const tableTags = Object.values(config.Mapping.Tables).flatMap((table) => Object.keys(table.RowMapping))
-    const assignedTags = new Set([...scalarTags, ...tableTags].filter((tag) => activeTags.includes(tag))).size
+    const mappedTableTags = activeTags.filter((tag) => tableTags.includes(getTableRowTagName(tag)))
+    const assignedTags = new Set([...scalarTags, ...mappedTableTags].filter((tag) => activeTags.includes(tag))).size
 
     return { assignedTags, totalTags, isComplete: assignedTags >= totalTags }
   }, [config.Mapping.Scalars, config.Mapping.Tables, tagTypes])
@@ -66,8 +69,9 @@ export function TemplateConstructor({
       tags,
       config: initialConfiguration,
       defaultEntity: schemaKeys[0] ?? '',
+      sessionKey,
     })
-  }, [initialize, initialConfiguration, schemaKeys, tags])
+  }, [initialize, initialConfiguration, schemaKeys, sessionKey, tags])
 
   const goToStep = (step: 1 | 2 | 3 | 4) => {
     if (step === 4 && !mappingProgress.isComplete) return
@@ -87,9 +91,9 @@ export function TemplateConstructor({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_282px]">
-      <section className="min-h-[615px] rounded-xl bg-white px-5 py-5 shadow-sm ring-1 ring-blue-100">
-        <div className="mb-7 grid grid-cols-[auto_1fr_auto] items-center gap-3">
+    <div className="grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(180px,32%)] gap-[clamp(12px,1vw,18px)] lg:grid-cols-[minmax(0,1fr)_clamp(300px,24%,430px)] lg:grid-rows-none">
+      <section className="flex min-h-0 flex-col rounded-xl bg-white px-[clamp(20px,1.8vw,32px)] py-[clamp(20px,1.8vw,30px)] shadow-sm ring-1 ring-blue-100">
+        <div className="mb-[clamp(20px,2.5vh,32px)] grid shrink-0 grid-cols-[auto_1fr_auto] items-center gap-3">
           <Button variant="ghost" className="min-h-8 rounded-full px-4 py-1 text-xs" onClick={onCancel}>
             <ArrowLeft size={14} />
             Скасувати
@@ -126,7 +130,7 @@ export function TemplateConstructor({
         </div>
 
         {isLoading && (
-          <div className="flex min-h-[460px] items-center justify-center text-blue-700">
+          <div className="flex min-h-0 flex-1 items-center justify-center text-blue-700">
             <Loader2 className="mr-2 animate-spin" size={20} />
             Завантаження схеми даних
           </div>
@@ -140,22 +144,25 @@ export function TemplateConstructor({
 
         {!isLoading && !isError && (
           <>
-            {currentStep === 1 && <TagMarkupStep />}
-            {currentStep === 2 && <DataSourcesStep schema={schema} />}
-            {currentStep === 3 && <MappingStep schema={schema} />}
-            {currentStep === 4 && (
-              <ReviewStep
-                documentName={documentName}
-                templateName={templateName}
-                onTemplateNameChange={onTemplateNameChange}
-                onBack={onBack}
-                onSave={handleComplete}
-                isSaving={isSaving}
-              />
-            )}
+            <div className="min-h-0 flex-1 overflow-hidden">
+              {currentStep === 1 && <TagMarkupStep />}
+              {currentStep === 2 && <DataSourcesStep schema={schema} />}
+              {currentStep === 3 && <MappingStep schema={schema} />}
+              {currentStep === 4 && (
+                <ReviewStep
+                  documentName={documentName}
+                  templateName={templateName}
+                  onTemplateNameChange={onTemplateNameChange}
+                  onBack={onBack}
+                  onSave={handleComplete}
+                  isSaving={isSaving}
+                  showDocumentBackButton={canBackFromFirstStep}
+                />
+              )}
+            </div>
 
             {currentStep < 4 && (
-              <div className="mt-6 flex justify-between">
+              <div className="mt-[clamp(18px,2vh,28px)] flex shrink-0 justify-between">
                 <Button
                   variant="secondary"
                   className="min-h-8 rounded-full px-6 py-1 text-xs"
@@ -178,9 +185,9 @@ export function TemplateConstructor({
         )}
       </section>
 
-      <aside className="min-h-[615px] rounded-xl bg-[#344356] p-5 shadow-sm">
+      <aside className="flex min-h-0 flex-col rounded-xl bg-[#344356] p-[clamp(20px,1.6vw,28px)] shadow-sm">
         <h3 className="font-mono text-xs font-black uppercase text-emerald-400">Live JSON</h3>
-        <pre className="json-scrollbar mt-4 h-[540px] overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-4 text-emerald-300">
+        <pre className="json-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-emerald-300 [overflow-wrap:anywhere]">
           {formattedJson}
         </pre>
       </aside>

@@ -16,10 +16,13 @@ export function DataSourcesStep({ schema = {} }: Props) {
   const updateCondition = useConstructorStore((state) => state.updateNewSourceCondition)
   const addCondition = useConstructorStore((state) => state.addNewSourceCondition)
   const removeCondition = useConstructorStore((state) => state.removeNewSourceCondition)
+  const validateNewDataSource = useConstructorStore((state) => state.validateNewDataSource)
   const addDataSource = useConstructorStore((state) => state.addDataSource)
   const removeDataSource = useConstructorStore((state) => state.removeDataSource)
   const entityNames = useMemo(() => Object.keys(schema), [schema])
   const scalarFields = schema[newSource.entity]?.scalars ?? []
+  const validationResult = validateNewDataSource()
+  const validationReason = validationResult.ok ? null : validationResult.reason
 
   useEffect(() => {
     if (!newSource.entity && entityNames[0]) {
@@ -28,12 +31,18 @@ export function DataSourcesStep({ schema = {} }: Props) {
   }, [entityNames, newSource.entity, updateNewSource])
 
   const handleAdd = () => {
+    const validation = validateNewDataSource()
+    if (!validation.ok) {
+      window.alert(validation.reason)
+      return
+    }
+
     const result = addDataSource()
     if (!result.ok) window.alert(result.reason)
   }
 
   return (
-    <div>
+    <div className="h-full min-h-0 overflow-auto pr-1 custom-scrollbar">
       <h3 className="text-lg font-black uppercase text-blue-700">2 КРОК: НАЛАШТУВАННЯ ДАТАСУРСІВ</h3>
       <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
         Налаштуйте датасурси: базову сутність, ключ і умови пошуку для отримання даних.
@@ -61,7 +70,8 @@ export function DataSourcesStep({ schema = {} }: Props) {
             <input
               value={newSource.key}
               onChange={(event) => updateNewSource({ key: event.target.value })}
-              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 invalid:border-red-300"
+              required
               placeholder="TargetStudent"
             />
           </label>
@@ -103,13 +113,14 @@ export function DataSourcesStep({ schema = {} }: Props) {
                 <input
                   value={condition.value}
                   onChange={(event) => updateCondition(index, { value: event.target.value })}
-                  className="rounded-md border border-slate-200 bg-white px-2 py-2 text-sm"
-                  placeholder={condition.type === 'arg' ? 'StudentId' : 'Значение'}
+                  className="rounded-md border border-slate-200 bg-white px-2 py-2 text-sm outline-none focus:border-blue-500 invalid:border-red-300"
+                  required
+                  placeholder={condition.type === 'arg' ? 'StudentId' : 'Значення'}
                 />
                 <button
                   onClick={() => removeCondition(index)}
                   className="flex h-10 w-10 items-center justify-center rounded-md text-red-500 hover:bg-red-50"
-                  title="Удалить условие"
+                  title="Видалити умову"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -122,7 +133,20 @@ export function DataSourcesStep({ schema = {} }: Props) {
               <Plus size={16} />
               Додати умову
             </Button>
-            <Button className="min-h-8 rounded-full px-5 py-1 text-xs" onClick={handleAdd}>Додати сутність</Button>
+            <div className="flex flex-col items-end gap-2">
+              <Button
+                className="min-h-8 rounded-full px-5 py-1 text-xs"
+                onClick={handleAdd}
+                disabled={Boolean(validationReason)}
+              >
+                Додати сутність
+              </Button>
+              {validationReason && (
+                <span className="max-w-md text-right text-xs font-semibold text-red-500">
+                  {validationReason}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

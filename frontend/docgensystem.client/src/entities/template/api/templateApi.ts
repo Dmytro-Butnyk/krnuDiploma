@@ -12,6 +12,32 @@ import type {
 } from '../model/types'
 
 export const templatesQueryKey = ['documents', 'templates'] as const
+const docxMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
+function appendNullableText(formData: FormData, key: string, value: ApiId | string | null) {
+  formData.append(key, value === null ? 'null' : String(value))
+}
+
+async function fetchTemplateFile(id: ApiId) {
+  const response = await apiClient.get<Blob>(`/api/documents/templates/${id}/file`, {
+    responseType: 'blob',
+    headers: {
+      Accept: docxMimeType,
+    },
+  })
+  return response.data
+}
+
+async function getUpdateTemplateFile(payload: UpdateTemplatePayload) {
+  if (payload.template !== null) {
+    return payload.template
+  }
+
+  const templateBlob = await fetchTemplateFile(payload.templateId)
+  return new File([templateBlob], `template-${payload.templateId}.docx`, {
+    type: templateBlob.type || docxMimeType,
+  })
+}
 
 export async function fetchTemplates() {
   const response = await apiClient.get<TemplateListItemDto[]>('/api/documents/templates')
@@ -43,10 +69,12 @@ export async function uploadTemplate(payload: UploadTemplatePayload) {
 
 export async function updateTemplate(payload: UpdateTemplatePayload) {
   const formData = new FormData()
-  formData.append('templateId', String(payload.templateId))
-  formData.append('name', payload.name ?? '')
-  formData.append('configurationJson', payload.configurationJson ?? '')
-  formData.append('template', payload.template ?? '')
+  const template = await getUpdateTemplateFile(payload)
+
+  appendNullableText(formData, 'templateId', payload.templateId)
+  appendNullableText(formData, 'name', payload.name)
+  formData.append('template', template)
+  appendNullableText(formData, 'configurationJson', payload.configurationJson)
 
   const response = await apiClient.patch<ApiId>(
     `/api/documents/templates/${payload.templateId}`,

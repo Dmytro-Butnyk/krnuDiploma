@@ -8,7 +8,7 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   useDeleteTemplate,
   useGenerateDocument,
@@ -19,6 +19,7 @@ import {
   useUploadTemplate,
 } from '../../entities/template/api/templateApi'
 import type { TemplateListItemDto } from '../../entities/template/model/types'
+import { useConstructorStore } from '../../features/template-constructor/model/store'
 import { TemplateConstructor } from '../../features/template-constructor/ui/TemplateConstructor'
 import type { TemplateConfiguration } from '../../features/template-constructor/model/types'
 import { getApiErrorMessage } from '../../shared/api/errors'
@@ -33,6 +34,51 @@ type DraftTemplate = {
   file: File
   name: string
   tags: string[]
+}
+type PersistedTemplatesPageState = {
+  mode: ScreenMode
+  selectedTemplate: TemplateListItemDto | null
+  constructorMode: ConstructorMode
+  constructorTemplateName: string
+  generationParams: Record<string, string>
+  isGenerationFormOpen: boolean
+}
+
+const templatesPageStateStorageKey = 'templates-page-state'
+
+const defaultTemplatesPageState: PersistedTemplatesPageState = {
+  mode: 'list',
+  selectedTemplate: null,
+  constructorMode: 'create',
+  constructorTemplateName: '',
+  generationParams: {},
+  isGenerationFormOpen: false,
+}
+
+function readPersistedTemplatesPageState(): PersistedTemplatesPageState {
+  const fallback = defaultTemplatesPageState
+
+  try {
+    const raw = sessionStorage.getItem(templatesPageStateStorageKey)
+    if (!raw) return fallback
+
+    const parsed = JSON.parse(raw) as Partial<PersistedTemplatesPageState>
+    const mode = parsed.mode === 'constructor' && parsed.constructorMode === 'create' ? 'upload' : parsed.mode
+
+    return {
+      ...fallback,
+      ...parsed,
+      mode: mode ?? fallback.mode,
+      selectedTemplate: parsed.selectedTemplate ?? null,
+      generationParams: parsed.generationParams ?? {},
+    }
+  } catch {
+    return fallback
+  }
+}
+
+function sameTemplateId(left: TemplateListItemDto['id'], right: TemplateListItemDto['id']) {
+  return String(left) === String(right)
 }
 
 function parseConfiguration(value?: string | null): TemplateConfiguration | undefined {
@@ -59,6 +105,13 @@ function getTagsFromConfiguration(configuration?: TemplateConfiguration) {
   return Array.from(new Set([...scalarTags, ...tableTags]))
 }
 
+function getDraftTemplateSessionKey(draftTemplate: DraftTemplate | null) {
+  if (!draftTemplate) return 'create:no-file'
+
+  const { file } = draftTemplate
+  return `create:${file.name}:${file.size}:${file.lastModified}`
+}
+
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -69,18 +122,40 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 export function TemplatesPage() {
-  const [mode, setMode] = useState<ScreenMode>('list')
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateListItemDto | null>(null)
+  const [restoredPageState] = useState(readPersistedTemplatesPageState)
+  const [mode, setMode] = useState<ScreenMode>(restoredPageState.mode)
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateListItemDto | null>(restoredPageState.selectedTemplate)
   const [draftTemplate, setDraftTemplate] = useState<DraftTemplate | null>(null)
-  const [constructorMode, setConstructorMode] = useState<ConstructorMode>('create')
-  const [constructorTemplateName, setConstructorTemplateName] = useState('')
+  const [constructorMode, setConstructorMode] = useState<ConstructorMode>(restoredPageState.constructorMode)
+  const [constructorTemplateName, setConstructorTemplateName] = useState(restoredPageState.constructorTemplateName)
   const [menuTemplateId, setMenuTemplateId] = useState<string | number | null>(null)
   const [dialog, setDialog] = useState<DialogState>(null)
   const [errorText, setErrorText] = useState<string | null>(null)
-  const [generationParams, setGenerationParams] = useState<Record<string, string>>({})
-  const [isGenerationFormOpen, setIsGenerationFormOpen] = useState(false)
+  const [generationParams, setGenerationParams] = useState<Record<string, string>>(restoredPageState.generationParams)
+  const [isGenerationFormOpen, setIsGenerationFormOpen] = useState(restoredPageState.isGenerationFormOpen)
   const [generatedBlob, setGeneratedBlob] = useState<Blob | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    const persistedMode = mode === 'constructor' && constructorMode === 'create' ? 'upload' : mode
+    const state: PersistedTemplatesPageState = {
+      mode: persistedMode,
+      selectedTemplate,
+      constructorMode,
+      constructorTemplateName,
+      generationParams,
+      isGenerationFormOpen,
+    }
+
+    sessionStorage.setItem(templatesPageStateStorageKey, JSON.stringify(state))
+  }, [
+    constructorMode,
+    constructorTemplateName,
+    generationParams,
+    isGenerationFormOpen,
+    mode,
+    selectedTemplate,
+  ])
 
   const templatesQuery = useTemplates()
   const selectedId = selectedTemplate?.id ?? ''
@@ -90,6 +165,24 @@ export function TemplatesPage() {
   const updateTemplate = useUpdateTemplate()
   const deleteTemplate = useDeleteTemplate()
   const generateDocument = useGenerateDocument()
+
+  useEffect(() => {
+    if (!selectedTemplate || !templatesQuery.data) return
+
+    const freshTemplate = templatesQuery.data.find((template) =>
+      sameTemplateId(template.id, selectedTemplate.id),
+    )
+
+    if (!freshTemplate) {
+      setSelectedTemplate(null)
+      setMode('list')
+      return
+    }
+
+    if (freshTemplate.name !== selectedTemplate.name) {
+      setSelectedTemplate(freshTemplate)
+    }
+  }, [selectedTemplate, templatesQuery.data])
 
   const selectedConfiguration = useMemo(
     () => parseConfiguration(detailsQuery.data?.configurationJson),
@@ -101,6 +194,13 @@ export function TemplatesPage() {
         ? draftTemplate?.tags ?? []
         : getTagsFromConfiguration(selectedConfiguration),
     [constructorMode, draftTemplate?.tags, selectedConfiguration],
+  )
+  const constructorSessionKey = useMemo(
+    () =>
+      constructorMode === 'create'
+        ? getDraftTemplateSessionKey(draftTemplate)
+        : `edit:${selectedTemplate?.id ?? 'none'}:${detailsQuery.data?.configurationJson ?? ''}`,
+    [constructorMode, detailsQuery.data?.configurationJson, draftTemplate, selectedTemplate?.id],
   )
   const requiredArguments = detailsQuery.data?.requiredArguments ?? []
   const canGenerate = requiredArguments.every((argument) => generationParams[argument]?.trim())
@@ -119,10 +219,30 @@ export function TemplatesPage() {
   }
 
   const openUpload = () => {
+    useConstructorStore.getState().reset()
     setDraftTemplate(null)
+    setConstructorMode('create')
     setConstructorTemplateName('')
     setErrorText(null)
     setMode('upload')
+  }
+
+  const openConstructorForEdit = (template: TemplateListItemDto) => {
+    useConstructorStore.getState().reset()
+    setSelectedTemplate(template)
+    setConstructorMode('edit')
+    setConstructorTemplateName(template.name.replace(/\.docx$/i, ''))
+    setMenuTemplateId(null)
+    setErrorText(null)
+    setMode('constructor')
+  }
+
+  const leaveConstructor = () => {
+    setErrorText(null)
+    if (constructorMode === 'edit') {
+      useConstructorStore.getState().reset()
+    }
+    setMode(constructorMode === 'create' ? 'upload' : 'details')
   }
 
   const handleFile = async (file: File) => {
@@ -150,6 +270,8 @@ export function TemplatesPage() {
         template: draftTemplate.file,
         configurationJson: JSON.stringify(configuration),
       })
+      useConstructorStore.getState().reset()
+      setDraftTemplate(null)
       setMode('list')
       setDialog('template-created')
       setErrorText(null)
@@ -170,6 +292,7 @@ export function TemplatesPage() {
         configurationJson: JSON.stringify(configuration),
       })
       const nextName = constructorTemplateName.trim() || selectedTemplate.name
+      useConstructorStore.getState().reset()
       setSelectedTemplate({ ...selectedTemplate, name: nextName })
       setMode('details')
       setDialog('template-updated')
@@ -223,7 +346,7 @@ export function TemplatesPage() {
   if (mode === 'constructor') {
     if (constructorMode === 'edit' && detailsQuery.isLoading) {
       return (
-        <div className="flex h-[520px] items-center justify-center text-blue-700">
+        <div className="flex h-full min-h-0 items-center justify-center rounded-xl bg-white text-blue-700 shadow-sm ring-1 ring-blue-100">
           <Loader2 className="mr-2 animate-spin" size={20} />
           Завантаження конфігурації
         </div>
@@ -247,34 +370,31 @@ export function TemplatesPage() {
         : selectedTemplate?.name ?? 'Шаблон.docx'
 
     return (
-      <>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
         {errorText && <ErrorMessage message={errorText} onClose={() => setErrorText(null)} />}
-        <TemplateConstructor
-          documentName={documentName}
-          templateName={constructorTemplateName}
-          tags={constructorTags}
-          initialConfiguration={constructorMode === 'edit' ? selectedConfiguration : undefined}
-          isSaving={uploadTemplate.isPending || updateTemplate.isPending}
-          canBackFromFirstStep={constructorMode === 'create'}
-          onTemplateNameChange={setConstructorTemplateName}
-          onCancel={() => {
-            setErrorText(null)
-            setMode(constructorMode === 'create' ? 'upload' : 'details')
-          }}
-          onBack={() => {
-            setErrorText(null)
-            setMode(constructorMode === 'create' ? 'upload' : 'details')
-          }}
-          onComplete={constructorMode === 'create' ? handleCreateTemplate : handleUpdateTemplate}
-        />
-      </>
+        <div className="min-h-0 flex-1">
+          <TemplateConstructor
+            documentName={documentName}
+            templateName={constructorTemplateName}
+            tags={constructorTags}
+            initialConfiguration={constructorMode === 'edit' ? selectedConfiguration : undefined}
+            sessionKey={constructorSessionKey}
+            isSaving={uploadTemplate.isPending || updateTemplate.isPending}
+            canBackFromFirstStep={constructorMode === 'create'}
+            onTemplateNameChange={setConstructorTemplateName}
+            onCancel={leaveConstructor}
+            onBack={leaveConstructor}
+            onComplete={constructorMode === 'create' ? handleCreateTemplate : handleUpdateTemplate}
+          />
+        </div>
+      </div>
     )
   }
 
   return (
     <>
-      <section>
-        <div className="mb-7 flex items-center justify-between">
+      <section className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="mb-[clamp(18px,3vh,28px)] flex shrink-0 items-center justify-between">
           <h1 className="text-3xl font-black uppercase tracking-normal text-blue-700">
             {mode === 'upload' ? 'Створення нового шаблону' : 'Створені шаблони'}
           </h1>
@@ -320,8 +440,8 @@ export function TemplatesPage() {
         )}
 
         {mode === 'details' && selectedTemplate && (
-          <div className="grid min-h-[455px] grid-cols-1 gap-5 rounded-xl bg-white p-6 shadow-sm ring-1 ring-blue-100 lg:grid-cols-[minmax(0,1fr)_390px]">
-            <div>
+          <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(220px,45%)] gap-[clamp(18px,1.4vw,28px)] overflow-hidden rounded-xl bg-white p-[clamp(24px,2vw,34px)] shadow-sm ring-1 ring-blue-100 lg:grid-cols-[minmax(0,1fr)_clamp(360px,30%,520px)] lg:grid-rows-none">
+            <div className="min-h-0 overflow-auto pr-1 custom-scrollbar">
               <button
                 className="mb-8 flex items-center gap-3 text-xl font-black text-blue-700 transition hover:text-blue-500"
                 onClick={() => setMode('list')}
@@ -329,14 +449,10 @@ export function TemplatesPage() {
                 <ArrowLeft size={22} />
                 {selectedTemplate.name}
               </button>
-              <div className="flex max-w-[310px] flex-col gap-4">
+              <div className="flex w-full max-w-[440px] flex-col gap-4">
                 <Button
                   className="justify-start rounded-lg"
-                  onClick={() => {
-                    setConstructorMode('edit')
-                    setConstructorTemplateName(selectedTemplate.name.replace(/\.docx$/i, ''))
-                    setMode('constructor')
-                  }}
+                  onClick={() => openConstructorForEdit(selectedTemplate)}
                   disabled={detailsQuery.isLoading}
                 >
                   Змінити конфігурацію
@@ -347,7 +463,7 @@ export function TemplatesPage() {
               </div>
 
               {isGenerationFormOpen && (
-                <div className="mt-7 max-w-[360px] rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+                <div className="mt-7 w-full max-w-[540px] rounded-xl border border-blue-100 bg-blue-50/40 p-4">
                   <h3 className="text-sm font-black uppercase text-blue-700">Параметри генерації</h3>
                   <div className="mt-4 space-y-3">
                     {requiredArguments.map((argument) => (
@@ -382,7 +498,7 @@ export function TemplatesPage() {
         )}
 
         {mode === 'list' && (
-          <div className="grid max-w-[760px] grid-cols-1 gap-2">
+          <div className="grid min-h-0 w-full max-w-[1040px] flex-1 content-start gap-[clamp(10px,1vh,16px)] overflow-y-auto overflow-x-hidden pr-1 custom-scrollbar">
             {templatesQuery.isLoading && (
               <div className="flex h-32 items-center justify-center text-blue-700">
                 <Loader2 className="mr-2 animate-spin" size={18} />
@@ -404,11 +520,7 @@ export function TemplatesPage() {
                   setIsGenerationFormOpen(true)
                 }}
                 onConfigure={() => {
-                  setSelectedTemplate(template)
-                  setConstructorMode('edit')
-                  setConstructorTemplateName(template.name.replace(/\.docx$/i, ''))
-                  setMode('constructor')
-                  setMenuTemplateId(null)
+                  openConstructorForEdit(template)
                 }}
                 onDelete={() => {
                   setSelectedTemplate(template)
@@ -482,7 +594,7 @@ function UploadPanel({
   onFile: (file: File) => void
 }) {
   return (
-    <div className="relative min-h-[455px] rounded-xl bg-white p-7 shadow-sm ring-1 ring-blue-100">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden rounded-xl bg-white p-[clamp(24px,2vw,36px)] shadow-sm ring-1 ring-blue-100 custom-scrollbar">
       <button className="absolute right-6 top-6 text-red-500 hover:text-red-600" onClick={onClose} title="Закрити">
         <X size={22} />
       </button>
@@ -502,7 +614,7 @@ function UploadPanel({
       />
 
       {draftTemplate ? (
-        <div className="mt-10 rounded-xl border border-blue-200 bg-blue-50/50 p-6">
+        <div className="mt-[clamp(32px,5vh,56px)] rounded-xl border border-blue-200 bg-blue-50/50 p-[clamp(24px,2vw,34px)]">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-blue-600">
               <FileText size={24} />
@@ -521,7 +633,7 @@ function UploadPanel({
         </div>
       ) : (
         <button
-          className="mt-10 flex h-64 w-full items-center justify-center border border-dashed border-blue-500 bg-white text-center transition hover:bg-blue-50 active:bg-blue-100"
+          className="mt-[clamp(32px,5vh,56px)] flex min-h-[clamp(220px,34vh,420px)] flex-1 items-center justify-center border border-dashed border-blue-500 bg-white text-center transition hover:bg-blue-50 active:bg-blue-100"
           onClick={() => inputRef.current?.click()}
         >
           <span className="flex flex-col items-center">
@@ -557,21 +669,22 @@ function TemplateRow({
   onDelete: () => void
 }) {
   return (
-    <div className="relative h-14 w-[700px] max-w-full">
+    <div className="relative min-h-14 w-full">
+      <div className="relative min-h-14 w-[min(68%,680px)] min-w-0">
       <button
         className={cn(
-          'flex h-14 w-[470px] max-w-full items-center justify-between rounded-lg border px-4 text-left text-lg font-black shadow-sm transition',
+          'flex min-h-14 w-full items-center justify-between rounded-lg border px-4 py-3 pr-14 text-left text-lg font-black leading-6 shadow-sm transition',
           isMenuOpen
             ? 'border-blue-700 bg-blue-600 text-white hover:bg-blue-600 active:bg-blue-700'
             : 'border-blue-100 bg-white text-blue-600 hover:bg-blue-50 active:bg-blue-100',
         )}
         onClick={onOpen}
       >
-        <span className="truncate">{template.name}</span>
+        <span className="min-w-0 whitespace-normal break-words">{template.name}</span>
       </button>
       <button
         className={cn(
-          'absolute left-[428px] top-1 flex h-10 w-10 items-center justify-center rounded-md transition hover:bg-blue-100 active:bg-blue-200',
+          'absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md transition hover:bg-blue-100 active:bg-blue-200',
           isMenuOpen ? 'text-white hover:bg-blue-600 hover:text-white active:bg-blue-700' : 'text-blue-600',
         )}
         onClick={onToggleMenu}
@@ -581,18 +694,19 @@ function TemplateRow({
       </button>
 
       {isMenuOpen && (
-        <div className="absolute left-[486px] top-0 z-20 flex w-56 flex-col gap-2 rounded-lg border border-blue-100 bg-white p-2 shadow-xl">
-          <button className="rounded-md px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-blue-50" onClick={onGenerate}>
+        <div className="absolute right-0 top-[calc(100%+8px)] z-20 flex w-[min(230px,100%)] flex-col gap-2 rounded-lg border border-blue-100 bg-white p-2 shadow-xl xl:left-[calc(100%+16px)] xl:right-auto xl:top-0 xl:w-[230px]">
+          <button className="rounded-md px-3 py-2 text-center text-xs font-semibold text-slate-700 transition hover:bg-blue-50" onClick={onGenerate}>
             Згенерувати шаблон
           </button>
-          <button className="rounded-md px-3 py-2 text-left text-xs font-semibold text-slate-700 transition hover:bg-blue-50" onClick={onConfigure}>
+          <button className="rounded-md px-3 py-2 text-center text-xs font-semibold text-slate-700 transition hover:bg-blue-50" onClick={onConfigure}>
             Змінити конфігурацію
           </button>
-          <button className="rounded-md bg-blue-500 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-600" onClick={onDelete}>
+          <button className="rounded-md bg-blue-500 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-blue-600" onClick={onDelete}>
             Видалити
           </button>
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -607,9 +721,9 @@ function LiveJsonPanel({ value }: { value: string }) {
   }, [value])
 
   return (
-    <aside className="min-h-[390px] rounded-xl bg-[#344356] p-5">
+    <aside className="flex min-h-0 flex-col rounded-xl bg-[#344356] p-[clamp(20px,1.6vw,28px)]">
       <h3 className="font-mono text-xs font-black uppercase text-emerald-400">Live JSON</h3>
-      <pre className="json-scrollbar mt-4 max-h-[340px] overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-4 text-emerald-300">
+      <pre className="json-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-emerald-300 [overflow-wrap:anywhere]">
         {formatted}
       </pre>
     </aside>
@@ -641,7 +755,7 @@ function StatusDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-400/35 backdrop-blur-md">
-      <div className="flex w-[380px] flex-col items-center rounded-xl bg-white px-8 py-9 text-center shadow-xl">
+      <div className="flex w-[clamp(380px,28vw,520px)] flex-col items-center rounded-xl bg-white px-[clamp(32px,2.5vw,46px)] py-[clamp(36px,4vh,54px)] text-center shadow-xl">
         {isLoading ? (
           <Loader2 className="animate-spin text-orange-500" size={48} />
         ) : (
@@ -679,7 +793,7 @@ function DeleteDialog({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-400/35 backdrop-blur-md">
-      <div className="w-[360px] rounded-xl bg-white px-8 py-8 text-center shadow-xl">
+      <div className="w-[clamp(360px,26vw,500px)] rounded-xl bg-white px-[clamp(32px,2.4vw,44px)] py-[clamp(32px,3.6vh,48px)] text-center shadow-xl">
         <h3 className="text-xl font-black text-red-500">Видалення шаблону</h3>
         <p className="mt-4 text-sm font-medium leading-5 text-slate-500">
           Ви впевнені, що хочете видалити шаблон “{templateName}”?

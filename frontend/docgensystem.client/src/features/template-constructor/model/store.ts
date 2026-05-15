@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { createJSONStorage, persist } from 'zustand/middleware'
 import type { EntitySchema } from '../../../entities/schema/model/types'
 import type {
   ConstructorStep,
@@ -22,8 +23,64 @@ const initialConfig: TemplateConfiguration = {
   DataSources: [],
 }
 
+export function getTableTagPrefix(tag: string) {
+  const [prefix, ...rest] = tag.split('.')
+  return rest.length > 0 ? prefix : null
+}
+
+export function getTableRowTagName(tag: string) {
+  const [, ...rest] = tag.split('.')
+  return rest.length > 0 ? rest.join('.') : tag
+}
+
 function isReservedNumberTag(tag: string) {
   return tag === 'Number' || tag.endsWith('.Number')
+}
+
+function normalizeRowMapping(rowMapping: Record<string, string>) {
+  return Object.entries(rowMapping).reduce<Record<string, string>>((acc, [tag, path]) => {
+    const rowTag = getTableRowTagName(tag)
+    if (!(rowTag in acc) || tag === rowTag) {
+      acc[rowTag] = path
+    }
+    return acc
+  }, {})
+}
+
+function normalizeConfiguration(config: TemplateConfiguration): TemplateConfiguration {
+  return {
+    ...config,
+    Mapping: {
+      ...config.Mapping,
+      Tables: Object.fromEntries(
+        Object.entries(config.Mapping.Tables).map(([tableName, table]) => [
+          tableName,
+          { ...table, RowMapping: normalizeRowMapping(table.RowMapping) },
+        ]),
+      ),
+    },
+    DataSources: config.DataSources.map((source) => ({
+      ...source,
+      Includes: [...source.Includes],
+    })),
+  }
+}
+
+function getUniqueTableName(baseName: string, tables: Record<string, unknown>) {
+  if (!tables[baseName]) return baseName
+
+  let index = 2
+  while (tables[`${baseName}_${index}`]) {
+    index += 1
+  }
+
+  return `${baseName}_${index}`
+}
+
+function compactIncludes(includes: string[]) {
+  return includes.filter(
+    (include) => !includes.some((candidate) => candidate !== include && candidate.startsWith(`${include}.`)),
+  )
 }
 
 type StoreState = {
@@ -39,10 +96,12 @@ type StoreState = {
   tagTypes: Record<string, TagKind>
   newSource: NewDataSourceDraft
   config: TemplateConfiguration
+  constructorSessionKey: string | null
   initialize: (payload: {
     tags: string[]
     config?: TemplateConfiguration
     defaultEntity?: string
+    sessionKey: string
   }) => void
   hydrateTags: (tags: string[]) => void
   setStep: (step: ConstructorStep) => void
@@ -60,6 +119,7 @@ type StoreState = {
   updateNewSourceCondition: (index: number, patch: Partial<NewDataSourceCondition>) => void
   addNewSourceCondition: () => void
   removeNewSourceCondition: (index: number) => void
+  validateNewDataSource: () => { ok: true } | { ok: false; reason: string }
   addDataSource: () => { ok: true } | { ok: false; reason: string }
   removeDataSource: (key: string) => void
   toggleExpanded: (key: string) => void
@@ -107,11 +167,33 @@ function buildDataSource(draft: NewDataSourceDraft): DataSourceConfig {
   }
 }
 
+function validateNewDataSourceDraft(draft: NewDataSourceDraft) {
+  if (!draft.entity) return 'Оберіть сутність БД.'
+  if (!draft.key.trim()) return 'Вкажіть ключ датасурсу.'
+  if (draft.conditions.length === 0) return 'Додайте хоча б одну умову пошуку.'
+
+  const invalidConditionIndex = draft.conditions.findIndex(
+    (condition) =>
+      !condition.property.trim() ||
+      !condition.operator ||
+      !condition.type ||
+      !condition.value.trim(),
+  )
+
+  if (invalidConditionIndex !== -1) {
+    return `Заповніть усі поля в умові пошуку ${invalidConditionIndex + 1}.`
+  }
+
+  return null
+}
+
 function coerceStep(step: number): ConstructorStep {
   return Math.min(4, Math.max(1, step)) as ConstructorStep
 }
 
-export const useConstructorStore = create<StoreState>((set, get) => ({
+export const useConstructorStore = create<StoreState>()(
+persist(
+  (set, get) => ({
   currentStep: 1,
   mappingMode: 'scalars',
   selectedTag: null,
@@ -128,33 +210,45 @@ export const useConstructorStore = create<StoreState>((set, get) => ({
     conditions: [{ ...defaultCondition, value: '' }],
   },
   config: initialConfig,
-  initialize: ({ tags, config, defaultEntity }) =>
-    set({
-      currentStep: 1,
-      mappingMode: 'scalars',
-      selectedTag: null,
-      selectedTable: null,
-      newTableName: '',
-      newColumnTag: '',
-      newColumnPath: '',
-      searchQuery: '',
-      expandedSources: Object.fromEntries((config?.DataSources ?? []).map((source) => [source.Key, true])),
-      tagTypes: Object.fromEntries(
-        tags.map((tag) => [
-          tag,
-          isReservedNumberTag(tag)
-            ? 'reserved'
-            : config
-              ? (config.Mapping.Scalars[tag] ? 'scalar' : 'table_column')
-              : 'scalar',
-        ]),
-      ),
-      config: config ?? initialConfig,
-      newSource: {
-        entity: defaultEntity ?? '',
-        key: '',
-        conditions: [{ property: 'Id', operator: '==', type: 'arg', value: '' }],
-      },
+  constructorSessionKey: null,
+  initialize: ({ tags, config, defaultEntity, sessionKey }) =>
+    set((state) => {
+      if (state.constructorSessionKey === sessionKey) {
+        const nextTags = { ...state.tagTypes }
+        tags.forEach((tag) => {
+          nextTags[tag] ??= isReservedNumberTag(tag) ? 'reserved' : 'scalar'
+        })
+        return { tagTypes: nextTags }
+      }
+
+      return {
+        currentStep: 1,
+        mappingMode: 'scalars',
+        selectedTag: null,
+        selectedTable: null,
+        newTableName: '',
+        newColumnTag: '',
+        newColumnPath: '',
+        searchQuery: '',
+        expandedSources: Object.fromEntries((config?.DataSources ?? []).map((source) => [source.Key, true])),
+        tagTypes: Object.fromEntries(
+          tags.map((tag) => [
+            tag,
+            isReservedNumberTag(tag)
+              ? 'reserved'
+              : config
+                ? (config.Mapping.Scalars[tag] ? 'scalar' : 'table_column')
+                : 'scalar',
+          ]),
+        ),
+        config: config ? normalizeConfiguration(config) : initialConfig,
+        constructorSessionKey: sessionKey,
+        newSource: {
+          entity: defaultEntity ?? '',
+          key: '',
+          conditions: [{ property: 'Id', operator: '==', type: 'arg', value: '' }],
+        },
+      }
     }),
   hydrateTags: (tags) =>
     set((state) => {
@@ -215,6 +309,10 @@ export const useConstructorStore = create<StoreState>((set, get) => ({
         conditions: state.newSource.conditions.filter((_, conditionIndex) => conditionIndex !== index),
       },
     })),
+  validateNewDataSource: () => {
+    const reason = validateNewDataSourceDraft(get().newSource)
+    return reason ? { ok: false, reason } : { ok: true }
+  },
   addDataSource: () => {
     const { newSource, config } = get()
     const key = newSource.key.trim()
@@ -274,7 +372,21 @@ export const useConstructorStore = create<StoreState>((set, get) => ({
       }
     }),
   createNewTable: () => {
-    const tableName = `Table_${Math.floor(Math.random() * 1000)}`
+    const { config, tagTypes } = get()
+    const usedRowTags = new Set(
+      Object.values(config.Mapping.Tables).flatMap((table) => Object.keys(table.RowMapping)),
+    )
+    const nextPrefixedTag = Object.entries(tagTypes).find(
+      ([tag, type]) =>
+        type === 'table_column' &&
+        Boolean(getTableTagPrefix(tag)) &&
+        !usedRowTags.has(getTableRowTagName(tag)),
+    )?.[0]
+    const tableName = getUniqueTableName(
+      getTableTagPrefix(nextPrefixedTag ?? '') ?? `Table_${Math.floor(Math.random() * 1000)}`,
+      config.Mapping.Tables,
+    )
+
     set((state) => ({
       selectedTable: tableName,
       newTableName: tableName,
@@ -359,7 +471,10 @@ export const useConstructorStore = create<StoreState>((set, get) => ({
               ...state.config.Mapping.Tables,
               [selectedTable]: {
                 ...table,
-                RowMapping: { ...table.RowMapping, [newColumnTag]: newColumnPath },
+                RowMapping: {
+                  ...table.RowMapping,
+                  [getTableRowTagName(newColumnTag)]: newColumnPath,
+                },
               },
             },
           },
@@ -388,6 +503,12 @@ export const useConstructorStore = create<StoreState>((set, get) => ({
     }),
   calculateIncludes: (schema = {}) =>
     set((state) => {
+      const tables = Object.fromEntries(
+        Object.entries(state.config.Mapping.Tables).map(([tableName, table]) => [
+          tableName,
+          { ...table, RowMapping: normalizeRowMapping(table.RowMapping) },
+        ]),
+      )
       const dataSources: DataSourceConfig[] = state.config.DataSources.map((source) => ({
         ...source,
         Includes: [],
@@ -409,24 +530,30 @@ export const useConstructorStore = create<StoreState>((set, get) => ({
         if (!dataSource) return
 
         let currentEntity = dataSource.Entity
-        let currentPath = ''
+        const includeParts: string[] = []
 
         pathParts.slice(0, -1).forEach((part) => {
           const node = schema[currentEntity]
-          if (!node) return
+          if (!node) {
+            includeParts.push(part)
+            return
+          }
 
           const nextEntity = node.entities[part] ?? node.collections[part]
           if (!nextEntity) return
 
-          currentPath = currentPath ? `${currentPath}.${part}` : part
-          addInclude(dataSourceKey, currentPath)
+          includeParts.push(part)
           currentEntity = nextEntity
         })
+
+        if (includeParts.length > 0) {
+          addInclude(dataSourceKey, includeParts.join('.'))
+        }
       }
 
       Object.values(state.config.Mapping.Scalars).forEach(processPath)
 
-      Object.values(state.config.Mapping.Tables).forEach((table) => {
+      Object.values(tables).forEach((table) => {
         if (!table.SourceArray) return
 
         processPath(`${table.SourceArray}.FakeProp`)
@@ -438,7 +565,14 @@ export const useConstructorStore = create<StoreState>((set, get) => ({
       return {
         config: {
           ...state.config,
-          DataSources: dataSources,
+          Mapping: {
+            ...state.config.Mapping,
+            Tables: tables,
+          },
+          DataSources: dataSources.map((source) => ({
+            ...source,
+            Includes: compactIncludes(source.Includes),
+          })),
         },
       }
     }),
@@ -453,11 +587,33 @@ export const useConstructorStore = create<StoreState>((set, get) => ({
       newColumnPath: '',
       searchQuery: '',
       expandedSources: {},
+      tagTypes: {},
       config: initialConfig,
+      constructorSessionKey: null,
       newSource: {
         entity: '',
         key: '',
         conditions: [{ ...defaultCondition, value: '' }],
       },
     }),
-}))
+  }),
+  {
+    name: 'template-constructor-state',
+    storage: createJSONStorage(() => sessionStorage),
+    partialize: (state) => ({
+      currentStep: state.currentStep,
+      mappingMode: state.mappingMode,
+      selectedTag: state.selectedTag,
+      selectedTable: state.selectedTable,
+      newTableName: state.newTableName,
+      newColumnTag: state.newColumnTag,
+      newColumnPath: state.newColumnPath,
+      searchQuery: state.searchQuery,
+      expandedSources: state.expandedSources,
+      tagTypes: state.tagTypes,
+      newSource: state.newSource,
+      config: state.config,
+      constructorSessionKey: state.constructorSessionKey,
+    }),
+  },
+))

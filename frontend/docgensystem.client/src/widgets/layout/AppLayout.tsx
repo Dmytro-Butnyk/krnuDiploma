@@ -3,8 +3,8 @@ import { Outlet } from 'react-router-dom'
 
 export function AppLayout() {
   return (
-    <div className="min-h-screen bg-[#dfeff6] text-slate-950">
-      <header className="mx-auto flex w-full max-w-[1120px] items-center justify-between px-7 pt-7">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#dfeff6] text-slate-950">
+      <header className="mx-auto flex w-[min(1680px,calc(100vw-32px))] shrink-0 items-center justify-between pt-[clamp(20px,3vh,38px)] xl:w-[clamp(960px,76vw,1680px)]">
         <div className="h-12 w-12 rounded-xl bg-slate-300/70" />
         <div className="flex items-center gap-4">
           <button
@@ -22,7 +22,7 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1120px] px-7 pb-10 pt-8">
+      <main className="mx-auto min-h-0 w-[min(1680px,calc(100vw-32px))] flex-1 overflow-hidden pb-[clamp(20px,4vh,44px)] pt-[clamp(20px,3vh,36px)] xl:w-[clamp(960px,76vw,1680px)]">
         <Outlet />
       </main>
     </div>

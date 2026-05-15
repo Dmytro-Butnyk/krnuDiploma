@@ -5,7 +5,7 @@ import { cn } from '../../../../shared/lib/cn'
 import { getPathsForEntity, getSourceArrayScalarPaths } from '../../../../shared/lib/paths'
 import { Button } from '../../../../shared/ui/Button'
 import { SearchableSelect } from '../../../../shared/ui/SearchableSelect'
-import { useConstructorStore } from '../../model/store'
+import { getTableRowTagName, getTableTagPrefix, useConstructorStore } from '../../model/store'
 
 type Props = {
   schema?: EntitySchema
@@ -39,7 +39,7 @@ function ScalarPathList({
         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
       {isExpanded && (
-        <ul className="max-h-72 overflow-auto p-2 custom-scrollbar">
+        <ul className="p-2 lg:max-h-72 lg:overflow-auto lg:custom-scrollbar">
           {paths.map((path) => (
             <li key={path.fullPath}>
               <button
@@ -95,8 +95,14 @@ export function MappingStep({ schema = {} }: Props) {
     [tagTypes],
   )
   const activeTable = selectedTable ? config.Mapping.Tables[selectedTable] : null
-  const usedTableTags = activeTable ? Object.keys(activeTable.RowMapping) : []
-  const availableTableTags = tableColumnTags.filter((tag) => !usedTableTags.includes(tag))
+  const scopedTableTags = useMemo(() => {
+    if (!selectedTable) return tableColumnTags
+
+    const matchingPrefixTags = tableColumnTags.filter((tag) => getTableTagPrefix(tag) === selectedTable)
+    return matchingPrefixTags.length > 0 ? matchingPrefixTags : tableColumnTags
+  }, [selectedTable, tableColumnTags])
+  const usedTableTags = activeTable ? new Set(Object.keys(activeTable.RowMapping)) : new Set<string>()
+  const availableTableTags = scopedTableTags.filter((tag) => !usedTableTags.has(getTableRowTagName(tag)))
   const sourceArrayPaths = activeTable
     ? getSourceArrayScalarPaths(schema, config.DataSources, activeTable.SourceArray)
     : []
@@ -123,8 +129,8 @@ export function MappingStep({ schema = {} }: Props) {
   }
 
   return (
-    <div className="flex min-h-[548px] flex-col">
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <div className="custom-scrollbar flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden pr-1 lg:overflow-hidden lg:pr-0">
+      <div className="mb-4 flex shrink-0 items-start justify-between gap-4">
         <div>
           <h3 className="text-lg font-black uppercase text-blue-700">3 КРОК: МАППІНГ</h3>
           <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
@@ -154,8 +160,8 @@ export function MappingStep({ schema = {} }: Props) {
       </div>
 
       {mappingMode === 'scalars' ? (
-        <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
-          <div className="rounded-xl border border-blue-100 bg-white p-3 shadow-sm">
+        <div className="grid shrink-0 grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[clamp(260px,22%,340px)_minmax(0,1fr)]">
+          <div className="rounded-xl border border-blue-100 bg-white p-3 shadow-sm lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
             <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Оберіть тег</p>
             {scalarTags.map((tag) => {
               const isMapped = Boolean(config.Mapping.Scalars[tag])
@@ -194,8 +200,8 @@ export function MappingStep({ schema = {} }: Props) {
             })}
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-blue-100 bg-white shadow-sm">
-            <div className="border-b border-blue-50 bg-white p-3">
+          <div className="flex min-h-[240px] flex-col rounded-xl border border-blue-100 bg-white shadow-sm lg:min-h-0 lg:overflow-hidden">
+            <div className="shrink-0 border-b border-blue-50 bg-white p-3">
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
@@ -203,7 +209,7 @@ export function MappingStep({ schema = {} }: Props) {
                 placeholder="Пошук властивостей"
               />
             </div>
-            <div className="grid max-h-[430px] gap-3 overflow-auto p-3 custom-scrollbar">
+            <div className="grid content-start gap-3 p-3 lg:min-h-0 lg:flex-1 lg:overflow-auto lg:custom-scrollbar">
               {!selectedTag && <div className="p-10 text-center text-sm text-slate-400">Оберіть тег ліворуч</div>}
               {selectedTag &&
                 config.DataSources.map((source) => (
@@ -218,8 +224,8 @@ export function MappingStep({ schema = {} }: Props) {
           </div>
         </div>
       ) : (
-        <div className="grid flex-1 grid-cols-1 gap-3 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <div className="rounded-xl border border-blue-100 bg-white p-3 shadow-sm">
+        <div className="grid shrink-0 grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[clamp(220px,19%,300px)_minmax(0,1fr)]">
+          <div className="rounded-xl border border-blue-100 bg-white p-3 shadow-sm lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
             <Button variant="success" className="mb-5 w-full rounded-full text-xs" onClick={createNewTable}>
               <Plus size={16} />
               Створити таблицю
@@ -244,7 +250,7 @@ export function MappingStep({ schema = {} }: Props) {
             ))}
           </div>
 
-          <div className="rounded-xl border border-blue-100 bg-white p-4 shadow-sm">
+          <div className="min-h-[260px] rounded-xl border border-blue-100 bg-white p-4 shadow-sm lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
             {!selectedTable || !activeTable ? (
               <div className="p-10 text-center text-sm text-slate-400">Створіть або оберіть таблицю</div>
             ) : (
