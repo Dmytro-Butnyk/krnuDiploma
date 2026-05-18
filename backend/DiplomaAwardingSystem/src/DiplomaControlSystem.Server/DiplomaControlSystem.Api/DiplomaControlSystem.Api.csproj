@@ -7,8 +7,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\Core\Core.Api\Core.Api.csproj" />
-      <ProjectReference Include="..\DiplomaControlSystem.Application\DiplomaControlSystem.Application.csproj" />
-      <ProjectReference Include="..\DiplomaControlSystem.Infrastructure\DiplomaControlSystem.Infrastructure.csproj" />
     </ItemGroup>
 
 </Project>
