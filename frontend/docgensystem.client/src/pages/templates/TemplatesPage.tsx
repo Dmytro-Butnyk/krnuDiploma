@@ -172,15 +172,32 @@ export function TemplatesPage() {
     const freshTemplate = templatesQuery.data.find((template) =>
       sameTemplateId(template.id, selectedTemplate.id),
     )
+    let isCancelled = false
+    const syncSelection = (action: () => void) => {
+      window.queueMicrotask(() => {
+        if (!isCancelled) action()
+      })
+    }
 
     if (!freshTemplate) {
-      setSelectedTemplate(null)
-      setMode('list')
-      return
+      syncSelection(() => {
+        setSelectedTemplate(null)
+        setMode('list')
+      })
+      return () => {
+        isCancelled = true
+      }
     }
 
     if (freshTemplate.name !== selectedTemplate.name) {
-      setSelectedTemplate(freshTemplate)
+      syncSelection(() => setSelectedTemplate(freshTemplate))
+      return () => {
+        isCancelled = true
+      }
+    }
+
+    return () => {
+      isCancelled = true
     }
   }, [selectedTemplate, templatesQuery.data])
 
@@ -346,7 +363,7 @@ export function TemplatesPage() {
   if (mode === 'constructor') {
     if (constructorMode === 'edit' && detailsQuery.isLoading) {
       return (
-        <div className="flex h-full min-h-0 items-center justify-center rounded-xl bg-white text-blue-700 shadow-sm ring-1 ring-blue-100">
+        <div className="ui-surface flex h-full min-h-0 items-center justify-center text-[var(--color-primary)]">
           <Loader2 className="mr-2 animate-spin" size={20} />
           Завантаження конфігурації
         </div>
@@ -370,9 +387,9 @@ export function TemplatesPage() {
         : selectedTemplate?.name ?? 'Шаблон.docx'
 
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-col">
         {errorText && <ErrorMessage message={errorText} onClose={() => setErrorText(null)} />}
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0">
           <TemplateConstructor
             documentName={documentName}
             templateName={constructorTemplateName}
@@ -393,13 +410,13 @@ export function TemplatesPage() {
 
   return (
     <>
-      <section className="flex h-full min-h-0 flex-col overflow-hidden">
+      <section className="flex min-h-0 flex-col">
         <div className="mb-[clamp(18px,3vh,28px)] flex shrink-0 items-center justify-between">
-          <h1 className="text-3xl font-black uppercase tracking-normal text-blue-700">
+          <h1 className="ui-title">
             {mode === 'upload' ? 'Створення нового шаблону' : 'Створені шаблони'}
           </h1>
           {mode !== 'upload' && (
-            <Button className="rounded-full px-7 py-3 text-sm" onClick={openUpload}>
+            <Button size="pill" onClick={openUpload}>
               <Plus size={16} />
               Додати шаблон
             </Button>
@@ -440,10 +457,10 @@ export function TemplatesPage() {
         )}
 
         {mode === 'details' && selectedTemplate && (
-          <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(220px,45%)] gap-[clamp(18px,1.4vw,28px)] overflow-hidden rounded-xl bg-white p-[clamp(24px,2vw,34px)] shadow-sm ring-1 ring-blue-100 lg:grid-cols-[minmax(0,1fr)_clamp(360px,30%,520px)] lg:grid-rows-none">
-            <div className="min-h-0 overflow-auto pr-1 custom-scrollbar">
+          <div className="ui-surface grid w-full grid-cols-1 gap-[clamp(18px,1.4vw,28px)] overflow-visible px-5 py-[clamp(18px,1.6vw,28px)] lg:grid-cols-[minmax(0,1fr)_minmax(240px,32%)] lg:items-start">
+            <div className="min-w-0">
               <button
-                className="mb-8 flex items-center gap-3 text-xl font-black text-blue-700 transition hover:text-blue-500"
+                className="mb-8 flex items-center gap-3 text-2xl font-extrabold text-[var(--color-primary)] transition hover:text-[var(--color-primary-hover)]"
                 onClick={() => setMode('list')}
               >
                 <ArrowLeft size={22} />
@@ -451,19 +468,20 @@ export function TemplatesPage() {
               </button>
               <div className="flex w-full max-w-[440px] flex-col gap-4">
                 <Button
-                  className="justify-start rounded-lg"
+                  size="lg"
+                  className="justify-start"
                   onClick={() => openConstructorForEdit(selectedTemplate)}
                   disabled={detailsQuery.isLoading}
                 >
                   Змінити конфігурацію
                 </Button>
-                <Button variant="success" className="justify-start rounded-lg" onClick={openGenerationForm}>
-                  Згенерувати шаблон
+                <Button variant="successOutline" size="lg" className="justify-start" onClick={openGenerationForm}>
+                  Згенерувати документ
                 </Button>
               </div>
 
               {isGenerationFormOpen && (
-                <div className="mt-7 w-full max-w-[540px] rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+                <div className="mt-7 w-full max-w-[540px] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)]/50 p-5">
                   <h3 className="text-sm font-black uppercase text-blue-700">Параметри генерації</h3>
                   <div className="mt-4 space-y-3">
                     {requiredArguments.map((argument) => (
@@ -474,7 +492,7 @@ export function TemplatesPage() {
                           onChange={(event) =>
                             setGenerationParams((params) => ({ ...params, [argument]: event.target.value }))
                           }
-                          className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          className="ui-input w-full px-4 py-3 text-sm font-bold"
                           placeholder="Введіть значення"
                         />
                       </label>
@@ -484,7 +502,8 @@ export function TemplatesPage() {
                     )}
                   </div>
                   <Button
-                    className="mt-5 w-full rounded-full"
+                    size="pill"
+                    className="mt-5 w-full"
                     onClick={() => void handleGenerate()}
                     disabled={requiredArguments.length > 0 && !canGenerate}
                   >
@@ -500,7 +519,7 @@ export function TemplatesPage() {
         {mode === 'list' && (
           <div className="grid min-h-0 w-full max-w-[1040px] flex-1 content-start gap-[clamp(10px,1vh,16px)] overflow-y-auto overflow-x-hidden pr-1 custom-scrollbar">
             {templatesQuery.isLoading && (
-              <div className="flex h-32 items-center justify-center text-blue-700">
+              <div className="flex h-32 items-center justify-center text-[var(--color-primary)]">
                 <Loader2 className="mr-2 animate-spin" size={18} />
                 Завантаження шаблонів
               </div>
@@ -569,7 +588,7 @@ export function TemplatesPage() {
 
 function ErrorMessage({ message, onClose }: { message: string; onClose: () => void }) {
   return (
-    <div className="mb-4 flex items-start justify-between gap-4 whitespace-pre-line rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+    <div className="mb-4 flex items-start justify-between gap-4 whitespace-pre-line rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] px-4 py-3 text-sm font-bold text-[var(--color-danger)]">
       <span>{message}</span>
       <button className="text-red-500 hover:text-red-700" onClick={onClose} title="Закрити">
         <X size={16} />
@@ -594,11 +613,11 @@ function UploadPanel({
   onFile: (file: File) => void
 }) {
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden rounded-xl bg-white p-[clamp(24px,2vw,36px)] shadow-sm ring-1 ring-blue-100 custom-scrollbar">
+    <div className="ui-surface relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-5 py-[clamp(20px,2vw,36px)] custom-scrollbar">
       <button className="absolute right-6 top-6 text-red-500 hover:text-red-600" onClick={onClose} title="Закрити">
         <X size={22} />
       </button>
-      <p className="mt-4 max-w-xl text-sm font-medium leading-5 text-slate-700">
+      <p className="ui-lead mt-4 max-w-3xl">
         Завантажте файл `.docx` з розміченими тегами для початку конфігурації.
       </p>
 
@@ -614,13 +633,13 @@ function UploadPanel({
       />
 
       {draftTemplate ? (
-        <div className="mt-[clamp(32px,5vh,56px)] rounded-xl border border-blue-200 bg-blue-50/50 p-[clamp(24px,2vw,34px)]">
+        <div className="mt-[clamp(32px,5vh,56px)] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)]/50 p-[clamp(24px,2vw,34px)]">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-white text-blue-600">
+            <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-ui-sm)] bg-white text-[var(--color-primary)]">
               <FileText size={24} />
             </div>
             <div>
-              <p className="font-black text-blue-700">{draftTemplate.file.name}</p>
+              <p className="font-extrabold text-[var(--color-primary)]">{draftTemplate.file.name}</p>
               <p className="mt-1 text-sm text-slate-500">Знайдено тегів: {draftTemplate.tags.length}</p>
             </div>
           </div>
@@ -633,14 +652,14 @@ function UploadPanel({
         </div>
       ) : (
         <button
-          className="mt-[clamp(32px,5vh,56px)] flex min-h-[clamp(220px,34vh,420px)] flex-1 items-center justify-center border border-dashed border-blue-500 bg-white text-center transition hover:bg-blue-50 active:bg-blue-100"
+          className="mt-[clamp(32px,5vh,56px)] flex min-h-[clamp(220px,34vh,420px)] flex-1 items-center justify-center rounded-[var(--radius-ui-md)] border border-dashed border-[var(--color-primary)] bg-white text-center transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-bg-pink)]"
           onClick={() => inputRef.current?.click()}
         >
           <span className="flex flex-col items-center">
             {isScanning ? (
-              <Loader2 className="animate-spin text-blue-600" size={42} />
+              <Loader2 className="animate-spin text-[var(--color-primary)]" size={42} />
             ) : (
-              <UploadCloud className="text-slate-600" size={42} />
+              <UploadCloud className="text-[var(--color-muted)]" size={42} />
             )}
             <span className="mt-6 text-sm font-black text-slate-800">Перетягніть файл сюди або натисніть</span>
             <span className="mt-3 text-xs text-slate-400">Підтримується тільки формат .docx</span>
@@ -669,14 +688,14 @@ function TemplateRow({
   onDelete: () => void
 }) {
   return (
-    <div className="relative min-h-14 w-full">
-      <div className="relative min-h-14 w-[min(68%,680px)] min-w-0">
+    <div className="relative min-h-[67px] w-full">
+      <div className="relative min-h-[67px] w-[min(72%,760px)] min-w-0">
       <button
         className={cn(
-          'flex min-h-14 w-full items-center justify-between rounded-lg border px-4 py-3 pr-14 text-left text-lg font-black leading-6 shadow-sm transition',
+          'flex min-h-[67px] w-full items-center justify-between rounded-[18px] border px-6 py-4 pr-16 text-left text-2xl font-extrabold leading-none shadow-[var(--shadow-ui)] transition',
           isMenuOpen
-            ? 'border-blue-700 bg-blue-600 text-white hover:bg-blue-600 active:bg-blue-700'
-            : 'border-blue-100 bg-white text-blue-600 hover:bg-blue-50 active:bg-blue-100',
+            ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)] active:bg-[var(--color-primary)]'
+                    : 'border-transparent bg-white text-[var(--color-primary-soft-text)] hover:bg-[var(--color-primary-hover)] hover:text-white active:bg-[var(--color-primary)] active:text-white',
         )}
         onClick={onOpen}
       >
@@ -684,8 +703,8 @@ function TemplateRow({
       </button>
       <button
         className={cn(
-          'absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-md transition hover:bg-blue-100 active:bg-blue-200',
-          isMenuOpen ? 'text-white hover:bg-blue-600 hover:text-white active:bg-blue-700' : 'text-blue-600',
+          'absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-[12px] transition hover:bg-white/20 active:bg-white/30',
+          isMenuOpen ? 'text-white' : 'text-[var(--color-primary)]',
         )}
         onClick={onToggleMenu}
         title="Дії"
@@ -694,14 +713,14 @@ function TemplateRow({
       </button>
 
       {isMenuOpen && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-20 flex w-[min(230px,100%)] flex-col gap-2 rounded-lg border border-blue-100 bg-white p-2 shadow-xl xl:left-[calc(100%+16px)] xl:right-auto xl:top-0 xl:w-[230px]">
-          <button className="rounded-md px-3 py-2 text-center text-xs font-semibold text-slate-700 transition hover:bg-blue-50" onClick={onGenerate}>
-            Згенерувати шаблон
+        <div className="absolute right-0 top-[calc(100%+8px)] z-20 flex w-[min(250px,100%)] flex-col gap-2 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white p-2 shadow-[var(--shadow-ui-strong)] xl:left-[calc(100%+16px)] xl:right-auto xl:top-0 xl:w-[250px]">
+          <button className="rounded-[12px] px-3 py-2 text-center text-xs font-bold text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)]" onClick={onGenerate}>
+            Згенерувати документ
           </button>
-          <button className="rounded-md px-3 py-2 text-center text-xs font-semibold text-slate-700 transition hover:bg-blue-50" onClick={onConfigure}>
+          <button className="rounded-[12px] px-3 py-2 text-center text-xs font-bold text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)]" onClick={onConfigure}>
             Змінити конфігурацію
           </button>
-          <button className="rounded-md bg-blue-500 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-blue-600" onClick={onDelete}>
+          <button className="rounded-[12px] bg-[var(--color-primary)] px-3 py-2 text-center text-xs font-bold text-white transition hover:bg-[var(--color-primary-hover)]" onClick={onDelete}>
             Видалити
           </button>
         </div>
@@ -721,9 +740,9 @@ function LiveJsonPanel({ value }: { value: string }) {
   }, [value])
 
   return (
-    <aside className="flex min-h-0 flex-col rounded-xl bg-[#344356] p-[clamp(20px,1.6vw,28px)]">
-      <h3 className="font-mono text-xs font-black uppercase text-emerald-400">Live JSON</h3>
-      <pre className="json-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-emerald-300 [overflow-wrap:anywhere]">
+    <aside className="ui-json-panel flex h-fit max-w-full self-start flex-col p-5">
+      <h3 className="text-xs font-extrabold uppercase text-[var(--color-success-soft)]">Live JSON</h3>
+      <pre className="json-scrollbar mt-4 max-w-full overflow-x-auto overflow-y-visible whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-[var(--color-success-soft)] [overflow-wrap:anywhere]">
         {formatted}
       </pre>
     </aside>
@@ -754,24 +773,24 @@ function StatusDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-400/35 backdrop-blur-md">
-      <div className="flex w-[clamp(380px,28vw,520px)] flex-col items-center rounded-xl bg-white px-[clamp(32px,2.5vw,46px)] py-[clamp(36px,4vh,54px)] text-center shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-primary-hover)]/35 backdrop-blur-md">
+      <div className="flex w-[clamp(380px,28vw,520px)] flex-col items-center rounded-[var(--radius-ui-md)] bg-white px-[clamp(32px,2.5vw,46px)] py-[clamp(36px,4vh,54px)] text-center shadow-[var(--shadow-ui-strong)]">
         {isLoading ? (
-          <Loader2 className="animate-spin text-orange-500" size={48} />
+          <Loader2 className="animate-spin text-[var(--color-accent)]" size={48} />
         ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-lime-500 text-white">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-success-soft)] text-white">
             <CheckCircle2 size={42} />
           </div>
         )}
-        <h3 className="mt-5 text-2xl font-black text-blue-700">{titleByState[state]}</h3>
-        <p className="mt-3 text-sm font-medium leading-5 text-slate-500">{textByState[state]}</p>
+        <h3 className="mt-5 text-2xl font-extrabold text-[var(--color-primary)]">{titleByState[state]}</h3>
+        <p className="mt-3 text-sm font-bold leading-5 text-[var(--color-muted)]">{textByState[state]}</p>
         {state === 'document-generated' && (
-          <Button className="mt-6 w-full rounded-full" onClick={onDownload}>
+          <Button size="pill" className="mt-6 w-full" onClick={onDownload}>
             Завантажити документ (.docx)
           </Button>
         )}
         {!isLoading && (
-          <button className="mt-3 rounded-full bg-white px-8 py-3 text-sm font-bold text-blue-500 hover:bg-blue-50" onClick={onClose}>
+          <button className="mt-3 rounded-full bg-white px-8 py-3 text-sm font-bold text-[var(--color-primary)] hover:bg-[var(--color-bg-lavender)]" onClick={onClose}>
             Закрити
           </button>
         )}
@@ -792,17 +811,17 @@ function DeleteDialog({
   onCancel: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-400/35 backdrop-blur-md">
-      <div className="w-[clamp(360px,26vw,500px)] rounded-xl bg-white px-[clamp(32px,2.4vw,44px)] py-[clamp(32px,3.6vh,48px)] text-center shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--color-primary-hover)]/35 backdrop-blur-md">
+      <div className="w-[clamp(360px,26vw,500px)] rounded-[var(--radius-ui-md)] bg-white px-[clamp(32px,2.4vw,44px)] py-[clamp(32px,3.6vh,48px)] text-center shadow-[var(--shadow-ui-strong)]">
         <h3 className="text-xl font-black text-red-500">Видалення шаблону</h3>
         <p className="mt-4 text-sm font-medium leading-5 text-slate-500">
           Ви впевнені, що хочете видалити шаблон “{templateName}”?
         </p>
-        <Button className="mt-6 w-full rounded-full bg-red-500 hover:bg-red-600" onClick={onConfirm} disabled={isDeleting}>
+        <Button variant="danger" size="pill" className="mt-6 w-full" onClick={onConfirm} disabled={isDeleting}>
           {isDeleting && <Loader2 size={16} className="animate-spin" />}
           Видалити шаблон
         </Button>
-        <button className="mt-3 w-full rounded-full bg-white py-3 text-sm font-bold text-blue-500 hover:bg-blue-50" onClick={onCancel}>
+        <button className="mt-3 w-full rounded-full bg-white py-3 text-sm font-bold text-[var(--color-primary)] hover:bg-[var(--color-bg-lavender)]" onClick={onCancel}>
           Скасувати
         </button>
       </div>

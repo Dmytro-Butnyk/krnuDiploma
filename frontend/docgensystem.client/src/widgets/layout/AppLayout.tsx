@@ -3,18 +3,18 @@ import { Outlet } from 'react-router-dom'
 
 export function AppLayout() {
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#dfeff6] text-slate-950">
-      <header className="mx-auto flex w-[min(1680px,calc(100vw-32px))] shrink-0 items-center justify-between pt-[clamp(20px,3vh,38px)] xl:w-[clamp(960px,76vw,1680px)]">
-        <div className="h-12 w-12 rounded-xl bg-slate-300/70" />
+    <div className="flex min-h-screen flex-col bg-[var(--color-app-bg)] text-[var(--color-text)]">
+      <header className="mx-auto flex w-[min(1680px,calc(100vw-40px))] shrink-0 items-center justify-between pt-[clamp(20px,3vh,38px)]">
+        <div className="h-12 w-12 rounded-[16px] bg-white/80 shadow-[var(--shadow-ui)] ring-1 ring-white/80" />
         <div className="flex items-center gap-4">
           <button
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm ring-4 ring-white"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-primary)] text-white shadow-[var(--shadow-ui)] ring-4 ring-white transition hover:bg-[var(--color-primary-hover)]"
             title="Профіль"
           >
             <UserRound size={22} />
           </button>
           <button
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-red-100 text-red-500"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)] transition hover:bg-white"
             title="Вийти"
           >
             <LogOut size={20} />
@@ -22,7 +22,7 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className="mx-auto min-h-0 w-[min(1680px,calc(100vw-32px))] flex-1 overflow-hidden pb-[clamp(20px,4vh,44px)] pt-[clamp(20px,3vh,36px)] xl:w-[clamp(960px,76vw,1680px)]">
+      <main className="mx-auto w-[min(1680px,calc(100vw-40px))] flex-1 pb-[clamp(20px,4vh,44px)] pt-[clamp(20px,3vh,36px)]">
         <Outlet />
       </main>
     </div>

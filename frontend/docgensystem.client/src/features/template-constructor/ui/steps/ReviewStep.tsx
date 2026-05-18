@@ -23,41 +23,32 @@ export function ReviewStep({
   return (
     <div className="custom-scrollbar flex h-full min-h-0 w-full flex-col items-center overflow-y-auto overflow-x-hidden px-1 pb-6">
       {showDocumentBackButton && (
-      <button
-        className="max-w-full self-start rounded-full border border-blue-200 px-4 py-1 text-xs font-semibold text-blue-700"
-        onClick={onBack}
-      >
-        <ArrowLeft className="mr-1 inline" size={13} />
-        Повернутися до документу
-      </button>
+        <Button variant="secondary" size="sm" className="max-w-full self-start" onClick={onBack}>
+          <ArrowLeft size={13} />
+          Повернутися до документу
+        </Button>
       )}
 
-      <div className="mt-[clamp(28px,8vh,96px)] flex w-full max-w-[420px] shrink-0 flex-col items-center text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-lime-500 text-white">
+      <div className="mt-[clamp(28px,8vh,96px)] flex w-full max-w-[460px] shrink-0 flex-col items-center text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-success-soft)] text-white">
           <CheckCircle2 size={40} />
         </div>
-        <h3 className="mt-5 text-2xl font-black uppercase text-blue-700">Конфігурація успішна!</h3>
-        <div className="mt-3 max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-blue-100 bg-white px-4 py-1 text-xs font-semibold text-blue-700">
+        <h3 className="ui-step-title mt-5">Конфігурація успішна!</h3>
+        <div className="mt-4 max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-[var(--color-primary)] bg-white px-5 py-2 text-sm font-bold text-[var(--color-primary)]">
           {documentName}
         </div>
 
         <label className="mt-8 block w-full text-left">
-          <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
-            Назва шаблону в системі
-          </span>
+          <span className="ui-label mb-2 block">Назва шаблону в системі</span>
           <input
-            className="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm outline-none focus:border-blue-500"
+            className="ui-input w-full px-4 py-3 text-base font-bold"
             value={templateName}
             onChange={(event) => onTemplateNameChange(event.target.value)}
             placeholder={documentName.replace(/\.docx$/i, '')}
           />
         </label>
 
-        <Button
-          className="mt-6 w-64 max-w-full rounded-full bg-blue-600 py-3 text-base hover:bg-blue-700"
-          onClick={onSave}
-          disabled={isSaving}
-        >
+        <Button size="pill" className="mt-6 w-64 max-w-full" onClick={onSave} disabled={isSaving}>
           {isSaving && <Loader2 size={18} className="animate-spin" />}
           Зберегти
         </Button>

@@ -91,10 +91,10 @@ export function TemplateConstructor({
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(180px,32%)] gap-[clamp(12px,1vw,18px)] lg:grid-cols-[minmax(0,1fr)_clamp(300px,24%,430px)] lg:grid-rows-none">
-      <section className="flex min-h-0 flex-col rounded-xl bg-white px-[clamp(20px,1.8vw,32px)] py-[clamp(20px,1.8vw,30px)] shadow-sm ring-1 ring-blue-100">
+    <div className="grid min-h-0 grid-cols-1 gap-[clamp(12px,1vw,18px)] lg:grid-cols-[minmax(0,1fr)_clamp(300px,24%,430px)]">
+      <section className="ui-surface flex min-h-0 flex-col px-5 py-[clamp(20px,1.8vw,30px)]">
         <div className="mb-[clamp(20px,2.5vh,32px)] grid shrink-0 grid-cols-[auto_1fr_auto] items-center gap-3">
-          <Button variant="ghost" className="min-h-8 rounded-full px-4 py-1 text-xs" onClick={onCancel}>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
             <ArrowLeft size={14} />
             Скасувати
           </Button>
@@ -112,10 +112,12 @@ export function TemplateConstructor({
                   disabled={!canOpen}
                   onClick={() => goToStep(step)}
                   className={cn(
-                    'flex h-11 w-11 items-center justify-center rounded-full border-2 text-lg font-black transition disabled:cursor-not-allowed disabled:border-white disabled:bg-white disabled:text-orange-400/50',
-                    isActive
-                      ? 'border-orange-500 bg-orange-500 text-white hover:bg-orange-500 active:bg-orange-600'
-                      : 'border-orange-500 bg-white text-orange-500 hover:bg-blue-50 active:bg-blue-100',
+                    'flex h-[58px] w-[58px] items-center justify-center rounded-full border-2 text-3xl font-extrabold leading-none transition disabled:cursor-not-allowed',
+                    isActive && currentStep > step
+                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white shadow-[var(--shadow-ui)]'
+                      : isActive
+                        ? 'border-[var(--color-accent)] bg-[var(--color-surface)] text-[var(--color-accent)]'
+                        : 'border-transparent bg-slate-50 text-[var(--color-accent)] opacity-60',
                   )}
                 >
                   {label}
@@ -130,21 +132,21 @@ export function TemplateConstructor({
         </div>
 
         {isLoading && (
-          <div className="flex min-h-0 flex-1 items-center justify-center text-blue-700">
+          <div className="flex min-h-0 flex-1 items-center justify-center text-[var(--color-primary)]">
             <Loader2 className="mr-2 animate-spin" size={20} />
             Завантаження схеми даних
           </div>
         )}
 
         {isError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+          <div className="rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-4 text-sm font-bold text-[var(--color-danger)]">
             Не вдалося отримати схему з `/api/constructor/schema`. Перевірте, що backend запущений.
           </div>
         )}
 
         {!isLoading && !isError && (
           <>
-            <div className="min-h-0 flex-1 overflow-hidden">
+            <div className="min-h-0">
               {currentStep === 1 && <TagMarkupStep />}
               {currentStep === 2 && <DataSourcesStep schema={schema} />}
               {currentStep === 3 && <MappingStep schema={schema} />}
@@ -165,7 +167,7 @@ export function TemplateConstructor({
               <div className="mt-[clamp(18px,2vh,28px)] flex shrink-0 justify-between">
                 <Button
                   variant="secondary"
-                  className="min-h-8 rounded-full px-6 py-1 text-xs"
+                  size="sm"
                   onClick={currentStep === 1 ? onBack : previousStep}
                   disabled={currentStep === 1 && !canBackFromFirstStep}
                 >
@@ -173,7 +175,8 @@ export function TemplateConstructor({
                   Назад
                 </Button>
                 <Button
-                  className="min-h-8 rounded-full px-7 py-1 text-xs"
+                  variant="success"
+                  size="sm"
                   onClick={handleNext}
                   disabled={currentStep === 3 && !mappingProgress.isComplete}
                 >
@@ -185,9 +188,9 @@ export function TemplateConstructor({
         )}
       </section>
 
-      <aside className="flex min-h-0 flex-col rounded-xl bg-[#344356] p-[clamp(20px,1.6vw,28px)] shadow-sm">
-        <h3 className="font-mono text-xs font-black uppercase text-emerald-400">Live JSON</h3>
-        <pre className="json-scrollbar mt-4 min-h-0 flex-1 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-emerald-300 [overflow-wrap:anywhere]">
+      <aside className="ui-json-panel flex h-fit min-h-0 self-start flex-col p-5 shadow-[var(--shadow-ui)]">
+        <h3 className="text-xs font-extrabold uppercase text-[var(--color-success-soft)]">Live JSON</h3>
+        <pre className="json-scrollbar mt-4 max-w-full overflow-x-auto overflow-y-visible whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-[var(--color-success-soft)] [overflow-wrap:anywhere]">
           {formattedJson}
         </pre>
       </aside>

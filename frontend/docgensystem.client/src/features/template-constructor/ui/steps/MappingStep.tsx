@@ -27,14 +27,14 @@ function ScalarPathList({
   const isExpanded = expandedSources[sourceKey] ?? true
 
   return (
-    <div className="overflow-hidden rounded-lg border border-blue-100 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)]">
       <button
-        className="flex w-full items-center justify-between bg-blue-50 px-3 py-2 text-left text-sm font-black text-blue-800 transition hover:bg-blue-100 active:bg-blue-200"
+        className="flex w-full items-center justify-between bg-[var(--color-bg-lavender)] px-4 py-3 text-left text-sm font-extrabold text-[var(--color-primary)] transition hover:bg-[var(--color-primary-hover)] hover:text-white active:bg-[var(--color-primary)]"
         onClick={() => toggleExpanded(sourceKey)}
       >
         <span>
           {sourceKey}
-          <span className="ml-2 text-xs font-semibold text-slate-500">({entity})</span>
+          <span className="ml-2 text-xs font-bold text-[var(--color-muted)]">({entity})</span>
         </span>
         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
@@ -45,11 +45,11 @@ function ScalarPathList({
               <button
                 disabled={!selectedTag}
                 onClick={() => selectedTag && mapScalar(selectedTag, `${sourceKey}.${path.fullPath}`)}
-                className="group flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left font-mono text-sm text-slate-700 transition hover:bg-blue-50 active:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex w-full items-center justify-between rounded-[12px] px-3 py-2 text-left font-mono text-sm text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <span>{path.fullPath}</span>
-                <span className="text-xs font-black text-blue-600 opacity-0 transition group-hover:opacity-100">
-                  Зв'язати
+                <span className="text-xs font-extrabold text-[var(--color-primary)] opacity-0 transition group-hover:opacity-100 group-active:text-white">
+                  Звʼязати
                 </span>
               </button>
             </li>
@@ -130,18 +130,16 @@ export function MappingStep({ schema = {} }: Props) {
 
   return (
     <div className="custom-scrollbar flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden pr-1 lg:overflow-hidden lg:pr-0">
-      <div className="mb-4 flex shrink-0 items-start justify-between gap-4">
+      <div className="mb-5 flex shrink-0 flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-black uppercase text-blue-700">3 КРОК: МАППІНГ</h3>
-          <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-            Оберіть, який тип тегів потрібно налаштувати.
-          </p>
+          <h3 className="ui-step-title">3 КРОК: МАППІНГ</h3>
+          <p className="ui-lead mt-5 max-w-3xl">Оберіть, який тип тегів потрібно налаштувати</p>
         </div>
-        <div className="flex rounded-full border border-blue-100 bg-white p-1 shadow-sm">
+        <div className="flex rounded-full border border-[var(--color-bg-lavender)] bg-white p-1 shadow-[var(--shadow-ui)]">
           <button
             className={cn(
-              'rounded-full px-5 py-2 text-sm font-black transition hover:bg-blue-50 active:bg-blue-100',
-              mappingMode === 'scalars' ? 'border border-orange-500 text-orange-600' : 'text-slate-500',
+              'rounded-full px-5 py-2 text-sm font-extrabold transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-accent)] active:text-white',
+              mappingMode === 'scalars' ? 'border border-[var(--color-accent)] text-[var(--color-accent)]' : 'text-[var(--color-muted)]',
             )}
             onClick={() => setMappingMode('scalars')}
           >
@@ -149,8 +147,8 @@ export function MappingStep({ schema = {} }: Props) {
           </button>
           <button
             className={cn(
-              'rounded-full px-5 py-2 text-sm font-black transition hover:bg-blue-50 active:bg-blue-100',
-              mappingMode === 'tables' ? 'border border-orange-500 text-orange-600' : 'text-slate-500',
+              'rounded-full px-5 py-2 text-sm font-extrabold transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-accent)] active:text-white',
+              mappingMode === 'tables' ? 'border border-[var(--color-accent)] text-[var(--color-accent)]' : 'text-[var(--color-muted)]',
             )}
             onClick={() => setMappingMode('tables')}
           >
@@ -161,8 +159,8 @@ export function MappingStep({ schema = {} }: Props) {
 
       {mappingMode === 'scalars' ? (
         <div className="grid shrink-0 grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[clamp(260px,22%,340px)_minmax(0,1fr)]">
-          <div className="rounded-xl border border-blue-100 bg-white p-3 shadow-sm lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
-            <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Оберіть тег</p>
+          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
+            <p className="ui-label mb-3">Оберіть тег</p>
             {scalarTags.map((tag) => {
               const isMapped = Boolean(config.Mapping.Scalars[tag])
               return (
@@ -170,10 +168,10 @@ export function MappingStep({ schema = {} }: Props) {
                   key={tag}
                   onClick={() => setSelectedTag(tag)}
                   className={cn(
-                    'relative mb-2 w-full rounded-lg border p-3 text-left text-sm font-black transition',
+                    'relative mb-2 w-full rounded-[var(--radius-ui-sm)] border p-3 text-left text-sm font-extrabold transition',
                     selectedTag === tag || isMapped
-                      ? 'border-blue-700 bg-blue-600 text-white hover:bg-blue-600 active:bg-blue-700'
-                      : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50 active:bg-blue-100',
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary)]'
+                      : 'border-[var(--color-primary)] bg-white text-[var(--color-primary)] hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white',
                   )}
                 >
                   {tag}
@@ -189,7 +187,7 @@ export function MappingStep({ schema = {} }: Props) {
                           event.stopPropagation()
                           unmapScalar(tag)
                         }}
-                        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-red-100 hover:bg-white hover:text-red-500"
+                        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-red-100 hover:bg-white hover:text-[var(--color-danger)]"
                       >
                         <X size={14} />
                       </span>
@@ -200,12 +198,12 @@ export function MappingStep({ schema = {} }: Props) {
             })}
           </div>
 
-          <div className="flex min-h-[240px] flex-col rounded-xl border border-blue-100 bg-white shadow-sm lg:min-h-0 lg:overflow-hidden">
-            <div className="shrink-0 border-b border-blue-50 bg-white p-3">
+          <div className="flex min-h-[240px] flex-col rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-hidden">
+            <div className="shrink-0 border-b border-[var(--color-bg-lavender)] bg-white p-3">
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                className="ui-input w-full px-4 py-3 text-base font-medium"
                 placeholder="Пошук властивостей"
               />
             </div>
@@ -225,21 +223,21 @@ export function MappingStep({ schema = {} }: Props) {
         </div>
       ) : (
         <div className="grid shrink-0 grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[clamp(220px,19%,300px)_minmax(0,1fr)]">
-          <div className="rounded-xl border border-blue-100 bg-white p-3 shadow-sm lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
-            <Button variant="success" className="mb-5 w-full rounded-full text-xs" onClick={createNewTable}>
+          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
+            <Button variant="primary" size="pill" className="mb-5 w-full text-base" onClick={createNewTable}>
               <Plus size={16} />
               Створити таблицю
             </Button>
-            <p className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Оберіть таблицю</p>
+            <p className="ui-label mb-3">Оберіть таблицю</p>
             {Object.entries(config.Mapping.Tables).map(([tableName, table]) => (
               <button
                 key={tableName}
                 onClick={() => setSelectedTable(tableName)}
                 className={cn(
-                  'mb-2 w-full rounded-lg border p-3 text-left text-sm font-black transition',
+                  'mb-2 w-full rounded-[var(--radius-ui-sm)] border p-3 text-left text-sm font-extrabold transition',
                   selectedTable === tableName
-                    ? 'border-blue-700 bg-blue-600 text-white hover:bg-blue-600 active:bg-blue-700'
-                    : 'border-blue-200 bg-white text-blue-700 hover:bg-blue-50 active:bg-blue-100',
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary)]'
+                    : 'border-[var(--color-primary)] bg-white text-[var(--color-primary)] hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white',
                 )}
               >
                 {tableName}
@@ -250,36 +248,32 @@ export function MappingStep({ schema = {} }: Props) {
             ))}
           </div>
 
-          <div className="min-h-[260px] rounded-xl border border-blue-100 bg-white p-4 shadow-sm lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
+          <div className="min-h-[260px] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-5 shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
             {!selectedTable || !activeTable ? (
               <div className="p-10 text-center text-sm text-slate-400">Створіть або оберіть таблицю</div>
             ) : (
               <>
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div>
-                    <h4 className="text-xl font-black text-blue-700">{selectedTable}</h4>
+                    <h4 className="text-2xl font-extrabold text-[var(--color-primary)]">{selectedTable}</h4>
                     <label className="mt-3 block max-w-sm">
-                      <span className="mb-1 block text-xs font-bold uppercase text-slate-500">
-                        Системна назва таблиці
-                      </span>
+                      <span className="ui-label mb-2 block">Системна назва таблиці</span>
                       <input
                         value={newTableName}
                         onChange={(event) => setNewTableName(event.target.value)}
                         onBlur={() => renameTable(selectedTable, newTableName)}
-                        className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500"
+                        className="ui-input w-full px-4 py-3 text-sm font-bold"
                       />
                     </label>
                   </div>
-                  <Button variant="danger" className="min-h-8 rounded-full px-4 py-1 text-xs" onClick={() => deleteTable(selectedTable)}>
+                  <Button variant="danger" size="sm" onClick={() => deleteTable(selectedTable)}>
                     <Trash2 size={16} />
                     Видалити
                   </Button>
                 </div>
 
                 <div className="mb-5">
-                  <span className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-500">
-                    Джерело колекції
-                  </span>
+                  <span className="ui-label mb-2 block">Джерело колекції</span>
                   <SearchableSelect
                     value={activeTable.SourceArray}
                     options={sourceArrayOptions}
@@ -290,12 +284,12 @@ export function MappingStep({ schema = {} }: Props) {
 
                 {activeTable.SourceArray && (
                   <>
-                    <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Прив'язка тегів</p>
-                    <div className="mb-4 grid grid-cols-1 gap-2 rounded-xl border border-blue-100 bg-blue-50/40 p-3 md:grid-cols-[minmax(130px,0.8fr)_minmax(180px,1.2fr)_auto]">
+                    <p className="ui-label mb-2">Привʼязка тегів</p>
+                    <div className="mb-4 grid grid-cols-1 gap-2 rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)]/50 p-3 md:grid-cols-[minmax(130px,0.8fr)_minmax(180px,1.2fr)_auto]">
                       <select
                         value={newColumnTag}
                         onChange={(event) => setNewColumnTag(event.target.value)}
-                        className="min-w-0 rounded-lg border border-blue-200 bg-white px-3 py-2 font-mono text-sm font-bold text-blue-700 outline-none focus:border-blue-500"
+                        className="ui-input min-w-0 px-4 py-3 font-mono text-sm font-bold text-[var(--color-primary)]"
                       >
                         <option value="">Тег</option>
                         {availableTableTags.map((tag) => (
@@ -310,11 +304,7 @@ export function MappingStep({ schema = {} }: Props) {
                         placeholder="Поле"
                         onChange={setNewColumnPath}
                       />
-                      <Button
-                        className="min-h-10 rounded-lg px-4"
-                        onClick={addColumnToTable}
-                        disabled={!newColumnTag || !newColumnPath}
-                      >
+                      <Button onClick={addColumnToTable} disabled={!newColumnTag || !newColumnPath}>
                         OK
                       </Button>
                     </div>
@@ -323,17 +313,17 @@ export function MappingStep({ schema = {} }: Props) {
                       {Object.entries(activeTable.RowMapping).map(([tag, path]) => (
                         <li
                           key={tag}
-                          className="flex items-center justify-between rounded-lg border border-blue-100 bg-white p-3 text-sm shadow-sm"
+                          className="flex items-center justify-between rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white p-3 text-sm shadow-[var(--shadow-ui)]"
                         >
                           <span className="min-w-0">
-                            <span className="rounded bg-blue-50 px-2 py-1 font-mono font-black text-blue-700">
+                            <span className="rounded-[10px] bg-[var(--color-bg-lavender)] px-2 py-1 font-mono font-extrabold text-[var(--color-primary)]">
                               {tag}
                             </span>
                             <span className="mx-2 text-slate-400">→</span>
-                            <span className="font-mono text-slate-600">{path}</span>
+                            <span className="font-mono text-[var(--color-muted)]">{path}</span>
                           </span>
                           <button
-                            className="flex h-8 w-8 items-center justify-center rounded text-red-500 hover:bg-red-50"
+                            className="flex h-8 w-8 items-center justify-center rounded text-[var(--color-danger)] transition hover:bg-[var(--color-danger-soft)]"
                             onClick={() => removeColumnFromTable(selectedTable, tag)}
                             title="Видалити колонку"
                           >

@@ -31,7 +31,7 @@ export function SearchableSelect({
 
   return (
     <div className={cn('relative', className)}>
-      <div className="flex items-center rounded-md border border-blue-200 bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+      <div className="ui-input flex min-h-[50px] items-center">
         <input
           value={isOpen ? query : selectedLabel}
           onChange={(event) => {
@@ -44,22 +44,22 @@ export function SearchableSelect({
           }}
           onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
           placeholder={placeholder}
-          className="min-h-10 w-full rounded-md bg-transparent px-3 py-2 text-sm outline-none"
+          className="min-h-[48px] w-full rounded-[var(--radius-ui-sm)] bg-transparent px-4 py-2 text-base font-medium text-[var(--color-text)] outline-none placeholder:text-[var(--color-muted)]"
         />
-        <ChevronDown size={16} className="mr-3 shrink-0 text-slate-400" />
+        <ChevronDown size={18} className="mr-4 shrink-0 text-[var(--color-muted)]" />
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-56 overflow-auto rounded-lg border border-blue-200 bg-white p-1 shadow-xl">
+        <div className="custom-scrollbar absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-64 overflow-auto rounded-[var(--radius-ui-sm)] border border-[var(--color-primary)] bg-white p-2 shadow-[var(--shadow-ui-strong)]">
           {visibleOptions.map((option) => (
             <button
               key={option.value}
               type="button"
               className={cn(
-                'block w-full rounded-md px-3 py-2 text-left text-sm transition',
+                'block w-full rounded-[14px] px-4 py-3 text-left text-base font-bold transition',
                 option.value === value
-                  ? 'bg-blue-600 font-bold text-white hover:bg-blue-600 active:bg-blue-700'
-                  : 'hover:bg-blue-50 active:bg-blue-100',
+                  ? 'bg-[var(--color-primary-hover)] text-white hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary)]'
+                  : 'text-[var(--color-text)] hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white',
               )}
               onMouseDown={(event) => {
                 event.preventDefault()
@@ -71,7 +71,7 @@ export function SearchableSelect({
               {option.label}
             </button>
           ))}
-          {visibleOptions.length === 0 && <div className="px-3 py-2 text-sm text-slate-400">{emptyText}</div>}
+          {visibleOptions.length === 0 && <div className="px-4 py-3 text-sm font-semibold text-slate-400">{emptyText}</div>}
         </div>
       )}
     </div>
