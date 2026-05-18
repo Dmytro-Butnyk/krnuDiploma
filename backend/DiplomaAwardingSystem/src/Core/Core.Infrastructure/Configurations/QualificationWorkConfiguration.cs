@@ -1,4 +1,5 @@
 using Core.Domain.Entities.ArchiveGroup;
+using Core.Domain.Entities.StudentDiplomaData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -18,6 +19,12 @@ public sealed class QualificationWorkConfiguration : IEntityTypeConfiguration<Qu
         builder.HasOne(qw => qw.Defence)
             .WithOne(d => d.QualificationWork)
             .HasForeignKey<Defence>(d => d.QualificationWorkId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // 1-to-1: QualificationWork (Principal) <-> QualificationWorkCharacteristics (Dependent)
+        builder.HasOne(qw => qw.QualificationWorkCharacteristics)
+            .WithOne(qwc => qwc.QualificationWork)
+            .HasForeignKey<QualificationWorkCharacteristics>(qwc => qwc.QualificationWorkId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -5,15 +5,15 @@ namespace Core.Domain.Entities.StudyGroup;
 
 public sealed class Group : BaseEntity
 {
-    public string Name { get; init; }
-    public string Year { get; init; }
-    public EducationLevel EducationLevel { get; init; }
+    public string Name { get; set; }
+    public string Year { get; set; }
+    public EducationLevel EducationLevel { get; set; }
     
-    public int SpecialtyId { get; init; }
-    public Specialty? Specialty { get; init; }
+    public int SpecialtyId { get; set; }
+    public Specialty? Specialty { get; set; }
 
     // Изменено: теперь это 1-к-1 (одна группа - одна комиссия)
-    public DiplomaExaminationCommission? DiplomaExaminationCommission { get; init; }
+    public DiplomaExaminationCommission? DiplomaExaminationCommission { get; set; }
     
     public ICollection<Student> Students { get; init; } = new HashSet<Student>();
 

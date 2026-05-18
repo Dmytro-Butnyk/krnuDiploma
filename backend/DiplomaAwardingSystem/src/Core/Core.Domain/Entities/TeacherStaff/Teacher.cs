@@ -5,19 +5,19 @@ namespace Core.Domain.Entities.TeacherStaff;
 
 public sealed class Teacher : BaseEntity
 {
-    public string FullName { get; init; }
-    public string ShortName { get; init; }
-    public string Email { get; init; }
-    public string PhoneNumber { get; init; }
-    public string Position { get; init; }
+    public string FullName { get; set; }
+    public string ShortName { get; set; }
+    public string Email { get; set; }
+    public string PhoneNumber { get; set; }
+    public string Position { get; set; }
     
     // N-to-1 with AcademicDegree
-    public int AcademicDegreeId { get; init; }
-    public AcademicDegree? AcademicDegree { get; init; }
+    public int AcademicDegreeId { get; set; }
+    public AcademicDegree? AcademicDegree { get; set; }
     
-    // N-to-1 with Department
-    public int DepartmentId { get; init; }
-    public Department? Department { get; init; }
+    // N-to-1 with Specialty
+    public int SpecialtyId { get; set; }
+    public Specialty? Specialty { get; set; }
 
     // Collections
     public ICollection<QualificationWork> QualificationWorks { get; init; } = new HashSet<QualificationWork>();
@@ -34,7 +34,7 @@ public sealed class Teacher : BaseEntity
         Position = string.Empty;
     }
 
-    public Teacher(string fullName, string shortName, string email, string phoneNumber, string position, int academicDegreeId, int departmentId)
+    public Teacher(string fullName, string shortName, string email, string phoneNumber, string position, int academicDegreeId, int specialtyId)
     {
         FullName = fullName;
         ShortName = shortName;
@@ -42,6 +42,6 @@ public sealed class Teacher : BaseEntity
         PhoneNumber = phoneNumber;
         Position = position;
         AcademicDegreeId = academicDegreeId;
-        DepartmentId = departmentId;
+        SpecialtyId = specialtyId;
     }
 }

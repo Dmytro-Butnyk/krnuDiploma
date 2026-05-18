@@ -2,6 +2,7 @@ using System.Reflection;
 using Core.Domain;
 using Core.Domain.Entities.ArchiveGroup;
 using Core.Domain.Entities.StudyGroup;
+using Core.Domain.Entities.StudentDiplomaData;
 using Core.Domain.Entities.TeacherStaff;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,6 +44,11 @@ public sealed class DbDocGenContext(
     public DbSet<Group> Groups => Set<Group>();
     public DbSet<Specialty> Specialties => Set<Specialty>();
     public DbSet<Student> Students => Set<Student>();
+
+    // Student diploma data
+    public DbSet<ElectronicComponentsChecklist> ElectronicComponentsChecklists => Set<ElectronicComponentsChecklist>();
+    public DbSet<PhysicalComponentsChecklist> PhysicalComponentsChecklists => Set<PhysicalComponentsChecklist>();
+    public DbSet<QualificationWorkCharacteristics> QualificationWorkCharacteristics => Set<QualificationWorkCharacteristics>();
 
     // Teacher staff
     public DbSet<AcademicDegree> AcademicDegrees => Set<AcademicDegree>();

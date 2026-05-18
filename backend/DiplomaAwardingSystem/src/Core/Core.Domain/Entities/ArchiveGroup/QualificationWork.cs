@@ -1,4 +1,5 @@
 using Core.Domain.Entities.StudyGroup;
+using Core.Domain.Entities.StudentDiplomaData;
 using Core.Domain.Entities.TeacherStaff;
 using Core.Domain.Enums;
 
@@ -6,26 +7,29 @@ namespace Core.Domain.Entities.ArchiveGroup;
 
 public sealed class QualificationWork : BaseEntity
 {
-    public string Topic { get; init; }
-    public int PagesCount { get; init; }
-    public float PlagiarismPercent { get; init; }
-    public float UniquePercent { get; init; }
-    public int SupervisorScore { get; init; }
-    public int ReviewerScore { get; init; }
-    public int CommissionScore { get; init; }
-    public EctsGrade EctsGrade { get; init; }
-    public NationalGrade NationalGrade { get; init; }
+    public string Topic { get; set; }
+    public int PagesCount { get; set; }
+    public float PlagiarismPercent { get; set; }
+    public float UniquePercent { get; set; }
+    public int SupervisorScore { get; set; }
+    public int ReviewerScore { get; set; }
+    public int CommissionScore { get; set; }
+    public EctsGrade EctsGrade { get; set; }
+    public NationalGrade NationalGrade { get; set; }
 
     // 1-to-1 with Student
-    public int StudentId { get; init; }
-    public Student? Student { get; init; }
+    public int StudentId { get; set; }
+    public Student? Student { get; set; }
 
     // N-to-1 with Teacher
-    public int TeacherId { get; init; }
-    public Teacher? Teacher { get; init; }
+    public int TeacherId { get; set; }
+    public Teacher? Teacher { get; set; }
 
     // 1-to-1 with Defence
-    public Defence? Defence { get; init; }
+    public Defence? Defence { get; set; }
+
+    // 1-to-1 with QualificationWorkCharacteristics
+    public QualificationWorkCharacteristics? QualificationWorkCharacteristics { get; set; }
 
     private QualificationWork()
     {

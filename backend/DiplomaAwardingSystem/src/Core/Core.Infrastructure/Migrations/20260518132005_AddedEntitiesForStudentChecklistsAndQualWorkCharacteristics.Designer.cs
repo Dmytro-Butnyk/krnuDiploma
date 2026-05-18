@@ -3,17 +3,20 @@ using System;
 using Core.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace DocumentGenerationSubsystem.Infrastructure.Migrations
+namespace Core.Infrastructure.Migrations
 {
     [DbContext(typeof(DbDocGenContext))]
-    partial class DbDocGenContextModelSnapshot : ModelSnapshot
+    [Migration("20260518132005_AddedEntitiesForStudentChecklistsAndQualWorkCharacteristics")]
+    partial class AddedEntitiesForStudentChecklistsAndQualWorkCharacteristics
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -577,7 +580,7 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
                     b.HasOne("Core.Domain.Entities.ArchiveGroup.QualificationWork", "QualificationWork")
                         .WithOne("Defence")
                         .HasForeignKey("Core.Domain.Entities.ArchiveGroup.Defence", "QualificationWorkId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("DiplomaExaminationCommission");
@@ -590,7 +593,7 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
                     b.HasOne("Core.Domain.Entities.StudyGroup.Student", "Student")
                         .WithOne("QualificationWork")
                         .HasForeignKey("Core.Domain.Entities.ArchiveGroup.QualificationWork", "StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Core.Domain.Entities.TeacherStaff.Teacher", "Teacher")

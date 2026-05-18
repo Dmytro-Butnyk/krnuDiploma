@@ -1,15 +1,18 @@
+using Core.Domain.Entities.TeacherStaff;
+
 namespace Core.Domain.Entities.StudyGroup;
 
 public sealed class Specialty : BaseEntity
 {
-    public string Code { get; init; }
-    public string Name { get; init; }
+    public string Code { get; set; }
+    public string Name { get; set; }
     
     // N-to-1 with Department
-    public int DepartmentId { get; init; }
-    public Department? Department { get; init; }
+    public int DepartmentId { get; set; }
+    public Department? Department { get; set; }
 
     public ICollection<Group> Groups { get; init; } = new HashSet<Group>();
+    public ICollection<Teacher> Teachers { get; init; } = new HashSet<Teacher>();
 
     private Specialty()
     {

@@ -4,17 +4,17 @@ namespace Core.Domain.Entities.ArchiveGroup;
 
 public sealed class Defence : BaseEntity
 {
-    public DateOnly DefenceDate { get; init; }
-    public int QueueNumber { get; init; }
-    public string ProtocolNumber { get; init; }
+    public DateOnly DefenceDate { get; set; }
+    public int QueueNumber { get; set; }
+    public string ProtocolNumber { get; set; }
 
     // 1-to-1 with QualificationWork
-    public int QualificationWorkId { get; init; }
-    public QualificationWork? QualificationWork { get; init; }
+    public int QualificationWorkId { get; set; }
+    public QualificationWork? QualificationWork { get; set; }
 
     // N-to-1 with DiplomaExaminationCommission
-    public int DiplomaExaminationCommissionId { get; init; }
-    public DiplomaExaminationCommission? DiplomaExaminationCommission { get; init; }
+    public int DiplomaExaminationCommissionId { get; set; }
+    public DiplomaExaminationCommission? DiplomaExaminationCommission { get; set; }
 
     private Defence()
     {

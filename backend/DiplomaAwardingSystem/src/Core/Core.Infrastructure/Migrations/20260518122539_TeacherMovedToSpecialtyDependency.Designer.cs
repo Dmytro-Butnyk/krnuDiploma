@@ -3,17 +3,20 @@ using System;
 using Core.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace DocumentGenerationSubsystem.Infrastructure.Migrations
+namespace Core.Infrastructure.Migrations
 {
     [DbContext(typeof(DbDocGenContext))]
-    partial class DbDocGenContextModelSnapshot : ModelSnapshot
+    [Migration("20260518122539_TeacherMovedToSpecialtyDependency")]
+    partial class TeacherMovedToSpecialtyDependency
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -149,132 +152,6 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
                     b.HasIndex("TeacherId");
 
                     b.ToTable("QualificationWorks", "diploma");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.StudentDiplomaData.ElectronicComponentsChecklist", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("HasExplanatoryNoteDoc")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasExplanatoryNotePdf")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasPlagiarismReportPdf")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasPresentationPpt")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasRegulatoryControl")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasReviewDoc")
-                        .HasColumnType("boolean");
-
-                    b.Property<int>("StudentId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StudentId")
-                        .IsUnique();
-
-                    b.ToTable("ElectronicComponentsChecklists", "diploma");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.StudentDiplomaData.PhysicalComponentsChecklist", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("HasCircular")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasCopyOfBankReceipt")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasExplanatoryNote")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasGradeBook")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasSignedReview")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("HasStudentCard")
-                        .HasColumnType("boolean");
-
-                    b.Property<int>("StudentId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("StudentId")
-                        .IsUnique();
-
-                    b.ToTable("PhysicalComponentsChecklists", "diploma");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.StudentDiplomaData.QualificationWorkCharacteristics", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("HasRealProjects")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsComplexDepartmental")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsComplexInterdepartmental")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsComplexInteruniversity")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsComplexProjectParticipant")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsDefendedAtEnterprise")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsEcoFriendly")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsEnterpriseOrdered")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsRecommendedForImplementation")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsRecommendedForMaster")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("IsResearchBased")
-                        .HasColumnType("boolean");
-
-                    b.Property<int>("QualificationWorkId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("QualificationWorkId")
-                        .IsUnique();
-
-                    b.ToTable("QualificationWorkCharacteristics", "diploma");
                 });
 
             modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Department", b =>
@@ -577,7 +454,7 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
                     b.HasOne("Core.Domain.Entities.ArchiveGroup.QualificationWork", "QualificationWork")
                         .WithOne("Defence")
                         .HasForeignKey("Core.Domain.Entities.ArchiveGroup.Defence", "QualificationWorkId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("DiplomaExaminationCommission");
@@ -590,7 +467,7 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
                     b.HasOne("Core.Domain.Entities.StudyGroup.Student", "Student")
                         .WithOne("QualificationWork")
                         .HasForeignKey("Core.Domain.Entities.ArchiveGroup.QualificationWork", "StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Core.Domain.Entities.TeacherStaff.Teacher", "Teacher")
@@ -602,39 +479,6 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
                     b.Navigation("Student");
 
                     b.Navigation("Teacher");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.StudentDiplomaData.ElectronicComponentsChecklist", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.StudyGroup.Student", "Student")
-                        .WithOne("ElectronicComponentsChecklist")
-                        .HasForeignKey("Core.Domain.Entities.StudentDiplomaData.ElectronicComponentsChecklist", "StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Student");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.StudentDiplomaData.PhysicalComponentsChecklist", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.StudyGroup.Student", "Student")
-                        .WithOne("PhysicalComponentsChecklist")
-                        .HasForeignKey("Core.Domain.Entities.StudentDiplomaData.PhysicalComponentsChecklist", "StudentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Student");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.StudentDiplomaData.QualificationWorkCharacteristics", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.ArchiveGroup.QualificationWork", "QualificationWork")
-                        .WithOne("QualificationWorkCharacteristics")
-                        .HasForeignKey("Core.Domain.Entities.StudentDiplomaData.QualificationWorkCharacteristics", "QualificationWorkId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("QualificationWork");
                 });
 
             modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Group", b =>
@@ -733,8 +577,6 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
             modelBuilder.Entity("Core.Domain.Entities.ArchiveGroup.QualificationWork", b =>
                 {
                     b.Navigation("Defence");
-
-                    b.Navigation("QualificationWorkCharacteristics");
                 });
 
             modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Department", b =>
@@ -758,10 +600,6 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
 
             modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Student", b =>
                 {
-                    b.Navigation("ElectronicComponentsChecklist");
-
-                    b.Navigation("PhysicalComponentsChecklist");
-
                     b.Navigation("QualificationWork");
                 });
 

@@ -2,11 +2,11 @@ namespace Core.Domain.Entities.TeacherStaff;
 
 public sealed class DecToMember : BaseEntity
 {
-    public int DecMemberId { get; init; }
-    public DecMember? DecMember { get; init; }
+    public int DecMemberId { get; set; }
+    public DecMember? DecMember { get; set; }
     
-    public int DiplomaExaminationCommissionId { get; init; }
-    public DiplomaExaminationCommission? DiplomaExaminationCommission { get; init; }
+    public int DiplomaExaminationCommissionId { get; set; }
+    public DiplomaExaminationCommission? DiplomaExaminationCommission { get; set; }
 
     private DecToMember() { }
 

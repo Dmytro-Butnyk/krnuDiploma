@@ -4,15 +4,15 @@ namespace Core.Domain.Entities.ArchiveGroup;
 
 public sealed class Archive : BaseEntity
 {
-    public string ProtocolRange { get; init; }
-    public string CaseNumber { get; init; }
-    public DateOnly StartDate { get; init; }
-    public DateOnly EndDate { get; init; }
-    public int TotalPages { get; init; }
+    public string ProtocolRange { get; set; }
+    public string CaseNumber { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public int TotalPages { get; set; }
     
     // 1-to-1 with DiplomaExaminationCommission
-    public int DiplomaExaminationCommissionId { get; init; }
-    public DiplomaExaminationCommission? DiplomaExaminationCommission { get; init; }
+    public int DiplomaExaminationCommissionId { get; set; }
+    public DiplomaExaminationCommission? DiplomaExaminationCommission { get; set; }
 
     private Archive()
     {

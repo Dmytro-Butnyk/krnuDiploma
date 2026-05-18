@@ -1,5 +1,6 @@
 using Core.Domain.Entities.ArchiveGroup;
 using Core.Domain.Entities.StudyGroup;
+using Core.Domain.Entities.StudentDiplomaData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -17,6 +18,18 @@ public sealed class StudentConfiguration : IEntityTypeConfiguration<Student>
         builder.HasOne(s => s.QualificationWork)
             .WithOne(qw => qw.Student)
             .HasForeignKey<QualificationWork>(qw => qw.StudentId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // 1-to-1: Student (Principal) <-> ElectronicComponentsChecklist (Dependent)
+        builder.HasOne(s => s.ElectronicComponentsChecklist)
+            .WithOne(ecc => ecc.Student)
+            .HasForeignKey<ElectronicComponentsChecklist>(ecc => ecc.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // 1-to-1: Student (Principal) <-> PhysicalComponentsChecklist (Dependent)
+        builder.HasOne(s => s.PhysicalComponentsChecklist)
+            .WithOne(pcc => pcc.Student)
+            .HasForeignKey<PhysicalComponentsChecklist>(pcc => pcc.StudentId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -5,11 +5,11 @@ namespace Core.Domain.Entities.TeacherStaff;
 // Сущность-профиль члена комиссии
 public sealed class DecMember : BaseEntity
 {
-    public CommissionRole Role { get; init; }
+    public CommissionRole Role { get; set; }
     
     // N-to-1 with Teacher
-    public int TeacherId { get; init; }
-    public Teacher? Teacher { get; init; }
+    public int TeacherId { get; set; }
+    public Teacher? Teacher { get; set; }
 
     // Navigation property for Many-to-Many join table
     public ICollection<DecToMember> DecToMembers { get; init; } = new HashSet<DecToMember>();

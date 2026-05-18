@@ -5,15 +5,15 @@ namespace Core.Domain.Entities.TeacherStaff;
 
 public sealed class DiplomaExaminationCommission : BaseEntity
 {
-    public int OrderNumber { get; init; }
-    public DateOnly StartDate { get; init; }
-    public DateOnly EndDate { get; init; }
+    public int OrderNumber { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
     
     // 1-к-1 связь
-    public int GroupId { get; init; }
-    public Group? Group { get; init; }
+    public int GroupId { get; set; }
+    public Group? Group { get; set; }
 
-    public Archive? Archive { get; init; }
+    public Archive? Archive { get; set; }
     public ICollection<Defence> Defences { get; init; } = new HashSet<Defence>();
     
     // Связь через таблицу-посредник (Many-to-Many)
