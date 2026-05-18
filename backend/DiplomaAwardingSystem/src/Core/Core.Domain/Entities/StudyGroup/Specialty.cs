@@ -13,6 +13,7 @@ public sealed class Specialty : BaseEntity
 
     public ICollection<Group> Groups { get; init; } = new HashSet<Group>();
     public ICollection<Teacher> Teachers { get; init; } = new HashSet<Teacher>();
+    public ICollection<Secretary> Secretaries { get; init; } = new HashSet<Secretary>();
 
     private Specialty()
     {

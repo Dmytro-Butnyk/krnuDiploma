@@ -23,5 +23,10 @@ public sealed class SpecialtyConfiguration : IEntityTypeConfiguration<Specialty>
             .WithOne(t => t.Specialty)
             .HasForeignKey(t => t.SpecialtyId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasMany(s => s.Secretaries)
+            .WithOne(sec => sec.Specialty)
+            .HasForeignKey(sec => sec.SpecialtyId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

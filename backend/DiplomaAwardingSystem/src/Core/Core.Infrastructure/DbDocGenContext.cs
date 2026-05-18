@@ -42,6 +42,7 @@ public sealed class DbDocGenContext(
     // Study group
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Group> Groups => Set<Group>();
+    public DbSet<Secretary> Secretaries => Set<Secretary>();
     public DbSet<Specialty> Specialties => Set<Specialty>();
     public DbSet<Student> Students => Set<Student>();
 
