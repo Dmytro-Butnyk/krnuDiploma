@@ -1,13 +1,14 @@
 using System.Globalization;
 using Core.Api.ExceptionHandlers;
-using Core.Infrastructure;
-using Core.Infrastructure.Seeding;
+using Core.Api.Extensions;
+using Core.Api.Middleware;
+using DocumentGenerationSubsystem.Api;
 using DocumentGenerationSubsystem.Api.Extensions;
-using DocumentGenerationSubsystem.Api.Middleware;
 using DotNetEnv;
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
 using Serilog;
+using Serilog.Events;
 
 // ==============================================================================
 // 1. BOOTSTRAP & CONFIGURATION
@@ -23,6 +24,9 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
+    builder.ValidateDIOnBuild();
+    builder.AddResponseCompression();
+
     // Replace the default Microsoft logger with full Serilog capabilities
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
@@ -37,7 +41,7 @@ try
     // 2.1. Security & Validation
     builder.Services.AddAuthentication();
     builder.Services.AddAuthorization();
-    builder.Services.AddFluentValidation();
+    builder.Services.AddFluentValidationFromAssemblyMarker<AssemblyMarker>();
     builder.Services.AddCustomCors(builder.Configuration);
 
     // 2.2. Error Handling & Observability
@@ -51,15 +55,15 @@ try
         throw new InvalidOperationException("Database connection string is missing in configuration.");
     }
     
-    builder.Services.AddPostgresql(connectionString);
+    builder.Services.AddPostgresql<AssemblyMarker>(connectionString);
 
     // 2.4. Application Logic (Auto-discovery via Scrutor)
-    builder.Services.AddScrutor();
+    builder.Services.AddScrutorFromAssemblyMarker<AssemblyMarker>();
 
     // 2.5. API Documentation
     builder.Services.AddOpenApi("v1", options =>
     {
-        options.AddDocumentTransformer((document, context, cancellationToken) =>
+        options.AddDocumentTransformer((document, _, _) =>
         {
             document.Info = new OpenApiInfo
             {
@@ -81,30 +85,21 @@ try
 
     // LAYER 1: Global Error Catching (Outermost shell)
     app.UseExceptionHandler();
-    
+    app.UseResponseCompression();
     app.UseRouting();
     app.UseCors(BuilderExtensions.CorsPolicyName);
 
     // LAYER 2: Request Logging (Needs to know if the ExceptionHandler changed status to 500)
     app.UseSerilogRequestLogging(options =>
     {
-        options.GetLevel = (httpContext, elapsed, ex) =>
-            httpContext.Response.StatusCode >= 500 || ex != null
-                ? Serilog.Events.LogEventLevel.Error
-                : Serilog.Events.LogEventLevel.Information;
+        options.GetLevel = (httpContext, _, ex) =>
+            httpContext.Response.StatusCode >= StatusCodes.Status500InternalServerError || ex != null
+                ? LogEventLevel.Error
+                : LogEventLevel.Information;
     });
 
     // LAYER 3: Network & Security Headers
     app.UseHttpsRedirection();
-
-    // --- ONE-TIME EXECUTION BLOCK (Not middleware) ---
-    await using (var scope = app.Services.CreateAsyncScope())
-    {
-        var context = scope.ServiceProvider.GetRequiredService<DbDocGenContext>();
-        await DatabaseSeeder.SeedAsync(context);
-    }
-    
-    // ---------------------------------------------------
 
     // LAYER 4: Identity & Permissions (Who are you? What can you do?)
     app.UseAuthentication();

@@ -1,12 +1,8 @@
+using Microsoft.AspNetCore.Http;
 using Serilog.Context;
 
-namespace DocumentGenerationSubsystem.Api.Middleware;
+namespace Core.Api.Middleware;
 
-/// <summary>
-/// Middleware responsible for enriching log context with Correlation ID and User ID.
-/// It ensures every request has a unique identifier and tracks the authenticated user,
-/// while also attaching the Correlation ID to the response headers.
-/// </summary>
 public sealed class LogEnrichmentMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context)
@@ -30,7 +26,7 @@ public sealed class LogEnrichmentMiddleware(RequestDelegate next)
                 {
                     context.Response.Headers.Append("X-Correlation-ID", correlationId);
                 }
-                
+
                 return Task.CompletedTask;
             });
 

@@ -11,6 +11,13 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+        <PackageReference Include="Scrutor" Version="7.0.0" />
+        <PackageReference Include="Serilog" Version="4.3.0" />
+    </ItemGroup>
+
+    <ItemGroup>
       <ProjectReference Include="..\Core.Domain\Core.Domain.csproj" />
       <ProjectReference Include="..\Core.Infrastructure\Core.Infrastructure.csproj" />
     </ItemGroup>
