@@ -16,6 +16,8 @@ public sealed class QualificationWork : BaseEntity
     public int CommissionScore { get; set; }
     public EctsGrade EctsGrade { get; set; }
     public NationalGrade NationalGrade { get; set; }
+    public string PracticeBase { get; set; }
+    public bool HasDiplomaWithHonors { get; set; }
 
     // 1-to-1 with Student
     public int StudentId { get; set; }
@@ -24,6 +26,10 @@ public sealed class QualificationWork : BaseEntity
     // N-to-1 with Teacher
     public int? TeacherId { get; set; }
     public Teacher? Teacher { get; set; }
+
+    // N-to-1 with Teacher
+    public int? ReviewerId { get; set; }
+    public Teacher? Reviewer { get; set; }
 
     // 1-to-1 with Defence
     public Defence? Defence { get; set; }
@@ -34,9 +40,10 @@ public sealed class QualificationWork : BaseEntity
     private QualificationWork()
     {
         Topic = string.Empty;
+        PracticeBase = string.Empty;
     }
 
-    public QualificationWork(string topic, int pagesCount, float plagiarismPercent, float uniquePercent, int supervisorScore, int reviewerScore, int commissionScore, EctsGrade ectsGrade, NationalGrade nationalGrade, int studentId, int? teacherId)
+    public QualificationWork(string topic, int pagesCount, float plagiarismPercent, float uniquePercent, int supervisorScore, int reviewerScore, int commissionScore, EctsGrade ectsGrade, NationalGrade nationalGrade, string practiceBase, bool hasDiplomaWithHonors, int studentId, int? teacherId, int? reviewerId)
     {
         Topic = topic;
         PagesCount = pagesCount;
@@ -47,8 +54,11 @@ public sealed class QualificationWork : BaseEntity
         CommissionScore = commissionScore;
         EctsGrade = ectsGrade;
         NationalGrade = nationalGrade;
+        PracticeBase = practiceBase;
+        HasDiplomaWithHonors = hasDiplomaWithHonors;
         StudentId = studentId;
         TeacherId = teacherId;
+        ReviewerId = reviewerId;
     }
 
     public static QualificationWork CreateDraft(int studentId)
@@ -63,7 +73,10 @@ public sealed class QualificationWork : BaseEntity
             commissionScore: 0,
             ectsGrade: EctsGrade.None,
             nationalGrade: NationalGrade.None,
+            practiceBase: string.Empty,
+            hasDiplomaWithHonors: false,
             studentId: studentId,
-            teacherId: null);
+            teacherId: null,
+            reviewerId: null);
     }
 }

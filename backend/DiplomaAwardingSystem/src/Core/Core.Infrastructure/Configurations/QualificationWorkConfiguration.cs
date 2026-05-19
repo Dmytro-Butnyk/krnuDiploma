@@ -12,6 +12,7 @@ public sealed class QualificationWorkConfiguration : IEntityTypeConfiguration<Qu
         builder.HasKey(qw => qw.Id);
         
         builder.Property(qw => qw.Topic).IsRequired().HasMaxLength(500);
+        builder.Property(qw => qw.PracticeBase).HasMaxLength(256);
         builder.Property(qw => qw.EctsGrade).IsRequired().HasConversion<string>();
         builder.Property(qw => qw.NationalGrade).IsRequired().HasConversion<string>();
 

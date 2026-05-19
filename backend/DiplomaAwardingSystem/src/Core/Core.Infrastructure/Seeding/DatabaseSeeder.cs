@@ -81,13 +81,15 @@ public static class DatabaseSeeder
                 topic: "Microservices Architecture in .NET", pagesCount: 85, plagiarismPercent: 2.5f, uniquePercent: 97.5f,
                 supervisorScore: 95, reviewerScore: 92, commissionScore: 94,
                 ectsGrade: EctsGrade.A, nationalGrade: NationalGrade.Excellent, // Assuming these enums exist
-                studentId: student1.Id, teacherId: teacherHead.Id);
+                practiceBase: string.Empty, hasDiplomaWithHonors: false,
+                studentId: student1.Id, teacherId: teacherHead.Id, reviewerId: null);
 
             var qw2 = new QualificationWork(
                 topic: "AI-driven Data Generation", pagesCount: 78, plagiarismPercent: 5.0f, uniquePercent: 95.0f,
                 supervisorScore: 85, reviewerScore: 88, commissionScore: 87,
                 ectsGrade: EctsGrade.B, nationalGrade: NationalGrade.Good,
-                studentId: student2.Id, teacherId: teacherMember.Id);
+                practiceBase: string.Empty, hasDiplomaWithHonors: false,
+                studentId: student2.Id, teacherId: teacherMember.Id, reviewerId: null);
                 
             context.QualificationWorks.AddRange(qw1, qw2);
 

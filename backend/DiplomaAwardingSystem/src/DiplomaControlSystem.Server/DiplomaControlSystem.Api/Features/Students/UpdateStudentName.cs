@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DiplomaControlSystem.Api.Features.Students;
 
-public static class AddStudent
+public static class UpdateStudentName
 {
     public sealed record Request(
         string SecretaryEmail,
@@ -20,7 +20,7 @@ public static class AddStudent
         string FirstName,
         string MiddleName);
 
-    public sealed record Response(int StudentId, string FullName, int GroupId);
+    public sealed record Response(int StudentId, string FullName);
 
     internal sealed class Validator : AbstractValidator<Request>
     {
@@ -49,18 +49,17 @@ public static class AddStudent
     {
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapPost("/groups/{groupId:int}/students", Handle)
-                .WithSummary("Adds a student to a group with default diploma data")
-                .Produces<Response>(StatusCodes.Status201Created)
+            app.MapPatch("/students/{studentId:int}/name", Handle)
+                .WithSummary("Updates student full name")
+                .Produces<Response>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
-                .ProducesProblem(StatusCodes.Status409Conflict)
                 .WithTags("Students");
         }
 
-        private static async Task<Results<Created<Response>, ProblemHttpResult, ValidationProblem>> Handle(
-            [FromRoute] int groupId,
+        private static async Task<Results<Ok<Response>, ProblemHttpResult, ValidationProblem>> Handle(
+            [FromRoute] int studentId,
             [FromBody] Request request,
             [FromServices] IValidator<Request> validator,
             [FromServices] Handler handler,
@@ -73,66 +72,46 @@ public static class AddStudent
                 return TypedResults.ValidationProblem(validationResult.ToDictionary());
             }
 
-            var result = await handler.HandleAsync(groupId, request, ct);
+            var result = await handler.HandleAsync(studentId, request, ct);
 
             if (result.IsFailure)
             {
                 return result.ToProblemDetails();
             }
 
-            return TypedResults.Created($"/api/students/{result.Value!.StudentId}", result.Value);
+            return TypedResults.Ok(result.Value!);
         }
     }
 
     private sealed class Handler(
         DbDocGenContext context,
-        SecretaryAccessService secretaryAccessService) : IScopedService
+        StudentAccessService studentAccessService) : IScopedService
     {
         public async Task<Result<Response>> HandleAsync(
-            int groupId,
+            int studentId,
             Request request,
             CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
-            if (secretaryResult.IsFailure)
+            var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
+            if (accessResult.IsFailure)
             {
-                return secretaryResult.ErrorDetails;
+                return accessResult.ErrorDetails;
             }
 
-            var secretary = secretaryResult.Value!;
-            var group = await context.Groups
-                .FirstOrDefaultAsync(
-                    g => g.Id == groupId && g.SpecialtyId == secretary.SpecialtyId,
-                    ct);
-
-            if (group is null)
+            var student = await context.Students.FirstOrDefaultAsync(s => s.Id == studentId, ct);
+            if (student is null)
             {
                 return ErrorDetails.NotFound(
-                    "Group.NotFound",
-                    "Group was not found or does not belong to secretary specialty.");
+                    "Student.NotFound",
+                    "Student was not found.");
             }
 
-            var fullName = StudentNameParser
-                .Build(request.LastName, request.FirstName, request.MiddleName)
-                .FullName;
-            var studentExists = await context.Students
-                .AnyAsync(
-                    student => student.GroupId == groupId && student.FullName == fullName,
-                    ct);
-
-            if (studentExists)
-            {
-                return ErrorDetails.Conflict(
-                    "Student.AlreadyExists",
-                    "Student with the same full name already exists in this group.");
-            }
-
-            var student = StudentDraftFactory.Create(fullName);
-            group.Students.Add(student);
+            var name = StudentNameParser.Build(request.LastName, request.FirstName, request.MiddleName);
+            student.FullName = name.FullName;
 
             await context.SaveChangesAsync(ct);
 
-            return new Response(student.Id, student.FullName, group.Id);
+            return new Response(student.Id, student.FullName);
         }
     }
 }

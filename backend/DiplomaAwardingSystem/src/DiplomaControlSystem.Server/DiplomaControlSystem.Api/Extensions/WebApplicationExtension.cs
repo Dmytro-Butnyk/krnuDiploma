@@ -17,5 +17,14 @@ public static class WebApplicationExtension
 
         AddStudent.Endpoint.MapEndpoint(apiGroup);
         DeleteStudent.Endpoint.MapEndpoint(apiGroup);
+        GetQualificationWorkOptions.Endpoint.MapEndpoint(apiGroup);
+        GetStudentDetails.Endpoint.MapEndpoint(apiGroup);
+        UpdateDefenceResults.Endpoint.MapEndpoint(apiGroup);
+        UpdateElectronicChecklist.Endpoint.MapEndpoint(apiGroup);
+        UpdatePhysicalChecklist.Endpoint.MapEndpoint(apiGroup);
+        UpdateQualificationWorkCharacteristics.Endpoint.MapEndpoint(apiGroup);
+        UpdateStudentDefence.Endpoint.MapEndpoint(apiGroup);
+        UpdateStudentName.Endpoint.MapEndpoint(apiGroup);
+        UpdateStudentQualificationWork.Endpoint.MapEndpoint(apiGroup);
     }
 }

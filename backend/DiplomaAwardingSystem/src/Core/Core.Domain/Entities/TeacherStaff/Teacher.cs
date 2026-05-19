@@ -21,6 +21,7 @@ public sealed class Teacher : BaseEntity
 
     // Collections
     public ICollection<QualificationWork> QualificationWorks { get; init; } = new HashSet<QualificationWork>();
+    public ICollection<QualificationWork> ReviewedQualificationWorks { get; init; } = new HashSet<QualificationWork>();
     
     // 1 teacher can be in many commissions (acting as DecMember)
     public ICollection<DecMember> DecMembers { get; init; } = new HashSet<DecMember>();
