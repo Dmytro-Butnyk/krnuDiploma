@@ -34,4 +34,16 @@ public sealed class PhysicalComponentsChecklist : BaseEntity
         HasExplanatoryNote = hasExplanatoryNote;
         StudentId = studentId;
     }
+
+    public static PhysicalComponentsChecklist CreateEmpty(int studentId)
+    {
+        return new PhysicalComponentsChecklist(
+            hasStudentCard: false,
+            hasGradeBook: false,
+            hasCircular: false,
+            hasSignedReview: false,
+            hasCopyOfBankReceipt: false,
+            hasExplanatoryNote: false,
+            studentId: studentId);
+    }
 }

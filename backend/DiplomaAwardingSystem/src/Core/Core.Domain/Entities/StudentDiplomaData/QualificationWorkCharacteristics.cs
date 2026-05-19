@@ -49,4 +49,21 @@ public sealed class QualificationWorkCharacteristics : BaseEntity
         IsDefendedAtEnterprise = isDefendedAtEnterprise;
         QualificationWorkId = qualificationWorkId;
     }
+
+    public static QualificationWorkCharacteristics CreateEmpty(int qualificationWorkId)
+    {
+        return new QualificationWorkCharacteristics(
+            isResearchBased: false,
+            hasRealProjects: false,
+            isEcoFriendly: false,
+            isEnterpriseOrdered: false,
+            isComplexInteruniversity: false,
+            isComplexInterdepartmental: false,
+            isComplexDepartmental: false,
+            isComplexProjectParticipant: false,
+            isRecommendedForMaster: false,
+            isRecommendedForImplementation: false,
+            isDefendedAtEnterprise: false,
+            qualificationWorkId: qualificationWorkId);
+    }
 }

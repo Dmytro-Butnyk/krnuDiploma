@@ -22,7 +22,7 @@ public sealed class QualificationWork : BaseEntity
     public Student? Student { get; set; }
 
     // N-to-1 with Teacher
-    public int TeacherId { get; set; }
+    public int? TeacherId { get; set; }
     public Teacher? Teacher { get; set; }
 
     // 1-to-1 with Defence
@@ -36,7 +36,7 @@ public sealed class QualificationWork : BaseEntity
         Topic = string.Empty;
     }
 
-    public QualificationWork(string topic, int pagesCount, float plagiarismPercent, float uniquePercent, int supervisorScore, int reviewerScore, int commissionScore, EctsGrade ectsGrade, NationalGrade nationalGrade, int studentId, int teacherId)
+    public QualificationWork(string topic, int pagesCount, float plagiarismPercent, float uniquePercent, int supervisorScore, int reviewerScore, int commissionScore, EctsGrade ectsGrade, NationalGrade nationalGrade, int studentId, int? teacherId)
     {
         Topic = topic;
         PagesCount = pagesCount;
@@ -49,5 +49,21 @@ public sealed class QualificationWork : BaseEntity
         NationalGrade = nationalGrade;
         StudentId = studentId;
         TeacherId = teacherId;
+    }
+
+    public static QualificationWork CreateDraft(int studentId)
+    {
+        return new QualificationWork(
+            topic: string.Empty,
+            pagesCount: 0,
+            plagiarismPercent: 0,
+            uniquePercent: 0,
+            supervisorScore: 0,
+            reviewerScore: 0,
+            commissionScore: 0,
+            ectsGrade: EctsGrade.None,
+            nationalGrade: NationalGrade.None,
+            studentId: studentId,
+            teacherId: null);
     }
 }

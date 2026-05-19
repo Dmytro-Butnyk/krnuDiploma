@@ -30,6 +30,7 @@ try
 
     builder.Services.AddAuthentication();
     builder.Services.AddAuthorization();
+    builder.Services.AddHttpClient();
     builder.Services.AddFluentValidationFromAssemblyMarker<AssemblyMarker>();
     builder.Services.AddCustomCors(builder.Configuration);
 

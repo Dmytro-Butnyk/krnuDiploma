@@ -34,4 +34,16 @@ public sealed class ElectronicComponentsChecklist : BaseEntity
         HasPresentationPpt = hasPresentationPpt;
         StudentId = studentId;
     }
+
+    public static ElectronicComponentsChecklist CreateEmpty(int studentId)
+    {
+        return new ElectronicComponentsChecklist(
+            hasRegulatoryControl: false,
+            hasExplanatoryNoteDoc: false,
+            hasExplanatoryNotePdf: false,
+            hasPlagiarismReportPdf: false,
+            hasReviewDoc: false,
+            hasPresentationPpt: false,
+            studentId: studentId);
+    }
 }

@@ -14,7 +14,7 @@ namespace Core.Api.Extensions;
 public static class BuilderExtensions
 {
     public const string CorsPolicyName = "DefaultCorsPolicy";
-
+    
     public static WebApplicationBuilder AddResponseCompression(this WebApplicationBuilder builder)
     {
         builder.Services.AddResponseCompression(options =>

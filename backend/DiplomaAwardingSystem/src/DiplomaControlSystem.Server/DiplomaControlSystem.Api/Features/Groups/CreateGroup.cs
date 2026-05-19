@@ -1,0 +1,236 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+using Core.Api.Extensions;
+using Core.Domain.DependencyInjectionInterfaces;
+using Core.Domain.Enums;
+using Core.Domain.ResultPattern;
+using Core.Infrastructure;
+using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.Students;
+using DiplomaControlSystem.Api.Infrastructure.StudentImports;
+using FluentValidation;
+using FluentValidation.Results;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using DomainGroup = Core.Domain.Entities.StudyGroup.Group;
+
+namespace DiplomaControlSystem.Api.Features.Groups;
+
+public static partial class CreateGroup
+{
+    public sealed class Request
+    {
+        public string SecretaryEmail { get; init; } = string.Empty;
+        public string Name { get; init; } = string.Empty;
+        public string Year { get; init; } = string.Empty;
+        public string EducationLevel { get; init; } = string.Empty;
+        public IFormFile? StudentsFile { get; init; }
+
+        [FromForm(Name = "googleDriveUrl")]
+        public string? GoogleDriveLink { get; init; }
+    }
+
+    public sealed record Response(
+        int GroupId,
+        string Name,
+        string Year,
+        string EducationLevel,
+        int StudentsCreated);
+
+    private static bool TryParseEducationLevel(string educationLevel, out EducationLevel parsedEducationLevel)
+    {
+        return Enum.TryParse(educationLevel, ignoreCase: true, out parsedEducationLevel)
+               && parsedEducationLevel != EducationLevel.None;
+    }
+
+    private static bool TryNormalizeStartYear(string year, out string normalizedYear)
+    {
+        normalizedYear = string.Empty;
+        var trimmedYear = year.Trim();
+        var separatorIndex = trimmedYear.IndexOf('/', StringComparison.Ordinal);
+        var firstPart = separatorIndex >= 0
+            ? trimmedYear[..separatorIndex].Trim()
+            : trimmedYear;
+
+        if (!StartYearRegex().IsMatch(firstPart))
+        {
+            return false;
+        }
+
+        normalizedYear = firstPart;
+        return true;
+    }
+
+    private static string FormatAcademicYear(string year)
+    {
+        return int.TryParse(year, NumberStyles.Integer, CultureInfo.InvariantCulture, out var startYear)
+            ? string.Create(CultureInfo.InvariantCulture, $"{startYear}/{(startYear + 1) % 100:00}")
+            : year;
+    }
+
+    internal sealed class Validator : AbstractValidator<Request>
+    {
+        public Validator()
+        {
+            RuleFor(x => x.SecretaryEmail)
+                .NotEmpty()
+                .EmailAddress()
+                .MaximumLength(320);
+
+            RuleFor(x => x.Name)
+                .NotEmpty()
+                .MaximumLength(100);
+
+            RuleFor(x => x.Year)
+                .NotEmpty()
+                .Must(year => TryNormalizeStartYear(year, out _))
+                .WithMessage("Year must be a start year like 2025 or academic year like 2025/26.");
+
+            RuleFor(x => x.EducationLevel)
+                .NotEmpty()
+                .Must(level => TryParseEducationLevel(level, out _))
+                .WithMessage("Education level must be Bachelor or Master.");
+
+            RuleFor(x => x)
+                .Must(HaveExactlyOneStudentSource)
+                .WithMessage("Specify either students file or Google Drive URL, but not both.");
+
+            RuleFor(x => x.StudentsFile)
+                .Must(BeSupportedFile)
+                .When(x => x.StudentsFile is not null)
+                .WithMessage("Students file must be .xls, .xlsx, .xlsb, or .csv.");
+        }
+
+        private static bool HaveExactlyOneStudentSource(Request request)
+        {
+            var hasFile = request.StudentsFile is not null;
+            var hasGoogleDriveLink = !string.IsNullOrWhiteSpace(request.GoogleDriveLink);
+            return hasFile != hasGoogleDriveLink;
+        }
+
+        private static bool BeSupportedFile(IFormFile? file)
+        {
+            if (file is null)
+            {
+                return true;
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            return extension.Equals(".xls", StringComparison.OrdinalIgnoreCase)
+                   || extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
+                   || extension.Equals(".xlsb", StringComparison.OrdinalIgnoreCase)
+                   || extension.Equals(".csv", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    internal static class Endpoint
+    {
+        public static void MapEndpoint(IEndpointRouteBuilder app)
+        {
+            app.MapPost("/groups", Handle)
+                .DisableAntiforgery()
+                .WithSummary("Creates a group with imported students and default diploma data")
+                .Produces<Response>(StatusCodes.Status201Created)
+                .ProducesValidationProblem()
+                .ProducesProblem(StatusCodes.Status403Forbidden)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .WithTags("Groups");
+        }
+
+        private static async Task<Results<Created<Response>, ProblemHttpResult, ValidationProblem>> Handle(
+            [FromForm] Request request,
+            [FromServices] IValidator<Request> validator,
+            [FromServices] Handler handler,
+            CancellationToken ct)
+        {
+            ValidationResult validationResult = await validator.ValidateAsync(request, ct);
+
+            if (!validationResult.IsValid)
+            {
+                return TypedResults.ValidationProblem(validationResult.ToDictionary());
+            }
+
+            var result = await handler.HandleAsync(request, ct);
+
+            if (result.IsFailure)
+            {
+                return result.ToProblemDetails();
+            }
+
+            return TypedResults.Created($"/api/groups/{result.Value!.GroupId}", result.Value);
+        }
+    }
+
+    private sealed class Handler(
+        DbDocGenContext context,
+        SecretaryAccessService secretaryAccessService,
+        StudentImportReader studentImportReader) : IScopedService
+    {
+        public async Task<Result<Response>> HandleAsync(Request request, CancellationToken ct)
+        {
+            _ = TryParseEducationLevel(request.EducationLevel, out var educationLevel);
+            _ = TryNormalizeStartYear(request.Year, out var normalizedYear);
+
+            var studentsImportResult = await studentImportReader.ReadAsync(
+                request.StudentsFile,
+                request.GoogleDriveLink,
+                ct);
+
+            if (studentsImportResult.IsFailure)
+            {
+                return studentsImportResult.ErrorDetails;
+            }
+
+            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
+            if (secretaryResult.IsFailure)
+            {
+                return secretaryResult.ErrorDetails;
+            }
+
+            var secretary = secretaryResult.Value!;
+            var groupName = request.Name.Trim();
+            var groupExists = await context.Groups
+                .AnyAsync(
+                    group => group.SpecialtyId == secretary.SpecialtyId
+                             && group.Name == groupName
+                             && group.Year == normalizedYear
+                             && group.EducationLevel == educationLevel,
+                    ct);
+
+            if (groupExists)
+            {
+                return ErrorDetails.Conflict(
+                    "Group.AlreadyExists",
+                    "Group with the same name, year, and education level already exists.");
+            }
+
+            await using var transaction = await context.Database.BeginTransactionAsync(ct);
+
+            var group = new DomainGroup(groupName, normalizedYear, educationLevel, secretary.SpecialtyId);
+            var studentNames = studentsImportResult.Value!;
+            var studentsCount = studentNames.Count;
+
+            foreach (var fullName in studentNames)
+            {
+                group.Students.Add(StudentDraftFactory.Create(fullName));
+            }
+
+            await context.Groups.AddAsync(group, ct);
+            await context.SaveChangesAsync(ct);
+
+            await transaction.CommitAsync(ct);
+
+            return new Response(
+                group.Id,
+                group.Name,
+                FormatAcademicYear(group.Year),
+                group.EducationLevel.ToString(),
+                studentsCount);
+        }
+    }
+
+    [GeneratedRegex(@"^\d{4}$")]
+    private static partial Regex StartYearRegex();
+}
