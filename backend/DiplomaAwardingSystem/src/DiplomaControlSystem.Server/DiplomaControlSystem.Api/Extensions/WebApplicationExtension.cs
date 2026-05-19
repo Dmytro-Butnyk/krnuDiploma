@@ -12,6 +12,7 @@ public static class WebApplicationExtension
         CreateGroup.Endpoint.MapEndpoint(apiGroup);
         DeleteGroup.Endpoint.MapEndpoint(apiGroup);
         GetAcademicYearsOverview.Endpoint.MapEndpoint(apiGroup);
+        GetGroupStudents.Endpoint.MapEndpoint(apiGroup);
         UpdateGroup.Endpoint.MapEndpoint(apiGroup);
 
         AddStudent.Endpoint.MapEndpoint(apiGroup);

@@ -14,7 +14,11 @@ namespace DiplomaControlSystem.Api.Features.Students;
 
 public static class AddStudent
 {
-    public sealed record Request(string SecretaryEmail, string FullName);
+    public sealed record Request(
+        string SecretaryEmail,
+        string LastName,
+        string FirstName,
+        string MiddleName);
 
     public sealed record Response(int StudentId, string FullName, int GroupId);
 
@@ -27,9 +31,17 @@ public static class AddStudent
                 .EmailAddress()
                 .MaximumLength(320);
 
-            RuleFor(x => x.FullName)
+            RuleFor(x => x.LastName)
                 .NotEmpty()
-                .MaximumLength(256);
+                .MaximumLength(100);
+
+            RuleFor(x => x.FirstName)
+                .NotEmpty()
+                .MaximumLength(100);
+
+            RuleFor(x => x.MiddleName)
+                .NotEmpty()
+                .MaximumLength(100);
         }
     }
 
@@ -100,7 +112,7 @@ public static class AddStudent
                     "Group was not found or does not belong to secretary specialty.");
             }
 
-            var fullName = request.FullName.Trim();
+            var fullName = BuildFullName(request);
             var studentExists = await context.Students
                 .AnyAsync(
                     student => student.GroupId == groupId && student.FullName == fullName,
@@ -119,6 +131,15 @@ public static class AddStudent
             await context.SaveChangesAsync(ct);
 
             return new Response(student.Id, student.FullName, group.Id);
+        }
+
+        private static string BuildFullName(Request request)
+        {
+            return string.Join(
+                ' ',
+                request.LastName.Trim(),
+                request.FirstName.Trim(),
+                request.MiddleName.Trim());
         }
     }
 }
