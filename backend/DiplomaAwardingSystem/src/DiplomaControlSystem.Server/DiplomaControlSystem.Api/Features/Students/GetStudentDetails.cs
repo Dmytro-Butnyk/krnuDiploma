@@ -64,7 +64,7 @@ public static class GetStudentDetails
         bool IsRecommendedForImplementation,
         bool IsDefendedAtEnterprise);
 
-    public sealed record Response(
+    public sealed record GetStudentDetailsResponse(
         int Id,
         int GroupId,
         string FullName,
@@ -82,13 +82,13 @@ public static class GetStudentDetails
         {
             app.MapGet("/students/{studentId:int}/details", Handle)
                 .WithSummary("Gets full student diploma process details")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<GetStudentDetailsResponse>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Students");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult>> Handle(
+        private static async Task<Results<Ok<GetStudentDetailsResponse>, ProblemHttpResult>> Handle(
             [FromRoute] int studentId,
             [FromQuery] string secretaryEmail,
             [FromServices] Handler handler,
@@ -109,7 +109,7 @@ public static class GetStudentDetails
         DbDocGenContext context,
         StudentAccessService studentAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<GetStudentDetailsResponse>> HandleAsync(
             int studentId,
             string secretaryEmail,
             CancellationToken ct)
@@ -216,11 +216,11 @@ public static class GetStudentDetails
             return MapResponse(student);
         }
 
-        private static Response MapResponse(StudentDetailsProjection student)
+        private static GetStudentDetailsResponse MapResponse(StudentDetailsProjection student)
         {
             var name = StudentNameParser.Parse(student.FullName);
 
-            return new Response(
+            return new GetStudentDetailsResponse(
                 student.Id,
                 student.GroupId,
                 student.FullName,

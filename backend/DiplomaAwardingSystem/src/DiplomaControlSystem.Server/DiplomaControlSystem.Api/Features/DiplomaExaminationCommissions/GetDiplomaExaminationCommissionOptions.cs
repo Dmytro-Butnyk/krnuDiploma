@@ -15,7 +15,7 @@ namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 
 public static class GetDiplomaExaminationCommissionOptions
 {
-    public sealed class Request
+    public sealed class GetDiplomaExaminationCommissionOptionsRequest
     {
         public string SecretaryEmail { get; init; } = string.Empty;
         public string EducationLevel { get; init; } = string.Empty;
@@ -23,12 +23,12 @@ public static class GetDiplomaExaminationCommissionOptions
         public int? CommissionId { get; init; }
     }
 
-    public sealed record Response(
+    public sealed record GetDiplomaExaminationCommissionOptionsResponse(
         IReadOnlyCollection<GroupDto> Groups,
         IReadOnlyCollection<TeacherDto> Teachers,
         SecretaryDto Secretary);
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<GetDiplomaExaminationCommissionOptionsRequest>
     {
         public Validator()
         {
@@ -59,16 +59,16 @@ public static class GetDiplomaExaminationCommissionOptions
         {
             app.MapGet("/diploma-examination-commissions/options", Handle)
                 .WithSummary("Gets available groups and teachers for diploma examination commission form")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<GetDiplomaExaminationCommissionOptionsResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Diploma Examination Commissions");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult, ValidationProblem>> Handle(
-            [AsParameters] Request request,
-            [FromServices] IValidator<Request> validator,
+        private static async Task<Results<Ok<GetDiplomaExaminationCommissionOptionsResponse>, ProblemHttpResult, ValidationProblem>> Handle(
+            [AsParameters] GetDiplomaExaminationCommissionOptionsRequest request,
+            [FromServices] IValidator<GetDiplomaExaminationCommissionOptionsRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -94,7 +94,7 @@ public static class GetDiplomaExaminationCommissionOptions
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(Request request, CancellationToken ct)
+        public async Task<Result<GetDiplomaExaminationCommissionOptionsResponse>> HandleAsync(GetDiplomaExaminationCommissionOptionsRequest request, CancellationToken ct)
         {
             var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
             if (secretaryResult.IsFailure)
@@ -146,7 +146,7 @@ public static class GetDiplomaExaminationCommissionOptions
                     teacher.Position))
                 .ToListAsync(ct);
 
-            return new Response(
+            return new GetDiplomaExaminationCommissionOptionsResponse(
                 groups,
                 teachers,
                 new SecretaryDto(secretary.SecretaryId, secretary.FullName));

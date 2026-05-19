@@ -14,7 +14,7 @@ namespace DiplomaControlSystem.Api.Features.Groups;
 
 public static class GetAcademicYearsOverview
 {
-    public sealed class Request
+    public sealed class GetAcademicYearsOverviewRequest
     {
         public string SecretaryEmail { get; init; } = string.Empty;
         public string EducationLevel { get; init; } = string.Empty;
@@ -22,7 +22,7 @@ public static class GetAcademicYearsOverview
 
     public sealed record GroupDto(int Id, string Name);
 
-    public sealed record AcademicYearOverviewDto(
+    public sealed record GetAcademicYearsOverviewResponse(
         string Year,
         string DefenseYear,
         IReadOnlyCollection<GroupDto> Groups);
@@ -33,7 +33,7 @@ public static class GetAcademicYearsOverview
                && parsedEducationLevel != EducationLevel.None;
     }
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<GetAcademicYearsOverviewRequest>
     {
         public Validator()
         {
@@ -60,16 +60,16 @@ public static class GetAcademicYearsOverview
         {
             app.MapGet("/groups/academic-years", Handle)
                 .WithSummary("Gets academic years and groups available to a secretary")
-                .Produces<IReadOnlyCollection<AcademicYearOverviewDto>>(StatusCodes.Status200OK)
+                .Produces<IReadOnlyCollection<GetAcademicYearsOverviewResponse>>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Groups");
         }
 
-        private static async Task<Results<Ok<IReadOnlyCollection<AcademicYearOverviewDto>>, ProblemHttpResult, ValidationProblem>> Handle(
-            [AsParameters] Request request,
-            [FromServices] IValidator<Request> validator,
+        private static async Task<Results<Ok<IReadOnlyCollection<GetAcademicYearsOverviewResponse>>, ProblemHttpResult, ValidationProblem>> Handle(
+            [AsParameters] GetAcademicYearsOverviewRequest request,
+            [FromServices] IValidator<GetAcademicYearsOverviewRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -93,8 +93,8 @@ public static class GetAcademicYearsOverview
 
     private sealed class Handler(DbDocGenContext context) : IScopedService
     {
-        public async Task<Result<IReadOnlyCollection<AcademicYearOverviewDto>>> HandleAsync(
-            Request request,
+        public async Task<Result<IReadOnlyCollection<GetAcademicYearsOverviewResponse>>> HandleAsync(
+            GetAcademicYearsOverviewRequest request,
             CancellationToken ct)
         {
             var email = request.SecretaryEmail.Trim();
@@ -134,7 +134,7 @@ public static class GetAcademicYearsOverview
             return groups
                 .GroupBy(g => g.Year, StringComparer.Ordinal)
                 .OrderByDescending(g => GroupYearRules.GetDefenseYearSortKey(g.Key) ?? int.MinValue)
-                .Select(g => new AcademicYearOverviewDto(
+                .Select(g => new GetAcademicYearsOverviewResponse(
                     GroupYearRules.FormatAcademicYearFromDefenseYear(g.Key),
                     g.Key,
                     g.OrderBy(group => group.Name, StringComparer.Ordinal)

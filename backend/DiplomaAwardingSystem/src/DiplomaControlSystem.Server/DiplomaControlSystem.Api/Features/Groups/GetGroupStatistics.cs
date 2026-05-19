@@ -23,7 +23,7 @@ public static class GetGroupStatistics
         string Title,
         IReadOnlyCollection<StatisticItemDto> Items);
 
-    public sealed record Response(
+    public sealed record GetGroupStatisticsResponse(
         int GroupId,
         string GroupName,
         int TotalStudents,
@@ -35,13 +35,13 @@ public static class GetGroupStatistics
         {
             app.MapGet("/groups/{groupId:int}/statistics", Handle)
                 .WithSummary("Gets defence result statistics for a group")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<GetGroupStatisticsResponse>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Groups");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult>> Handle(
+        private static async Task<Results<Ok<GetGroupStatisticsResponse>, ProblemHttpResult>> Handle(
             [FromRoute] int groupId,
             [FromQuery] string secretaryEmail,
             [FromServices] Handler handler,
@@ -62,7 +62,7 @@ public static class GetGroupStatistics
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<GetGroupStatisticsResponse>> HandleAsync(
             int groupId,
             string secretaryEmail,
             CancellationToken ct)
@@ -147,7 +147,7 @@ public static class GetGroupStatistics
 
             var totalStudents = students.Count;
 
-            return new Response(
+            return new GetGroupStatisticsResponse(
                 group.Id,
                 group.Name,
                 totalStudents,

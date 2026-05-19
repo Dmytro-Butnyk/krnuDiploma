@@ -14,7 +14,7 @@ namespace DiplomaControlSystem.Api.Features.Students;
 
 public static class UpdatePhysicalChecklist
 {
-    public sealed record Request(
+    public sealed record UpdatePhysicalChecklistRequest(
         string SecretaryEmail,
         bool HasStudentCard,
         bool HasGradeBook,
@@ -23,7 +23,7 @@ public static class UpdatePhysicalChecklist
         bool HasCopyOfBankReceipt,
         bool HasExplanatoryNote);
 
-    public sealed record Response(
+    public sealed record UpdatePhysicalChecklistResponse(
         int StudentId,
         bool HasStudentCard,
         bool HasGradeBook,
@@ -32,7 +32,7 @@ public static class UpdatePhysicalChecklist
         bool HasCopyOfBankReceipt,
         bool HasExplanatoryNote);
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<UpdatePhysicalChecklistRequest>
     {
         public Validator()
         {
@@ -49,17 +49,17 @@ public static class UpdatePhysicalChecklist
         {
             app.MapPatch("/students/{studentId:int}/physical-checklist", Handle)
                 .WithSummary("Updates student physical components checklist")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<UpdatePhysicalChecklistResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Students");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult, ValidationProblem>> Handle(
+        private static async Task<Results<Ok<UpdatePhysicalChecklistResponse>, ProblemHttpResult, ValidationProblem>> Handle(
             [FromRoute] int studentId,
-            [FromBody] Request request,
-            [FromServices] IValidator<Request> validator,
+            [FromBody] UpdatePhysicalChecklistRequest request,
+            [FromServices] IValidator<UpdatePhysicalChecklistRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -85,9 +85,9 @@ public static class UpdatePhysicalChecklist
         DbDocGenContext context,
         StudentAccessService studentAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<UpdatePhysicalChecklistResponse>> HandleAsync(
             int studentId,
-            Request request,
+            UpdatePhysicalChecklistRequest request,
             CancellationToken ct)
         {
             var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
@@ -117,7 +117,7 @@ public static class UpdatePhysicalChecklist
 
             await context.SaveChangesAsync(ct);
 
-            return new Response(
+            return new UpdatePhysicalChecklistResponse(
                 student.Id,
                 checklist.HasStudentCard,
                 checklist.HasGradeBook,

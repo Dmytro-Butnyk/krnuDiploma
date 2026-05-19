@@ -13,7 +13,7 @@ public static class GetQualificationWorkOptions
 {
     public sealed record TeacherOptionDto(int Id, string FullName, string ShortName);
 
-    public sealed record Response(
+    public sealed record GetQualificationWorkOptionsResponse(
         IReadOnlyCollection<TeacherOptionDto> Supervisors,
         IReadOnlyCollection<TeacherOptionDto> Reviewers);
 
@@ -23,13 +23,13 @@ public static class GetQualificationWorkOptions
         {
             app.MapGet("/students/{studentId:int}/qualification-work-options", Handle)
                 .WithSummary("Gets supervisor and reviewer options for student qualification work")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<GetQualificationWorkOptionsResponse>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Students");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult>> Handle(
+        private static async Task<Results<Ok<GetQualificationWorkOptionsResponse>, ProblemHttpResult>> Handle(
             [FromRoute] int studentId,
             [FromQuery] string secretaryEmail,
             [FromServices] Handler handler,
@@ -50,7 +50,7 @@ public static class GetQualificationWorkOptions
         DbDocGenContext context,
         StudentAccessService studentAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<GetQualificationWorkOptionsResponse>> HandleAsync(
             int studentId,
             string secretaryEmail,
             CancellationToken ct)
@@ -76,7 +76,7 @@ public static class GetQualificationWorkOptions
                 .Select(t => new TeacherOptionDto(t.Id, t.FullName, t.ShortName))
                 .ToListAsync(ct);
 
-            return new Response(supervisors, reviewers);
+            return new GetQualificationWorkOptionsResponse(supervisors, reviewers);
         }
     }
 }

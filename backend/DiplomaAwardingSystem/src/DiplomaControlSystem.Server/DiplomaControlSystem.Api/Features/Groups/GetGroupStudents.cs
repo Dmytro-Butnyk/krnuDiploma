@@ -27,7 +27,7 @@ public static class GetGroupStudents
         bool HasReviewDoc,
         bool HasPresentationPpt);
 
-    public sealed record StudentListItemDto(
+    public sealed record GetGroupStudentsResponse(
         int Id,
         string FullName,
         string? SupervisorName,
@@ -40,13 +40,13 @@ public static class GetGroupStudents
         {
             app.MapGet("/groups/{groupId:int}/students", Handle)
                 .WithSummary("Gets students with checklist data for a group")
-                .Produces<IReadOnlyCollection<StudentListItemDto>>(StatusCodes.Status200OK)
+                .Produces<IReadOnlyCollection<GetGroupStudentsResponse>>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Groups");
         }
 
-        private static async Task<Results<Ok<IReadOnlyCollection<StudentListItemDto>>, ProblemHttpResult>> Handle(
+        private static async Task<Results<Ok<IReadOnlyCollection<GetGroupStudentsResponse>>, ProblemHttpResult>> Handle(
             [FromRoute] int groupId,
             [FromQuery] string secretaryEmail,
             [FromServices] Handler handler,
@@ -67,7 +67,7 @@ public static class GetGroupStudents
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
-        public async Task<Result<IReadOnlyCollection<StudentListItemDto>>> HandleAsync(
+        public async Task<Result<IReadOnlyCollection<GetGroupStudentsResponse>>> HandleAsync(
             int groupId,
             string secretaryEmail,
             CancellationToken ct)
@@ -127,7 +127,7 @@ public static class GetGroupStudents
                 })
                 .ToListAsync(ct);
 
-            var response = new List<StudentListItemDto>(students.Count);
+            var response = new List<GetGroupStudentsResponse>(students.Count);
 
             foreach (var student in students)
             {
@@ -155,7 +155,7 @@ public static class GetGroupStudents
                         student.ElectronicHasPresentationPpt);
                 }
 
-                response.Add(new StudentListItemDto(
+                response.Add(new GetGroupStudentsResponse(
                     student.Id,
                     student.FullName,
                     student.SupervisorName,

@@ -31,7 +31,7 @@ public static class DiplomaExaminationCommissionContracts
         string ShortName,
         string Position);
 
-    public sealed record CommissionDto(
+    public sealed record DiplomaExaminationCommissionResponse(
         int Id,
         int OrderNumber,
         string EducationLevel,
@@ -44,7 +44,7 @@ public static class DiplomaExaminationCommissionContracts
         SecretaryDto Secretary,
         IReadOnlyCollection<GroupDto> Groups);
 
-    public sealed class UpsertRequest
+    public abstract class DiplomaExaminationCommissionUpsertRequest
     {
         public string SecretaryEmail { get; init; } = string.Empty;
         public int OrderNumber { get; init; }
@@ -61,7 +61,8 @@ public static class DiplomaExaminationCommissionContracts
         public DateOnly EndDate { get; init; }
     }
 
-    internal sealed class UpsertValidator : AbstractValidator<UpsertRequest>
+    internal abstract class UpsertValidator<TRequest> : AbstractValidator<TRequest>
+        where TRequest : DiplomaExaminationCommissionUpsertRequest
     {
         public UpsertValidator()
         {

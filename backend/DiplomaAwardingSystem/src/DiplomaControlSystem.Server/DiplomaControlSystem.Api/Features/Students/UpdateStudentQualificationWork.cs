@@ -14,21 +14,21 @@ namespace DiplomaControlSystem.Api.Features.Students;
 
 public static class UpdateStudentQualificationWork
 {
-    public sealed record Request(
+    public sealed record UpdateStudentQualificationWorkRequest(
         string SecretaryEmail,
         string Topic,
         int? SupervisorId,
         string PracticeBase,
         int? ReviewerId);
 
-    public sealed record Response(
+    public sealed record UpdateStudentQualificationWorkResponse(
         int StudentId,
         string Topic,
         int? SupervisorId,
         string PracticeBase,
         int? ReviewerId);
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<UpdateStudentQualificationWorkRequest>
     {
         public Validator()
         {
@@ -57,17 +57,17 @@ public static class UpdateStudentQualificationWork
         {
             app.MapPatch("/students/{studentId:int}/qualification-work", Handle)
                 .WithSummary("Updates student qualification work base data")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<UpdateStudentQualificationWorkResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Students");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult, ValidationProblem>> Handle(
+        private static async Task<Results<Ok<UpdateStudentQualificationWorkResponse>, ProblemHttpResult, ValidationProblem>> Handle(
             [FromRoute] int studentId,
-            [FromBody] Request request,
-            [FromServices] IValidator<Request> validator,
+            [FromBody] UpdateStudentQualificationWorkRequest request,
+            [FromServices] IValidator<UpdateStudentQualificationWorkRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -93,9 +93,9 @@ public static class UpdateStudentQualificationWork
         DbDocGenContext context,
         StudentAccessService studentAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<UpdateStudentQualificationWorkResponse>> HandleAsync(
             int studentId,
-            Request request,
+            UpdateStudentQualificationWorkRequest request,
             CancellationToken ct)
         {
             var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
@@ -130,7 +130,7 @@ public static class UpdateStudentQualificationWork
 
             await context.SaveChangesAsync(ct);
 
-            return new Response(
+            return new UpdateStudentQualificationWorkResponse(
                 student.Id,
                 qualificationWork.Topic,
                 qualificationWork.TeacherId,
@@ -139,7 +139,7 @@ public static class UpdateStudentQualificationWork
         }
 
         private async Task<Result> ValidateTeachersAsync(
-            Request request,
+            UpdateStudentQualificationWorkRequest request,
             StudentAccessContext access,
             CancellationToken ct)
         {

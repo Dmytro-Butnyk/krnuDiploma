@@ -18,7 +18,7 @@ namespace DiplomaControlSystem.Api.Features.Groups;
 
 public static class CreateGroup
 {
-    public sealed class Request
+    public sealed class CreateGroupRequest
     {
         public string SecretaryEmail { get; init; } = string.Empty;
         public string Name { get; init; } = string.Empty;
@@ -30,7 +30,7 @@ public static class CreateGroup
         public string? GoogleDriveLink { get; init; }
     }
 
-    public sealed record Response(
+    public sealed record CreateGroupResponse(
         int GroupId,
         string Name,
         string Year,
@@ -44,7 +44,7 @@ public static class CreateGroup
                && parsedEducationLevel != EducationLevel.None;
     }
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<CreateGroupRequest>
     {
         public Validator()
         {
@@ -80,7 +80,7 @@ public static class CreateGroup
                 .WithMessage("Students file must be .xls, .xlsx, .xlsb, or .csv.");
         }
 
-        private static bool HaveExactlyOneStudentSource(Request request)
+        private static bool HaveExactlyOneStudentSource(CreateGroupRequest request)
         {
             var hasFile = request.StudentsFile is not null;
             var hasGoogleDriveLink = !string.IsNullOrWhiteSpace(request.GoogleDriveLink);
@@ -109,7 +109,7 @@ public static class CreateGroup
             app.MapPost("/groups", Handle)
                 .DisableAntiforgery()
                 .WithSummary("Creates a group with imported students and default diploma data")
-                .Produces<Response>(StatusCodes.Status201Created)
+                .Produces<CreateGroupResponse>(StatusCodes.Status201Created)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
@@ -117,9 +117,9 @@ public static class CreateGroup
                 .WithTags("Groups");
         }
 
-        private static async Task<Results<Created<Response>, ProblemHttpResult, ValidationProblem>> Handle(
-            [FromForm] Request request,
-            [FromServices] IValidator<Request> validator,
+        private static async Task<Results<Created<CreateGroupResponse>, ProblemHttpResult, ValidationProblem>> Handle(
+            [FromForm] CreateGroupRequest request,
+            [FromServices] IValidator<CreateGroupRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -146,7 +146,7 @@ public static class CreateGroup
         SecretaryAccessService secretaryAccessService,
         StudentImportReader studentImportReader) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(Request request, CancellationToken ct)
+        public async Task<Result<CreateGroupResponse>> HandleAsync(CreateGroupRequest request, CancellationToken ct)
         {
             _ = TryParseEducationLevel(request.EducationLevel, out var educationLevel);
             _ = GroupYearRules.TryNormalizeDefenseYear(request.Year, out var normalizedYear);
@@ -200,7 +200,7 @@ public static class CreateGroup
 
             await transaction.CommitAsync(ct);
 
-            return new Response(
+            return new CreateGroupResponse(
                 group.Id,
                 group.Name,
                 GroupYearRules.FormatAcademicYearFromDefenseYear(group.Year),

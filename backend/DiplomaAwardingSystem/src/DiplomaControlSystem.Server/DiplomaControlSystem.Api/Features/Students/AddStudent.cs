@@ -14,15 +14,15 @@ namespace DiplomaControlSystem.Api.Features.Students;
 
 public static class AddStudent
 {
-    public sealed record Request(
+    public sealed record AddStudentRequest(
         string SecretaryEmail,
         string LastName,
         string FirstName,
         string MiddleName);
 
-    public sealed record Response(int StudentId, string FullName, int GroupId);
+    public sealed record AddStudentResponse(int StudentId, string FullName, int GroupId);
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<AddStudentRequest>
     {
         public Validator()
         {
@@ -51,7 +51,7 @@ public static class AddStudent
         {
             app.MapPost("/groups/{groupId:int}/students", Handle)
                 .WithSummary("Adds a student to a group with default diploma data")
-                .Produces<Response>(StatusCodes.Status201Created)
+                .Produces<AddStudentResponse>(StatusCodes.Status201Created)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
@@ -59,10 +59,10 @@ public static class AddStudent
                 .WithTags("Students");
         }
 
-        private static async Task<Results<Created<Response>, ProblemHttpResult, ValidationProblem>> Handle(
+        private static async Task<Results<Created<AddStudentResponse>, ProblemHttpResult, ValidationProblem>> Handle(
             [FromRoute] int groupId,
-            [FromBody] Request request,
-            [FromServices] IValidator<Request> validator,
+            [FromBody] AddStudentRequest request,
+            [FromServices] IValidator<AddStudentRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -88,9 +88,9 @@ public static class AddStudent
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<AddStudentResponse>> HandleAsync(
             int groupId,
-            Request request,
+            AddStudentRequest request,
             CancellationToken ct)
         {
             var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
@@ -132,7 +132,7 @@ public static class AddStudent
 
             await context.SaveChangesAsync(ct);
 
-            return new Response(student.Id, student.FullName, group.Id);
+            return new AddStudentResponse(student.Id, student.FullName, group.Id);
         }
     }
 }

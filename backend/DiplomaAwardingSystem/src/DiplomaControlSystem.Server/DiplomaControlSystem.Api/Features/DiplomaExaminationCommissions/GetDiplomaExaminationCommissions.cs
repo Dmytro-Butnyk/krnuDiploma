@@ -15,14 +15,14 @@ namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 
 public static class GetDiplomaExaminationCommissions
 {
-    public sealed class Request
+    public sealed class GetDiplomaExaminationCommissionsRequest
     {
         public string SecretaryEmail { get; init; } = string.Empty;
         public string EducationLevel { get; init; } = string.Empty;
         public string DefenseYear { get; init; } = string.Empty;
     }
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<GetDiplomaExaminationCommissionsRequest>
     {
         public Validator()
         {
@@ -49,16 +49,16 @@ public static class GetDiplomaExaminationCommissions
         {
             app.MapGet("/diploma-examination-commissions", Handle)
                 .WithSummary("Gets diploma examination commissions by defense year and education level")
-                .Produces<IReadOnlyCollection<CommissionDto>>(StatusCodes.Status200OK)
+                .Produces<IReadOnlyCollection<DiplomaExaminationCommissionResponse>>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Diploma Examination Commissions");
         }
 
-        private static async Task<Results<Ok<IReadOnlyCollection<CommissionDto>>, ProblemHttpResult, ValidationProblem>> Handle(
-            [AsParameters] Request request,
-            [FromServices] IValidator<Request> validator,
+        private static async Task<Results<Ok<IReadOnlyCollection<DiplomaExaminationCommissionResponse>>, ProblemHttpResult, ValidationProblem>> Handle(
+            [AsParameters] GetDiplomaExaminationCommissionsRequest request,
+            [FromServices] IValidator<GetDiplomaExaminationCommissionsRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -84,8 +84,8 @@ public static class GetDiplomaExaminationCommissions
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
-        public async Task<Result<IReadOnlyCollection<CommissionDto>>> HandleAsync(
-            Request request,
+        public async Task<Result<IReadOnlyCollection<DiplomaExaminationCommissionResponse>>> HandleAsync(
+            GetDiplomaExaminationCommissionsRequest request,
             CancellationToken ct)
         {
             var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
@@ -118,11 +118,11 @@ public static class GetDiplomaExaminationCommissions
                 .ToList();
         }
 
-        private static CommissionDto Map(
+        private static DiplomaExaminationCommissionResponse Map(
             Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission dec,
             string defenseYear)
         {
-            return new CommissionDto(
+            return new DiplomaExaminationCommissionResponse(
                 dec.Id,
                 dec.OrderNumber,
                 dec.EducationLevel.ToString(),

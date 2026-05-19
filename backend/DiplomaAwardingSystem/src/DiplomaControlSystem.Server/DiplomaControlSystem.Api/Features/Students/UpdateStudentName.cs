@@ -14,15 +14,15 @@ namespace DiplomaControlSystem.Api.Features.Students;
 
 public static class UpdateStudentName
 {
-    public sealed record Request(
+    public sealed record UpdateStudentNameRequest(
         string SecretaryEmail,
         string LastName,
         string FirstName,
         string MiddleName);
 
-    public sealed record Response(int StudentId, string FullName);
+    public sealed record UpdateStudentNameResponse(int StudentId, string FullName);
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<UpdateStudentNameRequest>
     {
         public Validator()
         {
@@ -51,17 +51,17 @@ public static class UpdateStudentName
         {
             app.MapPatch("/students/{studentId:int}/name", Handle)
                 .WithSummary("Updates student full name")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<UpdateStudentNameResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Students");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult, ValidationProblem>> Handle(
+        private static async Task<Results<Ok<UpdateStudentNameResponse>, ProblemHttpResult, ValidationProblem>> Handle(
             [FromRoute] int studentId,
-            [FromBody] Request request,
-            [FromServices] IValidator<Request> validator,
+            [FromBody] UpdateStudentNameRequest request,
+            [FromServices] IValidator<UpdateStudentNameRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -87,9 +87,9 @@ public static class UpdateStudentName
         DbDocGenContext context,
         StudentAccessService studentAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<UpdateStudentNameResponse>> HandleAsync(
             int studentId,
-            Request request,
+            UpdateStudentNameRequest request,
             CancellationToken ct)
         {
             var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
@@ -111,7 +111,7 @@ public static class UpdateStudentName
 
             await context.SaveChangesAsync(ct);
 
-            return new Response(student.Id, student.FullName);
+            return new UpdateStudentNameResponse(student.Id, student.FullName);
         }
     }
 }

@@ -15,7 +15,7 @@ namespace DiplomaControlSystem.Api.Features.Students;
 
 public static class UpdateDefenceResults
 {
-    public sealed record Request(
+    public sealed record UpdateDefenceResultsRequest(
         string SecretaryEmail,
         float PlagiarismPercent,
         float UniquePercent,
@@ -26,7 +26,7 @@ public static class UpdateDefenceResults
         string NationalGrade,
         bool HasDiplomaWithHonors);
 
-    public sealed record Response(
+    public sealed record UpdateDefenceResultsResponse(
         int StudentId,
         float PlagiarismPercent,
         float UniquePercent,
@@ -37,7 +37,7 @@ public static class UpdateDefenceResults
         string NationalGrade,
         bool HasDiplomaWithHonors);
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<UpdateDefenceResultsRequest>
     {
         public Validator()
         {
@@ -89,17 +89,17 @@ public static class UpdateDefenceResults
         {
             app.MapPatch("/students/{studentId:int}/defence-results", Handle)
                 .WithSummary("Updates student defence result fields")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<UpdateDefenceResultsResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Students");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult, ValidationProblem>> Handle(
+        private static async Task<Results<Ok<UpdateDefenceResultsResponse>, ProblemHttpResult, ValidationProblem>> Handle(
             [FromRoute] int studentId,
-            [FromBody] Request request,
-            [FromServices] IValidator<Request> validator,
+            [FromBody] UpdateDefenceResultsRequest request,
+            [FromServices] IValidator<UpdateDefenceResultsRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -125,9 +125,9 @@ public static class UpdateDefenceResults
         DbDocGenContext context,
         StudentAccessService studentAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<UpdateDefenceResultsResponse>> HandleAsync(
             int studentId,
-            Request request,
+            UpdateDefenceResultsRequest request,
             CancellationToken ct)
         {
             var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
@@ -159,7 +159,7 @@ public static class UpdateDefenceResults
 
             await context.SaveChangesAsync(ct);
 
-            return new Response(
+            return new UpdateDefenceResultsResponse(
                 student.Id,
                 qualificationWork.PlagiarismPercent,
                 qualificationWork.UniquePercent,

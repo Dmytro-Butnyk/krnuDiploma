@@ -21,7 +21,7 @@ internal static class DiplomaExaminationCommissionUpsertSupport
 
     public static async Task<Result<ValidatedInput>> ValidateAsync(
         DbDocGenContext context,
-        UpsertRequest request,
+        DiplomaExaminationCommissionUpsertRequest request,
         SecretaryAccessContext secretary,
         int? commissionId,
         CancellationToken ct)
@@ -109,7 +109,7 @@ internal static class DiplomaExaminationCommissionUpsertSupport
             request.HeadPersonaPosition?.Trim());
     }
 
-    public static async Task<CommissionDto> GetDtoAsync(
+    public static async Task<DiplomaExaminationCommissionResponse> GetDtoAsync(
         DbDocGenContext context,
         int commissionId,
         string defenseYear,
@@ -128,11 +128,11 @@ internal static class DiplomaExaminationCommissionUpsertSupport
         return Map(commission, defenseYear);
     }
 
-    public static CommissionDto Map(
+    public static DiplomaExaminationCommissionResponse Map(
         Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission dec,
         string defenseYear)
     {
-        return new CommissionDto(
+        return new DiplomaExaminationCommissionResponse(
             dec.Id,
             dec.OrderNumber,
             dec.EducationLevel.ToString(),
@@ -157,7 +157,7 @@ internal static class DiplomaExaminationCommissionUpsertSupport
 
     private static async Task<Result> ValidateTeachersAsync(
         DbDocGenContext context,
-        UpsertRequest request,
+        DiplomaExaminationCommissionUpsertRequest request,
         int specialtyId,
         CancellationToken ct)
     {

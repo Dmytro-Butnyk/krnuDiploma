@@ -15,13 +15,13 @@ namespace DiplomaControlSystem.Api.Features.Groups;
 
 public static class UpdateGroup
 {
-    public sealed record Request(
+    public sealed record UpdateGroupRequest(
         string SecretaryEmail,
         string? Name,
         string? Year,
         string? EducationLevel);
 
-    public sealed record Response(
+    public sealed record UpdateGroupResponse(
         int Id,
         string Name,
         string Year,
@@ -36,7 +36,7 @@ public static class UpdateGroup
                    && parsedEducationLevel != EducationLevel.None);
     }
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<UpdateGroupRequest>
     {
         public Validator()
         {
@@ -70,7 +70,7 @@ public static class UpdateGroup
         {
             app.MapPatch("/groups/{groupId:int}", Handle)
                 .WithSummary("Updates group general information")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<UpdateGroupResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
@@ -78,10 +78,10 @@ public static class UpdateGroup
                 .WithTags("Groups");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult, ValidationProblem>> Handle(
+        private static async Task<Results<Ok<UpdateGroupResponse>, ProblemHttpResult, ValidationProblem>> Handle(
             [FromRoute] int groupId,
-            [FromBody] Request request,
-            [FromServices] IValidator<Request> validator,
+            [FromBody] UpdateGroupRequest request,
+            [FromServices] IValidator<UpdateGroupRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -107,9 +107,9 @@ public static class UpdateGroup
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<UpdateGroupResponse>> HandleAsync(
             int groupId,
-            Request request,
+            UpdateGroupRequest request,
             CancellationToken ct)
         {
             var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
@@ -169,7 +169,7 @@ public static class UpdateGroup
 
             await context.SaveChangesAsync(ct);
 
-            return new Response(
+            return new UpdateGroupResponse(
                 group.Id,
                 group.Name,
                 GroupYearRules.FormatAcademicYearFromDefenseYear(group.Year),

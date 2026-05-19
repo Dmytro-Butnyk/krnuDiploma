@@ -14,13 +14,17 @@ namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 
 public static class UpdateDiplomaExaminationCommission
 {
+    public sealed class UpdateDiplomaExaminationCommissionRequest : DiplomaExaminationCommissionUpsertRequest;
+
+    internal sealed class Validator : UpsertValidator<UpdateDiplomaExaminationCommissionRequest>;
+
     internal static class Endpoint
     {
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
             app.MapPut("/diploma-examination-commissions/{commissionId:int}", Handle)
                 .WithSummary("Updates a diploma examination commission")
-                .Produces<CommissionDto>(StatusCodes.Status200OK)
+                .Produces<DiplomaExaminationCommissionResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
@@ -28,10 +32,10 @@ public static class UpdateDiplomaExaminationCommission
                 .WithTags("Diploma Examination Commissions");
         }
 
-        private static async Task<Results<Ok<CommissionDto>, ProblemHttpResult, ValidationProblem>> Handle(
+        private static async Task<Results<Ok<DiplomaExaminationCommissionResponse>, ProblemHttpResult, ValidationProblem>> Handle(
             [FromRoute] int commissionId,
-            [FromBody] UpsertRequest request,
-            [FromServices] IValidator<UpsertRequest> validator,
+            [FromBody] UpdateDiplomaExaminationCommissionRequest request,
+            [FromServices] IValidator<UpdateDiplomaExaminationCommissionRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -57,9 +61,9 @@ public static class UpdateDiplomaExaminationCommission
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
-        public async Task<Result<CommissionDto>> HandleAsync(
+        public async Task<Result<DiplomaExaminationCommissionResponse>> HandleAsync(
             int commissionId,
-            UpsertRequest request,
+            UpdateDiplomaExaminationCommissionRequest request,
             CancellationToken ct)
         {
             var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);

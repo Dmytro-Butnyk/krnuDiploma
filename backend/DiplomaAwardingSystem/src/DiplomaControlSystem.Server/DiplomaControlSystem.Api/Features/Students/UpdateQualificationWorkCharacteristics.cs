@@ -14,7 +14,7 @@ namespace DiplomaControlSystem.Api.Features.Students;
 
 public static class UpdateQualificationWorkCharacteristics
 {
-    public sealed record Request(
+    public sealed record UpdateQualificationWorkCharacteristicsRequest(
         string SecretaryEmail,
         bool IsResearchBased,
         bool HasRealProjects,
@@ -28,7 +28,7 @@ public static class UpdateQualificationWorkCharacteristics
         bool IsRecommendedForImplementation,
         bool IsDefendedAtEnterprise);
 
-    public sealed record Response(
+    public sealed record UpdateQualificationWorkCharacteristicsResponse(
         int StudentId,
         bool IsResearchBased,
         bool HasRealProjects,
@@ -42,7 +42,7 @@ public static class UpdateQualificationWorkCharacteristics
         bool IsRecommendedForImplementation,
         bool IsDefendedAtEnterprise);
 
-    internal sealed class Validator : AbstractValidator<Request>
+    internal sealed class Validator : AbstractValidator<UpdateQualificationWorkCharacteristicsRequest>
     {
         public Validator()
         {
@@ -59,17 +59,17 @@ public static class UpdateQualificationWorkCharacteristics
         {
             app.MapPatch("/students/{studentId:int}/qualification-work-characteristics", Handle)
                 .WithSummary("Updates student qualification work characteristics")
-                .Produces<Response>(StatusCodes.Status200OK)
+                .Produces<UpdateQualificationWorkCharacteristicsResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Students");
         }
 
-        private static async Task<Results<Ok<Response>, ProblemHttpResult, ValidationProblem>> Handle(
+        private static async Task<Results<Ok<UpdateQualificationWorkCharacteristicsResponse>, ProblemHttpResult, ValidationProblem>> Handle(
             [FromRoute] int studentId,
-            [FromBody] Request request,
-            [FromServices] IValidator<Request> validator,
+            [FromBody] UpdateQualificationWorkCharacteristicsRequest request,
+            [FromServices] IValidator<UpdateQualificationWorkCharacteristicsRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -95,9 +95,9 @@ public static class UpdateQualificationWorkCharacteristics
         DbDocGenContext context,
         StudentAccessService studentAccessService) : IScopedService
     {
-        public async Task<Result<Response>> HandleAsync(
+        public async Task<Result<UpdateQualificationWorkCharacteristicsResponse>> HandleAsync(
             int studentId,
-            Request request,
+            UpdateQualificationWorkCharacteristicsRequest request,
             CancellationToken ct)
         {
             var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
@@ -134,7 +134,7 @@ public static class UpdateQualificationWorkCharacteristics
 
             await context.SaveChangesAsync(ct);
 
-            return new Response(
+            return new UpdateQualificationWorkCharacteristicsResponse(
                 student.Id,
                 characteristics.IsResearchBased,
                 characteristics.HasRealProjects,
