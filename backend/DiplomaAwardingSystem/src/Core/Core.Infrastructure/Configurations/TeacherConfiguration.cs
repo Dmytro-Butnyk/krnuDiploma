@@ -27,10 +27,5 @@ public sealed class TeacherConfiguration : IEntityTypeConfiguration<Teacher>
             .WithOne(qw => qw.Reviewer)
             .HasForeignKey(qw => qw.ReviewerId)
             .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasMany(t => t.DecMembers)
-            .WithOne(dm => dm.Teacher)
-            .HasForeignKey(dm => dm.TeacherId)
-            .OnDelete(DeleteBehavior.Restrict);
     }
 }

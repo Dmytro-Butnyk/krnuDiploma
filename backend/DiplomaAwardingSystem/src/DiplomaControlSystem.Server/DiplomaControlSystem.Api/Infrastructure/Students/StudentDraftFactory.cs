@@ -13,7 +13,6 @@ internal static class StudentDraftFactory
         student.PhysicalComponentsChecklist = PhysicalComponentsChecklist.CreateEmpty(studentId: 0);
 
         var qualificationWork = QualificationWork.CreateDraft(studentId: 0);
-        qualificationWork.Defence = Defence.CreateDraft(qualificationWorkId: 0);
         qualificationWork.QualificationWorkCharacteristics = QualificationWorkCharacteristics.CreateEmpty(qualificationWorkId: 0);
         student.QualificationWork = qualificationWork;
 

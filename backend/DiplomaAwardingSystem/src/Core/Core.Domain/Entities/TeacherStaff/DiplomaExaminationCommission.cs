@@ -1,31 +1,61 @@
 using Core.Domain.Entities.ArchiveGroup;
 using Core.Domain.Entities.StudyGroup;
+using Core.Domain.Enums;
 
 namespace Core.Domain.Entities.TeacherStaff;
 
 public sealed class DiplomaExaminationCommission : BaseEntity
 {
     public int OrderNumber { get; set; }
+    public EducationLevel EducationLevel { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
-    
-    // 1-к-1 связь
-    public int GroupId { get; set; }
-    public Group? Group { get; set; }
+
+    public int? HeadTeacherId { get; set; }
+    public Teacher? HeadTeacher { get; set; }
+    public string? HeadPersonaName { get; set; }
+    public string? HeadPersonaPosition { get; set; }
+
+    public int FirstMemberTeacherId { get; set; }
+    public Teacher? FirstMemberTeacher { get; set; }
+
+    public int SecondMemberTeacherId { get; set; }
+    public Teacher? SecondMemberTeacher { get; set; }
+
+    public int ThirdMemberTeacherId { get; set; }
+    public Teacher? ThirdMemberTeacher { get; set; }
+
+    public int SecretaryId { get; set; }
+    public Secretary? Secretary { get; set; }
 
     public Archive? Archive { get; set; }
-    public ICollection<Defence> Defences { get; init; } = new HashSet<Defence>();
-    
-    // Связь через таблицу-посредник (Many-to-Many)
-    public ICollection<DecToMember> DecToMembers { get; init; } = new HashSet<DecToMember>();
+    public ICollection<Group> Groups { get; init; } = new HashSet<Group>();
 
     private DiplomaExaminationCommission() { }
 
-    public DiplomaExaminationCommission(int orderNumber, DateOnly startDate, DateOnly endDate, int groupId)
+    public DiplomaExaminationCommission(
+        int orderNumber,
+        EducationLevel educationLevel,
+        DateOnly startDate,
+        DateOnly endDate,
+        int? headTeacherId,
+        string? headPersonaName,
+        string? headPersonaPosition,
+        int firstMemberTeacherId,
+        int secondMemberTeacherId,
+        int thirdMemberTeacherId,
+        int secretaryId)
     {
         OrderNumber = orderNumber;
+        EducationLevel = educationLevel;
         StartDate = startDate;
         EndDate = endDate;
-        GroupId = groupId;
+        HeadTeacherId = headTeacherId;
+        HeadPersonaName = headPersonaName;
+        HeadPersonaPosition = headPersonaPosition;
+        FirstMemberTeacherId = firstMemberTeacherId;
+        SecondMemberTeacherId = secondMemberTeacherId;
+        ThirdMemberTeacherId = thirdMemberTeacherId;
+        SecretaryId = secretaryId;
     }
 }

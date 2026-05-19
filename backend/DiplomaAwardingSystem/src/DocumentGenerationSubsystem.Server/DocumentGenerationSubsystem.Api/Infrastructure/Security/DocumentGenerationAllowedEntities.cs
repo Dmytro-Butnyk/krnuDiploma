@@ -10,7 +10,6 @@ public static class DocumentGenerationAllowedEntities
         {
             // Archive group
             { "Archive", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.Archives, inc) },
-            { "Defence", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.Defences, inc) },
             { "QualificationWork", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.QualificationWorks, inc) },
             
             // Study group
@@ -21,8 +20,6 @@ public static class DocumentGenerationAllowedEntities
             
             // Teacher staff
             { "AcademicDegree", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.AcademicDegrees, inc) },
-            { "DecMember", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.DecMembers, inc) },
-            { "DecToMember", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.DecToMembers, inc) },
             { "DiplomaExaminationCommission", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.DiplomaExaminationCommissions, inc) },
             { "Teacher", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.Teachers, inc) }
         };

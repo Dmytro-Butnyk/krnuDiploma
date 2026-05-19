@@ -1,9 +1,9 @@
-using System.Globalization;
 using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Infrastructure.Groups;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -24,6 +24,7 @@ public static class GetAcademicYearsOverview
 
     public sealed record AcademicYearOverviewDto(
         string Year,
+        string DefenseYear,
         IReadOnlyCollection<GroupDto> Groups);
 
     private static bool TryParseEducationLevel(string educationLevel, out EducationLevel parsedEducationLevel)
@@ -131,37 +132,15 @@ public static class GetAcademicYearsOverview
                 .ToListAsync(ct);
 
             return groups
-                .GroupBy(g => FormatAcademicYear(g.Year), StringComparer.Ordinal)
-                .OrderByDescending(g => GetStartYear(g.Key))
+                .GroupBy(g => g.Year, StringComparer.Ordinal)
+                .OrderByDescending(g => GroupYearRules.GetDefenseYearSortKey(g.Key) ?? int.MinValue)
                 .Select(g => new AcademicYearOverviewDto(
+                    GroupYearRules.FormatAcademicYearFromDefenseYear(g.Key),
                     g.Key,
                     g.OrderBy(group => group.Name, StringComparer.Ordinal)
                         .Select(group => new GroupDto(group.Id, group.Name))
                         .ToList()))
                 .ToList();
-        }
-
-        private static string FormatAcademicYear(string year)
-        {
-            var startYear = GetStartYear(year);
-            if (startYear is null)
-            {
-                return year;
-            }
-
-            return string.Create(
-                CultureInfo.InvariantCulture,
-                $"{startYear.Value}/{(startYear.Value + 1) % 100:00}");
-        }
-
-        private static int? GetStartYear(string year)
-        {
-            var firstPart = year.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-                .FirstOrDefault() ?? year;
-
-            return int.TryParse(firstPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out var startYear)
-                ? startYear
-                : null;
         }
 
         private sealed record GroupProjection(int Id, string Name, string Year);

@@ -1,11 +1,10 @@
-using System.Globalization;
-using System.Text.RegularExpressions;
 using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.Groups;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -14,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DiplomaControlSystem.Api.Features.Groups;
 
-public static partial class UpdateGroup
+public static class UpdateGroup
 {
     public sealed record Request(
         string SecretaryEmail,
@@ -26,6 +25,7 @@ public static partial class UpdateGroup
         int Id,
         string Name,
         string Year,
+        string DefenseYear,
         string EducationLevel);
 
     private static bool TryParseEducationLevel(string? educationLevel, out EducationLevel parsedEducationLevel)
@@ -34,36 +34,6 @@ public static partial class UpdateGroup
         return string.IsNullOrWhiteSpace(educationLevel)
                || (Enum.TryParse(educationLevel, ignoreCase: true, out parsedEducationLevel)
                    && parsedEducationLevel != EducationLevel.None);
-    }
-
-    private static bool TryNormalizeStartYear(string? year, out string? normalizedYear)
-    {
-        normalizedYear = null;
-        if (string.IsNullOrWhiteSpace(year))
-        {
-            return true;
-        }
-
-        var trimmedYear = year.Trim();
-        var separatorIndex = trimmedYear.IndexOf('/', StringComparison.Ordinal);
-        var firstPart = separatorIndex >= 0
-            ? trimmedYear[..separatorIndex].Trim()
-            : trimmedYear;
-
-        if (!StartYearRegex().IsMatch(firstPart))
-        {
-            return false;
-        }
-
-        normalizedYear = firstPart;
-        return true;
-    }
-
-    private static string FormatAcademicYear(string year)
-    {
-        return int.TryParse(year, NumberStyles.Integer, CultureInfo.InvariantCulture, out var startYear)
-            ? string.Create(CultureInfo.InvariantCulture, $"{startYear}/{(startYear + 1) % 100:00}")
-            : year;
     }
 
     internal sealed class Validator : AbstractValidator<Request>
@@ -80,8 +50,11 @@ public static partial class UpdateGroup
                 .When(x => x.Name is not null);
 
             RuleFor(x => x.Year)
-                .Must(year => TryNormalizeStartYear(year, out _))
-                .WithMessage("Year must be a start year like 2025 or academic year like 2025/26.")
+                .Cascade(CascadeMode.Stop)
+                .Must(year => GroupYearRules.TryNormalizeDefenseYear(year, out _))
+                .WithMessage("Year must be a 4-digit defense year like 2026.")
+                .Must(GroupYearRules.IsAllowedDefenseYear)
+                .WithMessage(_ => GroupYearRules.GetAllowedDefenseYearRangeMessage())
                 .When(x => x.Year is not null);
 
             RuleFor(x => x.EducationLevel)
@@ -162,7 +135,12 @@ public static partial class UpdateGroup
                     "Group does not belong to secretary specialty.");
             }
 
-            _ = TryNormalizeStartYear(request.Year, out var normalizedYear);
+            string? normalizedYear = null;
+            if (request.Year is not null)
+            {
+                _ = GroupYearRules.TryNormalizeDefenseYear(request.Year, out normalizedYear);
+            }
+
             _ = TryParseEducationLevel(request.EducationLevel, out var parsedEducationLevel);
 
             var nextName = string.IsNullOrWhiteSpace(request.Name) ? group.Name : request.Name.Trim();
@@ -194,11 +172,9 @@ public static partial class UpdateGroup
             return new Response(
                 group.Id,
                 group.Name,
-                FormatAcademicYear(group.Year),
+                GroupYearRules.FormatAcademicYearFromDefenseYear(group.Year),
+                group.Year,
                 group.EducationLevel.ToString());
         }
     }
-
-    [GeneratedRegex(@"^\d{4}$")]
-    private static partial Regex StartYearRegex();
 }

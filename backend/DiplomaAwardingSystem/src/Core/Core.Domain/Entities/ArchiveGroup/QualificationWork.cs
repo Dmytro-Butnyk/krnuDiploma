@@ -18,6 +18,7 @@ public sealed class QualificationWork : BaseEntity
     public NationalGrade NationalGrade { get; set; }
     public string PracticeBase { get; set; }
     public bool HasDiplomaWithHonors { get; set; }
+    public DateOnly? DefenceDate { get; set; }
 
     // 1-to-1 with Student
     public int StudentId { get; set; }
@@ -30,9 +31,6 @@ public sealed class QualificationWork : BaseEntity
     // N-to-1 with Teacher
     public int? ReviewerId { get; set; }
     public Teacher? Reviewer { get; set; }
-
-    // 1-to-1 with Defence
-    public Defence? Defence { get; set; }
 
     // 1-to-1 with QualificationWorkCharacteristics
     public QualificationWorkCharacteristics? QualificationWorkCharacteristics { get; set; }

@@ -16,12 +16,6 @@ public sealed class QualificationWorkConfiguration : IEntityTypeConfiguration<Qu
         builder.Property(qw => qw.EctsGrade).IsRequired().HasConversion<string>();
         builder.Property(qw => qw.NationalGrade).IsRequired().HasConversion<string>();
 
-        // 1-to-1: QualificationWork (Principal) <-> Defence (Dependent)
-        builder.HasOne(qw => qw.Defence)
-            .WithOne(d => d.QualificationWork)
-            .HasForeignKey<Defence>(d => d.QualificationWorkId)
-            .OnDelete(DeleteBehavior.Cascade);
-
         // 1-to-1: QualificationWork (Principal) <-> QualificationWorkCharacteristics (Dependent)
         builder.HasOne(qw => qw.QualificationWorkCharacteristics)
             .WithOne(qwc => qwc.QualificationWork)

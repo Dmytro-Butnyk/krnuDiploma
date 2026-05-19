@@ -3,17 +3,20 @@ using System;
 using Core.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace DocumentGenerationSubsystem.Infrastructure.Migrations
+namespace Core.Infrastructure.Migrations
 {
     [DbContext(typeof(DbDocGenContext))]
-    partial class DbDocGenContextModelSnapshot : ModelSnapshot
+    [Migration("20260519144823_MoveDefenceDateToQualificationWork")]
+    partial class MoveDefenceDateToQualificationWork
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

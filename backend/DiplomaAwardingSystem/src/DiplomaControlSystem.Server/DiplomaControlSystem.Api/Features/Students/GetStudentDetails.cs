@@ -173,10 +173,10 @@ public static class GetStudentDetails
                     HasDiplomaWithHonors = s.QualificationWork != null
                         ? (bool?)s.QualificationWork.HasDiplomaWithHonors
                         : null,
-                    DefenceDate = s.QualificationWork != null && s.QualificationWork.Defence != null
-                        ? s.QualificationWork.Defence.DefenceDate
+                    DefenceDate = s.QualificationWork != null
+                        ? s.QualificationWork.DefenceDate
                         : null,
-                    HasDefence = s.QualificationWork != null && s.QualificationWork.Defence != null,
+                    HasDefence = s.QualificationWork != null,
                     HasPhysicalChecklist = s.PhysicalComponentsChecklist != null,
                     PhysicalHasStudentCard = s.PhysicalComponentsChecklist != null && s.PhysicalComponentsChecklist.HasStudentCard,
                     PhysicalHasGradeBook = s.PhysicalComponentsChecklist != null && s.PhysicalComponentsChecklist.HasGradeBook,

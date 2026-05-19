@@ -17,17 +17,6 @@ internal static class StudentDiplomaDataInitializer
         return student.QualificationWork;
     }
 
-    public static Defence EnsureDefence(QualificationWork qualificationWork)
-    {
-        if (qualificationWork.Defence is not null)
-        {
-            return qualificationWork.Defence;
-        }
-
-        qualificationWork.Defence = Defence.CreateDraft(qualificationWork.Id);
-        return qualificationWork.Defence;
-    }
-
     public static QualificationWorkCharacteristics EnsureCharacteristics(QualificationWork qualificationWork)
     {
         if (qualificationWork.QualificationWorkCharacteristics is not null)

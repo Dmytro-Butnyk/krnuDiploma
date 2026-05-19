@@ -84,7 +84,6 @@ public static class UpdateStudentDefence
 
             var student = await context.Students
                 .Include(s => s.QualificationWork)
-                .ThenInclude(qw => qw!.Defence)
                 .FirstOrDefaultAsync(s => s.Id == studentId, ct);
 
             if (student is null)
@@ -95,12 +94,11 @@ public static class UpdateStudentDefence
             }
 
             var qualificationWork = StudentDiplomaDataInitializer.EnsureQualificationWork(student);
-            var defence = StudentDiplomaDataInitializer.EnsureDefence(qualificationWork);
-            defence.DefenceDate = request.DefenceDate;
+            qualificationWork.DefenceDate = request.DefenceDate;
 
             await context.SaveChangesAsync(ct);
 
-            return new Response(student.Id, defence.DefenceDate);
+            return new Response(student.Id, qualificationWork.DefenceDate);
         }
     }
 }

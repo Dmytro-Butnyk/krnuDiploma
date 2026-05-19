@@ -36,7 +36,6 @@ public sealed class DbDocGenContext(
 
     // Archive group
     public DbSet<Archive> Archives => Set<Archive>();
-    public DbSet<Defence> Defences => Set<Defence>();
     public DbSet<QualificationWork> QualificationWorks => Set<QualificationWork>();
 
     // Study group
@@ -53,8 +52,6 @@ public sealed class DbDocGenContext(
 
     // Teacher staff
     public DbSet<AcademicDegree> AcademicDegrees => Set<AcademicDegree>();
-    public DbSet<DecMember> DecMembers => Set<DecMember>();
-    public DbSet<DecToMember> DecToMembers => Set<DecToMember>();
     public DbSet<DiplomaExaminationCommission> DiplomaExaminationCommissions => Set<DiplomaExaminationCommission>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
 }

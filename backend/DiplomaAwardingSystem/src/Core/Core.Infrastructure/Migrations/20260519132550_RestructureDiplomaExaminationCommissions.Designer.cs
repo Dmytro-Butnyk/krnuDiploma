@@ -3,17 +3,20 @@ using System;
 using Core.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace DocumentGenerationSubsystem.Infrastructure.Migrations
+namespace Core.Infrastructure.Migrations
 {
     [DbContext(typeof(DbDocGenContext))]
-    partial class DbDocGenContextModelSnapshot : ModelSnapshot
+    [Migration("20260519132550_RestructureDiplomaExaminationCommissions")]
+    partial class RestructureDiplomaExaminationCommissions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -61,6 +64,41 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
                     b.ToTable("Archives", "diploma");
                 });
 
+            modelBuilder.Entity("Core.Domain.Entities.ArchiveGroup.Defence", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly?>("DefenceDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("DiplomaExaminationCommissionId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProtocolNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("QualificationWorkId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QueueNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DiplomaExaminationCommissionId");
+
+                    b.HasIndex("QualificationWorkId")
+                        .IsUnique();
+
+                    b.ToTable("Defences", "diploma");
+                });
+
             modelBuilder.Entity("Core.Domain.Entities.ArchiveGroup.QualificationWork", b =>
                 {
                     b.Property<int>("Id")
@@ -71,9 +109,6 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
 
                     b.Property<int>("CommissionScore")
                         .HasColumnType("integer");
-
-                    b.Property<DateOnly?>("DefenceDate")
-                        .HasColumnType("date");
 
                     b.Property<string>("EctsGrade")
                         .IsRequired()
@@ -544,6 +579,24 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
                     b.Navigation("DiplomaExaminationCommission");
                 });
 
+            modelBuilder.Entity("Core.Domain.Entities.ArchiveGroup.Defence", b =>
+                {
+                    b.HasOne("Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission", "DiplomaExaminationCommission")
+                        .WithMany("Defences")
+                        .HasForeignKey("DiplomaExaminationCommissionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Core.Domain.Entities.ArchiveGroup.QualificationWork", "QualificationWork")
+                        .WithOne("Defence")
+                        .HasForeignKey("Core.Domain.Entities.ArchiveGroup.Defence", "QualificationWorkId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DiplomaExaminationCommission");
+
+                    b.Navigation("QualificationWork");
+                });
+
             modelBuilder.Entity("Core.Domain.Entities.ArchiveGroup.QualificationWork", b =>
                 {
                     b.HasOne("Core.Domain.Entities.TeacherStaff.Teacher", "Reviewer")
@@ -716,6 +769,8 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
 
             modelBuilder.Entity("Core.Domain.Entities.ArchiveGroup.QualificationWork", b =>
                 {
+                    b.Navigation("Defence");
+
                     b.Navigation("QualificationWorkCharacteristics");
                 });
 
@@ -755,6 +810,8 @@ namespace DocumentGenerationSubsystem.Infrastructure.Migrations
             modelBuilder.Entity("Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission", b =>
                 {
                     b.Navigation("Archive");
+
+                    b.Navigation("Defences");
 
                     b.Navigation("Groups");
                 });

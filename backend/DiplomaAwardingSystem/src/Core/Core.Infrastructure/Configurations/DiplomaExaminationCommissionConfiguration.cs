@@ -11,21 +11,38 @@ public sealed class DiplomaExaminationCommissionConfiguration : IEntityTypeConfi
     {
         builder.HasKey(dec => dec.Id);
 
-        // 1-to-1: DEC (Principal) <-> Archive (Dependent)
+        builder.Property(dec => dec.EducationLevel).IsRequired().HasConversion<string>();
+        builder.Property(dec => dec.HeadPersonaName).HasMaxLength(256);
+        builder.Property(dec => dec.HeadPersonaPosition).HasMaxLength(256);
+
         builder.HasOne(dec => dec.Archive)
             .WithOne(a => a.DiplomaExaminationCommission)
             .HasForeignKey<Archive>(a => a.DiplomaExaminationCommissionId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(dec => dec.HeadTeacher)
+            .WithMany()
+            .HasForeignKey(dec => dec.HeadTeacherId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Many-to-Many via DecToMember
-        builder.HasMany(dec => dec.DecToMembers)
-            .WithOne(dtm => dtm.DiplomaExaminationCommission)
-            .HasForeignKey(dtm => dtm.DiplomaExaminationCommissionId)
+        builder.HasOne(dec => dec.FirstMemberTeacher)
+            .WithMany()
+            .HasForeignKey(dec => dec.FirstMemberTeacherId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasMany(dec => dec.Defences)
-            .WithOne(def => def.DiplomaExaminationCommission)
-            .HasForeignKey(def => def.DiplomaExaminationCommissionId)
+        builder.HasOne(dec => dec.SecondMemberTeacher)
+            .WithMany()
+            .HasForeignKey(dec => dec.SecondMemberTeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(dec => dec.ThirdMemberTeacher)
+            .WithMany()
+            .HasForeignKey(dec => dec.ThirdMemberTeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(dec => dec.Secretary)
+            .WithMany()
+            .HasForeignKey(dec => dec.SecretaryId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

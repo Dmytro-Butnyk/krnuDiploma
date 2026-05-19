@@ -20,10 +20,9 @@ public sealed class GroupConfiguration : IEntityTypeConfiguration<Group>
             .HasForeignKey(s => s.GroupId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // 1-to-1: Group (Principal) <-> DiplomaExaminationCommission (Dependent)
         builder.HasOne(g => g.DiplomaExaminationCommission)
-            .WithOne(dec => dec.Group)
-            .HasForeignKey<DiplomaExaminationCommission>(dec => dec.GroupId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .WithMany(dec => dec.Groups)
+            .HasForeignKey(g => g.DiplomaExaminationCommissionId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

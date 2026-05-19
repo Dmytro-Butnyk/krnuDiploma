@@ -1,3 +1,4 @@
+using DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Features.Groups;
 using DiplomaControlSystem.Api.Features.Students;
 
@@ -9,9 +10,16 @@ public static class WebApplicationExtension
     {
         var apiGroup = app.MapGroup("/api");
 
+        CreateDiplomaExaminationCommission.Endpoint.MapEndpoint(apiGroup);
+        DeleteDiplomaExaminationCommission.Endpoint.MapEndpoint(apiGroup);
+        GetDiplomaExaminationCommissionOptions.Endpoint.MapEndpoint(apiGroup);
+        GetDiplomaExaminationCommissions.Endpoint.MapEndpoint(apiGroup);
+        UpdateDiplomaExaminationCommission.Endpoint.MapEndpoint(apiGroup);
+
         CreateGroup.Endpoint.MapEndpoint(apiGroup);
         DeleteGroup.Endpoint.MapEndpoint(apiGroup);
         GetAcademicYearsOverview.Endpoint.MapEndpoint(apiGroup);
+        GetGroupStatistics.Endpoint.MapEndpoint(apiGroup);
         GetGroupStudents.Endpoint.MapEndpoint(apiGroup);
         UpdateGroup.Endpoint.MapEndpoint(apiGroup);
 

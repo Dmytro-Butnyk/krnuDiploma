@@ -73,10 +73,7 @@ public static class DeleteGroup
                     "Group does not belong to secretary specialty.");
             }
 
-            var hasCommission = await context.DiplomaExaminationCommissions
-                .AnyAsync(dec => dec.GroupId == group.Id, ct);
-
-            if (hasCommission)
+            if (group.DiplomaExaminationCommissionId is not null)
             {
                 return ErrorDetails.Conflict(
                     "Group.HasCommission",

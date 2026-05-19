@@ -1,11 +1,10 @@
-using System.Globalization;
-using System.Text.RegularExpressions;
 using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.Groups;
 using DiplomaControlSystem.Api.Infrastructure.Students;
 using DiplomaControlSystem.Api.Infrastructure.StudentImports;
 using FluentValidation;
@@ -17,7 +16,7 @@ using DomainGroup = Core.Domain.Entities.StudyGroup.Group;
 
 namespace DiplomaControlSystem.Api.Features.Groups;
 
-public static partial class CreateGroup
+public static class CreateGroup
 {
     public sealed class Request
     {
@@ -35,6 +34,7 @@ public static partial class CreateGroup
         int GroupId,
         string Name,
         string Year,
+        string DefenseYear,
         string EducationLevel,
         int StudentsCreated);
 
@@ -42,31 +42,6 @@ public static partial class CreateGroup
     {
         return Enum.TryParse(educationLevel, ignoreCase: true, out parsedEducationLevel)
                && parsedEducationLevel != EducationLevel.None;
-    }
-
-    private static bool TryNormalizeStartYear(string year, out string normalizedYear)
-    {
-        normalizedYear = string.Empty;
-        var trimmedYear = year.Trim();
-        var separatorIndex = trimmedYear.IndexOf('/', StringComparison.Ordinal);
-        var firstPart = separatorIndex >= 0
-            ? trimmedYear[..separatorIndex].Trim()
-            : trimmedYear;
-
-        if (!StartYearRegex().IsMatch(firstPart))
-        {
-            return false;
-        }
-
-        normalizedYear = firstPart;
-        return true;
-    }
-
-    private static string FormatAcademicYear(string year)
-    {
-        return int.TryParse(year, NumberStyles.Integer, CultureInfo.InvariantCulture, out var startYear)
-            ? string.Create(CultureInfo.InvariantCulture, $"{startYear}/{(startYear + 1) % 100:00}")
-            : year;
     }
 
     internal sealed class Validator : AbstractValidator<Request>
@@ -83,9 +58,12 @@ public static partial class CreateGroup
                 .MaximumLength(100);
 
             RuleFor(x => x.Year)
+                .Cascade(CascadeMode.Stop)
                 .NotEmpty()
-                .Must(year => TryNormalizeStartYear(year, out _))
-                .WithMessage("Year must be a start year like 2025 or academic year like 2025/26.");
+                .Must(year => GroupYearRules.TryNormalizeDefenseYear(year, out _))
+                .WithMessage("Year must be a 4-digit defense year like 2026.")
+                .Must(GroupYearRules.IsAllowedDefenseYear)
+                .WithMessage(_ => GroupYearRules.GetAllowedDefenseYearRangeMessage());
 
             RuleFor(x => x.EducationLevel)
                 .NotEmpty()
@@ -171,7 +149,7 @@ public static partial class CreateGroup
         public async Task<Result<Response>> HandleAsync(Request request, CancellationToken ct)
         {
             _ = TryParseEducationLevel(request.EducationLevel, out var educationLevel);
-            _ = TryNormalizeStartYear(request.Year, out var normalizedYear);
+            _ = GroupYearRules.TryNormalizeDefenseYear(request.Year, out var normalizedYear);
 
             var studentsImportResult = await studentImportReader.ReadAsync(
                 request.StudentsFile,
@@ -225,12 +203,10 @@ public static partial class CreateGroup
             return new Response(
                 group.Id,
                 group.Name,
-                FormatAcademicYear(group.Year),
+                GroupYearRules.FormatAcademicYearFromDefenseYear(group.Year),
+                group.Year,
                 group.EducationLevel.ToString(),
                 studentsCount);
         }
     }
-
-    [GeneratedRegex(@"^\d{4}$")]
-    private static partial Regex StartYearRegex();
 }
