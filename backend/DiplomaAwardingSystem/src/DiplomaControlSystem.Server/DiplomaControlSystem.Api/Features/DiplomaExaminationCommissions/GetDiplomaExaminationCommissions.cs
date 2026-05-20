@@ -2,14 +2,16 @@ using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Groups;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
+using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
 
 namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 
@@ -33,7 +35,7 @@ public static class GetDiplomaExaminationCommissions
 
             RuleFor(x => x.EducationLevel)
                 .NotEmpty()
-                .Must(level => Rules.TryParseEducationLevel(level, out _))
+                .Must(level => DiplomaExaminationCommissionRules.TryParseEducationLevel(level, out _))
                 .WithMessage("Education level must be Bachelor or Master.");
 
             RuleFor(x => x.DefenseYear)
@@ -95,7 +97,7 @@ public static class GetDiplomaExaminationCommissions
             }
 
             var secretary = secretaryResult.Value!;
-            _ = Rules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
+            _ = DiplomaExaminationCommissionRules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
             _ = GroupYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
 
             var commissions = await context.DiplomaExaminationCommissions
@@ -114,60 +116,8 @@ public static class GetDiplomaExaminationCommissions
                 .ToListAsync(ct);
 
             return commissions
-                .Select(dec => Map(dec, defenseYear))
+                .Select(dec => DiplomaExaminationCommissionUpsertSupport.Map(dec, defenseYear))
                 .ToList();
-        }
-
-        private static DiplomaExaminationCommissionResponse Map(
-            Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission dec,
-            string defenseYear)
-        {
-            return new DiplomaExaminationCommissionResponse(
-                dec.Id,
-                dec.OrderNumber,
-                dec.EducationLevel.ToString(),
-                GroupYearRules.FormatAcademicYearFromDefenseYear(defenseYear),
-                defenseYear,
-                dec.StartDate,
-                dec.EndDate,
-                MapHead(dec),
-                new[]
-                {
-                    MapMember(1, dec.FirstMemberTeacher!),
-                    MapMember(2, dec.SecondMemberTeacher!),
-                    MapMember(3, dec.ThirdMemberTeacher!)
-                },
-                new SecretaryDto(dec.Secretary!.Id, dec.Secretary.FullName),
-                dec.Groups
-                    .Where(group => group.Year == defenseYear)
-                    .OrderBy(group => group.Name, StringComparer.Ordinal)
-                    .Select(group => new GroupDto(group.Id, group.Name))
-                    .ToList());
-        }
-
-        private static PersonDto MapHead(Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission dec)
-        {
-            if (dec.HeadTeacher is not null)
-            {
-                return new PersonDto(
-                    dec.HeadTeacher.Id,
-                    dec.HeadTeacher.FullName,
-                    dec.HeadTeacher.ShortName,
-                    dec.HeadTeacher.Position,
-                    IsInvited: false);
-            }
-
-            return new PersonDto(
-                TeacherId: null,
-                dec.HeadPersonaName ?? string.Empty,
-                ShortName: null,
-                dec.HeadPersonaPosition,
-                IsInvited: true);
-        }
-
-        private static MemberDto MapMember(int order, Core.Domain.Entities.TeacherStaff.Teacher teacher)
-        {
-            return new MemberDto(order, teacher.Id, teacher.FullName, teacher.ShortName, teacher.Position);
         }
     }
 }

@@ -11,6 +11,7 @@ public sealed class DiplomaExaminationCommissionConfiguration : IEntityTypeConfi
     {
         builder.HasKey(dec => dec.Id);
 
+        builder.Property(dec => dec.OrderNumber).IsRequired().HasMaxLength(64);
         builder.Property(dec => dec.EducationLevel).IsRequired().HasConversion<string>();
         builder.Property(dec => dec.HeadPersonaName).HasMaxLength(256);
         builder.Property(dec => dec.HeadPersonaPosition).HasMaxLength(256);

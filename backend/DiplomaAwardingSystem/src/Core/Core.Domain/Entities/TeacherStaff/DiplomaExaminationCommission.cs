@@ -6,7 +6,7 @@ namespace Core.Domain.Entities.TeacherStaff;
 
 public sealed class DiplomaExaminationCommission : BaseEntity
 {
-    public int OrderNumber { get; set; }
+    public string OrderNumber { get; set; }
     public EducationLevel EducationLevel { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
@@ -31,10 +31,13 @@ public sealed class DiplomaExaminationCommission : BaseEntity
     public Archive? Archive { get; set; }
     public ICollection<Group> Groups { get; init; } = new HashSet<Group>();
 
-    private DiplomaExaminationCommission() { }
+    private DiplomaExaminationCommission()
+    {
+        OrderNumber = string.Empty;
+    }
 
     public DiplomaExaminationCommission(
-        int orderNumber,
+        string orderNumber,
         EducationLevel educationLevel,
         DateOnly startDate,
         DateOnly endDate,

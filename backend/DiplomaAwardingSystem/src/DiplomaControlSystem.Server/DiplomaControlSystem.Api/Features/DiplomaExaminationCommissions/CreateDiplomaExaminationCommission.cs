@@ -2,13 +2,15 @@ using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
+using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
 using DomainCommission = Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission;
 
 namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
@@ -17,7 +19,7 @@ public static class CreateDiplomaExaminationCommission
 {
     public sealed class CreateDiplomaExaminationCommissionRequest : DiplomaExaminationCommissionUpsertRequest;
 
-    internal sealed class Validator : UpsertValidator<CreateDiplomaExaminationCommissionRequest>;
+    internal sealed class Validator : DiplomaExaminationCommissionUpsertValidator<CreateDiplomaExaminationCommissionRequest>;
 
     internal static class Endpoint
     {
@@ -90,7 +92,7 @@ public static class CreateDiplomaExaminationCommission
             await using var transaction = await context.Database.BeginTransactionAsync(ct);
 
             var commission = new DomainCommission(
-                request.OrderNumber,
+                validated.OrderNumber,
                 validated.EducationLevel,
                 request.StartDate,
                 request.EndDate,
@@ -100,7 +102,7 @@ public static class CreateDiplomaExaminationCommission
                 request.FirstMemberTeacherId,
                 request.SecondMemberTeacherId,
                 request.ThirdMemberTeacherId,
-                secretary.SecretaryId);
+                validated.SecretaryId);
 
             foreach (var group in validated.Groups)
             {

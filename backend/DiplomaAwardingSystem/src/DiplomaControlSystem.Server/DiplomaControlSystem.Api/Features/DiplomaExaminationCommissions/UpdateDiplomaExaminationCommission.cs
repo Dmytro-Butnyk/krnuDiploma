@@ -2,13 +2,15 @@ using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
+using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
 
 namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 
@@ -16,7 +18,7 @@ public static class UpdateDiplomaExaminationCommission
 {
     public sealed class UpdateDiplomaExaminationCommissionRequest : DiplomaExaminationCommissionUpsertRequest;
 
-    internal sealed class Validator : UpsertValidator<UpdateDiplomaExaminationCommissionRequest>;
+    internal sealed class Validator : DiplomaExaminationCommissionUpsertValidator<UpdateDiplomaExaminationCommissionRequest>;
 
     internal static class Endpoint
     {
@@ -119,7 +121,7 @@ public static class UpdateDiplomaExaminationCommission
                 group.DiplomaExaminationCommissionId = commission.Id;
             }
 
-            commission.OrderNumber = request.OrderNumber;
+            commission.OrderNumber = validated.OrderNumber;
             commission.EducationLevel = validated.EducationLevel;
             commission.StartDate = request.StartDate;
             commission.EndDate = request.EndDate;
@@ -129,7 +131,7 @@ public static class UpdateDiplomaExaminationCommission
             commission.FirstMemberTeacherId = request.FirstMemberTeacherId;
             commission.SecondMemberTeacherId = request.SecondMemberTeacherId;
             commission.ThirdMemberTeacherId = request.ThirdMemberTeacherId;
-            commission.SecretaryId = secretary.SecretaryId;
+            commission.SecretaryId = validated.SecretaryId;
 
             await context.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);

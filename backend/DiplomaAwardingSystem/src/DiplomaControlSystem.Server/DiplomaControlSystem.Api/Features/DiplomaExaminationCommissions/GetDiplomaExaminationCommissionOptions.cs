@@ -2,14 +2,16 @@ using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Groups;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
+using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
 
 namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 
@@ -26,7 +28,7 @@ public static class GetDiplomaExaminationCommissionOptions
     public sealed record GetDiplomaExaminationCommissionOptionsResponse(
         IReadOnlyCollection<GroupDto> Groups,
         IReadOnlyCollection<TeacherDto> Teachers,
-        SecretaryDto Secretary);
+        IReadOnlyCollection<SecretaryDto> Secretaries);
 
     internal sealed class Validator : AbstractValidator<GetDiplomaExaminationCommissionOptionsRequest>
     {
@@ -39,7 +41,7 @@ public static class GetDiplomaExaminationCommissionOptions
 
             RuleFor(x => x.EducationLevel)
                 .NotEmpty()
-                .Must(level => Rules.TryParseEducationLevel(level, out _))
+                .Must(level => DiplomaExaminationCommissionRules.TryParseEducationLevel(level, out _))
                 .WithMessage("Education level must be Bachelor or Master.");
 
             RuleFor(x => x.DefenseYear)
@@ -103,7 +105,7 @@ public static class GetDiplomaExaminationCommissionOptions
             }
 
             var secretary = secretaryResult.Value!;
-            _ = Rules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
+            _ = DiplomaExaminationCommissionRules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
             _ = GroupYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
 
             if (request.CommissionId is not null)
@@ -138,18 +140,25 @@ public static class GetDiplomaExaminationCommissionOptions
             var teachers = await context.Teachers
                 .AsNoTracking()
                 .Where(teacher => teacher.SpecialtyId == secretary.SpecialtyId)
-                .OrderBy(teacher => teacher.ShortName)
+                .OrderBy(teacher => teacher.FullName)
                 .Select(teacher => new TeacherDto(
                     teacher.Id,
                     teacher.FullName,
-                    teacher.ShortName,
                     teacher.Position))
+                .ToListAsync(ct);
+
+            var secretaries = await context.Secretaries
+                .AsNoTracking()
+                .Where(candidate => candidate.SpecialtyId == secretary.SpecialtyId)
+                .Where(candidate => candidate.IsActive)
+                .OrderBy(candidate => candidate.FullName)
+                .Select(candidate => new SecretaryDto(candidate.Id, candidate.FullName))
                 .ToListAsync(ct);
 
             return new GetDiplomaExaminationCommissionOptionsResponse(
                 groups,
                 teachers,
-                new SecretaryDto(secretary.SecretaryId, secretary.FullName));
+                secretaries);
         }
     }
 }

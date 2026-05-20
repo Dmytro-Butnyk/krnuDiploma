@@ -2,19 +2,22 @@ using Core.Domain.Entities.StudyGroup;
 using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.Groups;
 using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
+using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
 
-namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
+namespace DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
 
 internal static class DiplomaExaminationCommissionUpsertSupport
 {
     internal sealed record ValidatedInput(
         EducationLevel EducationLevel,
         string DefenseYear,
+        string OrderNumber,
         IReadOnlyCollection<Group> Groups,
+        int SecretaryId,
         int? HeadTeacherId,
         string? HeadPersonaName,
         string? HeadPersonaPosition);
@@ -26,8 +29,20 @@ internal static class DiplomaExaminationCommissionUpsertSupport
         int? commissionId,
         CancellationToken ct)
     {
-        _ = Rules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
+        _ = DiplomaExaminationCommissionRules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
         _ = GroupYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
+        var orderNumber = request.OrderNumber.Trim();
+
+        var assignedSecretaryResult = await ValidateAssignedSecretaryAsync(
+            context,
+            request.SecretaryId,
+            secretary.SpecialtyId,
+            ct);
+
+        if (assignedSecretaryResult.IsFailure)
+        {
+            return assignedSecretaryResult.ErrorDetails;
+        }
 
         var groupIds = request.GroupIds.Distinct().ToList();
         if (groupIds.Count != request.GroupIds.Count)
@@ -87,7 +102,7 @@ internal static class DiplomaExaminationCommissionUpsertSupport
             .AsNoTracking()
             .AnyAsync(
                 dec => dec.Id != commissionId
-                       && dec.OrderNumber == request.OrderNumber
+                       && dec.OrderNumber == orderNumber
                        && dec.Groups.Any(group =>
                            group.SpecialtyId == secretary.SpecialtyId
                            && group.Year == defenseYear),
@@ -103,7 +118,9 @@ internal static class DiplomaExaminationCommissionUpsertSupport
         return new ValidatedInput(
             educationLevel,
             defenseYear,
+            orderNumber,
             groups,
+            request.SecretaryId,
             request.HeadTeacherId,
             request.HeadPersonaName?.Trim(),
             request.HeadPersonaPosition?.Trim());
@@ -143,9 +160,9 @@ internal static class DiplomaExaminationCommissionUpsertSupport
             MapHead(dec),
             new[]
             {
-                MapMember(1, dec.FirstMemberTeacher!),
-                MapMember(2, dec.SecondMemberTeacher!),
-                MapMember(3, dec.ThirdMemberTeacher!)
+                MapMember(dec.FirstMemberTeacher!),
+                MapMember(dec.SecondMemberTeacher!),
+                MapMember(dec.ThirdMemberTeacher!)
             },
             new SecretaryDto(dec.Secretary!.Id, dec.Secretary.FullName),
             dec.Groups
@@ -196,28 +213,67 @@ internal static class DiplomaExaminationCommissionUpsertSupport
         return Result.Success();
     }
 
-    private static PersonDto MapHead(Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission dec)
+    private static async Task<Result> ValidateAssignedSecretaryAsync(
+        DbDocGenContext context,
+        int secretaryId,
+        int specialtyId,
+        CancellationToken ct)
+    {
+        var assignedSecretary = await context.Secretaries
+            .AsNoTracking()
+            .Where(secretary => secretary.Id == secretaryId)
+            .Select(secretary => new
+            {
+                secretary.SpecialtyId,
+                secretary.IsActive
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (assignedSecretary is null)
+        {
+            return ErrorDetails.NotFound(
+                "Secretary.NotFound",
+                "Selected secretary was not found.");
+        }
+
+        if (!assignedSecretary.IsActive)
+        {
+            return ErrorDetails.Forbidden(
+                "Secretary.Inactive",
+                "Selected secretary is inactive.");
+        }
+
+        if (assignedSecretary.SpecialtyId != specialtyId)
+        {
+            return ErrorDetails.Forbidden(
+                "Secretary.Forbidden",
+                "Selected secretary does not belong to secretary specialty.");
+        }
+
+        return Result.Success();
+    }
+
+    private static HeadDto MapHead(Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission dec)
     {
         if (dec.HeadTeacher is not null)
         {
-            return new PersonDto(
-                dec.HeadTeacher.Id,
-                dec.HeadTeacher.FullName,
-                dec.HeadTeacher.ShortName,
-                dec.HeadTeacher.Position,
-                IsInvited: false);
+            return new HeadDto(
+                new TeacherDto(
+                    dec.HeadTeacher.Id,
+                    dec.HeadTeacher.FullName,
+                    dec.HeadTeacher.Position),
+                Person: null);
         }
 
-        return new PersonDto(
-            TeacherId: null,
-            dec.HeadPersonaName ?? string.Empty,
-            ShortName: null,
-            dec.HeadPersonaPosition,
-            IsInvited: true);
+        return new HeadDto(
+            Teacher: null,
+            new PersonDto(
+                dec.HeadPersonaName ?? string.Empty,
+                dec.HeadPersonaPosition));
     }
 
-    private static MemberDto MapMember(int order, Core.Domain.Entities.TeacherStaff.Teacher teacher)
+    private static MemberDto MapMember(Core.Domain.Entities.TeacherStaff.Teacher teacher)
     {
-        return new MemberDto(order, teacher.Id, teacher.FullName, teacher.ShortName, teacher.Position);
+        return new MemberDto(teacher.Id, teacher.FullName, teacher.Position);
     }
 }
