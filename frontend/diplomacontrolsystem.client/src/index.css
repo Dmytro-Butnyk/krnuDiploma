@@ -1,10 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Plaster&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-blue-50: #edf1ff;
+  --color-blue-100: #dce4ff;
+  --color-blue-200: #ced5f9;
+  --color-blue-300: #8fa3f5;
+  --color-blue-500: #4d68f0;
+  --color-blue-600: #3b58e8;
+  --color-blue-700: #3149d2;
+  --color-slate-50: #f8fbff;
+  --color-slate-100: #eef3fa;
+  --color-slate-200: #d9e1ec;
+  --color-slate-300: #c5cedb;
+  --color-slate-400: #97a6ba;
+  --color-slate-500: #64748b;
+  --color-slate-600: #3a4758;
+  --color-red-50: #fff3f3;
+  --color-red-100: #ffe0e0;
+  --color-red-200: #ffc6c6;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc3434;
+  --color-green-50: #f0fff0;
+  --color-green-100: #d9ffd7;
+  --color-green-500: #31c922;
+  --color-green-600: #25ad1a;
+  --color-orange-50: #fff4ed;
+  --color-orange-500: #ff5a00;
+  --color-orange-600: #e64f00;
+  --shadow-sm: 0 2px 8px rgba(58, 71, 88, 0.14);
+  --shadow-lg: 0 8px 28px rgba(58, 71, 88, 0.18);
+  --shadow-xl: 0 18px 45px rgba(58, 71, 88, 0.20);
+  --shadow-2xl: 0 24px 70px rgba(58, 71, 88, 0.22);
+}
+
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans), serif;
   font-size: 14px;
-  color: #334155;
-  background: #e8f3ff;
+  color: #3a4758;
+  background: #eaf4ff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -19,6 +54,10 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(206, 213, 249, 0.72), transparent 28%),
+    radial-gradient(circle at 76% 18%, rgba(241, 235, 255, 0.86), transparent 30%),
+    linear-gradient(135deg, #eef3ff 0%, #edf1ff 45%, #e6f5ff 100%);
 }
 
 button,
@@ -32,6 +71,104 @@ button {
   cursor: pointer;
 }
 
+button:disabled,
+a[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+  border-color: #c5cedb;
+  color: #3a4758;
+  background-color: rgba(248, 251, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+input:not([type='checkbox']):not([type='radio']):focus,
+select:focus,
+textarea:focus {
+  border-color: #3b58e8;
+  box-shadow: 0 0 0 3px rgba(59, 88, 232, 0.12);
+}
+
+input:not([type='checkbox']):not([type='radio']):disabled,
+select:disabled,
+textarea:disabled {
+  color: #64748b;
+  background-color: rgba(248, 251, 255, 0.42);
+  opacity: 0.78;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #aab5c5;
+}
+
+input[type='checkbox'] {
+  appearance: none;
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  place-content: center;
+  border: 1px solid #64748b;
+  border-radius: 3px;
+  background-color: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+input[type='checkbox']:checked {
+  border-color: #64748b;
+  background-color: rgba(255, 255, 255, 0.8);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.5 8.4 6.7 11.4 12.8 4.6' stroke='%23ff5a00' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 16px 16px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+input[type='checkbox']:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.18);
+}
+
+input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
 #root {
   min-height: 100vh;
+}
+
+::selection {
+  background: rgba(59, 88, 232, 0.18);
+  color: #3a4758;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(238, 243, 250, 0.7);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.48);
+  border-radius: 999px;
+  border: 2px solid rgba(238, 243, 250, 0.9);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.68);
 }

@@ -22,17 +22,17 @@ export function AppShell() {
   }
 
   return (
-    <div className="min-h-screen bg-[#eaf4ff] text-slate-600">
+    <div className="min-h-screen bg-transparent text-slate-600">
       <header className="mx-auto flex w-full max-w-[1280px] items-center justify-between px-9 py-9">
         <NavLink
           to="/groups"
           aria-label="На головну"
-          className="grid size-14 place-items-center rounded-[13px] bg-blue-600 text-4xl font-black leading-none text-white shadow-sm"
+          className="grid size-14 place-items-center rounded-[13px] bg-blue-600 font-['Plaster'] text-[42px] font-normal leading-none text-white shadow-sm"
         >
           K
         </NavLink>
 
-        <nav className="flex h-20 overflow-hidden rounded-full border border-slate-300/35 bg-white/45 p-2 shadow-[0_3px_12px_rgba(71,85,105,0.28)] backdrop-blur">
+        <nav className="flex h-20 overflow-hidden rounded-full border border-slate-300/55 bg-slate-50/70 p-2 shadow-[0_3px_13px_rgba(58,71,88,0.24)] backdrop-blur">
           {navItems.map((item, index) => (
             <NavLink
               key={item.to}
@@ -43,7 +43,7 @@ export function AppShell() {
                   index > 0 ? 'border-l border-slate-300/45' : '',
                   isActive
                     ? 'rounded-full border-l-0 bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-500 [text-shadow:0_1px_0_rgba(255,255,255,0.8)] hover:bg-white/55',
+                    : 'text-slate-500 [text-shadow:0_1px_0_rgba(255,255,255,0.95)] hover:bg-white/60',
                 ].join(' ')
               }
             >

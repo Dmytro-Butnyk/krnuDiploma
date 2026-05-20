@@ -305,14 +305,14 @@ function CommissionDetails({
           <button
             type="button"
             onClick={onEdit}
-            className="h-11 rounded-full border border-blue-600 px-8 font-bold text-blue-600 transition hover:bg-blue-50"
+            className="h-11 rounded-full border-2 border-blue-600 px-8 font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
           >
             Змінити
           </button>
           <button
             type="button"
             onClick={onDelete}
-            className="h-11 rounded-full border border-red-500 px-8 font-bold text-red-500 transition hover:bg-red-50"
+            className="h-11 rounded-full border-2 border-red-500 px-8 font-bold text-red-500 transition hover:bg-red-500 hover:text-white"
           >
             Видалити
           </button>
@@ -615,7 +615,7 @@ function CommissionFormDialog({
               <button
                 type="button"
                 onClick={addGroup}
-                className="ml-[170px] h-11 rounded-full border-2 border-blue-600 px-10 text-lg font-bold text-blue-600 transition hover:bg-blue-50"
+                className="ml-[170px] h-11 rounded-full border-2 border-blue-600 px-10 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
                 disabled={options.groups.length === 0 || form.groupIds.length >= options.groups.length}
               >
                 + Додати групу
@@ -772,7 +772,7 @@ function CommissionFormDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="h-12 rounded-full border border-blue-600 px-8 text-lg font-bold text-blue-600"
+                className="h-12 rounded-full border-2 border-blue-600 px-8 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
               >
                 Скасувати
               </button>
@@ -780,7 +780,7 @@ function CommissionFormDialog({
                 type="button"
                 onClick={submit}
                 disabled={mutation.isPending}
-                className="h-12 rounded-full border border-green-500 px-8 text-lg font-bold text-green-600 disabled:opacity-50"
+                className="h-12 rounded-full border-2 border-green-500 px-8 text-lg font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-green-600"
               >
                 {mode === 'create' ? 'Створити' : 'Зберегти'}
               </button>

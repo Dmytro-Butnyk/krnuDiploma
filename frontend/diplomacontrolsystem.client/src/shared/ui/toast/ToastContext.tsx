@@ -60,7 +60,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
           <div
             key={toast.id}
             className={[
-              'pointer-events-auto ml-auto flex min-h-20 w-fit max-w-[min(760px,calc(100vw-24px))] items-center justify-between gap-8 rounded-l-full border-2 px-8 py-5 text-2xl font-bold shadow-lg',
+              'pointer-events-auto ml-auto flex min-h-20 w-fit max-w-[min(760px,calc(100vw-24px))] items-center justify-between gap-8 rounded-l-full border-2 px-8 py-5 text-2xl font-bold shadow-lg backdrop-blur',
               toast.type === 'success'
                 ? 'border-green-500 bg-green-50/95 text-green-600'
                 : 'border-red-500 bg-red-50/95 text-red-500',

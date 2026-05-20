@@ -361,21 +361,21 @@ function GroupOverview({
           <button
             type="button"
             onClick={onDeleteGroup}
-            className="h-11 rounded-full border border-red-500 px-8 font-bold text-red-500 transition hover:bg-red-50"
+            className="h-11 rounded-full border-2 border-red-500 px-8 font-bold text-red-500 transition hover:bg-red-500 hover:text-white"
           >
             Видалити
           </button>
           <button
             type="button"
             onClick={onEditGroup}
-            className="h-11 rounded-full border border-blue-600 px-8 font-bold text-blue-600 transition hover:bg-blue-50"
+            className="h-11 rounded-full border-2 border-blue-600 px-8 font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
           >
             Змінити
           </button>
           <button
             type="button"
             onClick={onAddStudent}
-            className="h-11 rounded-full border border-green-500 px-8 font-bold text-green-600 transition hover:bg-green-50"
+            className="h-11 rounded-full border-2 border-green-500 px-8 font-bold text-green-600 transition hover:bg-green-500 hover:text-white"
           >
             Додати студента
           </button>
@@ -446,20 +446,20 @@ function GroupOverview({
         <div className="space-y-3">
           <Link
             to={makePath(`/groups/${defenseYear}/${group.id}/material-components`, educationLevel)}
-            className="block rounded-full border-2 border-blue-600 px-5 py-2 text-lg font-bold text-blue-600 transition hover:bg-blue-50"
+            className="block rounded-full border-2 border-blue-600 px-5 py-2 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
           >
             Не допущено: Матеріальні
           </Link>
           <Link
             to={makePath(`/groups/${defenseYear}/${group.id}/electronic-components`, educationLevel)}
-            className="block rounded-full border-2 border-blue-600 px-5 py-2 text-lg font-bold text-blue-600 transition hover:bg-blue-50"
+            className="block rounded-full border-2 border-blue-600 px-5 py-2 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
           >
             Не допущено: Електронні
           </Link>
         </div>
         <Link
           to={makePath(`/groups/${defenseYear}/${group.id}/results`, educationLevel)}
-          className="rounded-full border-2 border-orange-500 px-6 py-3 text-lg font-bold text-orange-600 transition hover:bg-orange-50"
+          className="rounded-full border-2 border-orange-500 px-6 py-3 text-lg font-bold text-orange-600 transition hover:bg-orange-500 hover:text-white"
         >
           Сформувати результати захисту
         </Link>
@@ -1021,7 +1021,7 @@ function StudentDetailsPanel({
             <button
               type="button"
               onClick={() => onDeleteStudent(details)}
-              className="h-11 rounded-full border border-red-500 px-8 font-bold text-red-500 transition hover:bg-red-50"
+              className="h-11 rounded-full border-2 border-red-500 px-8 font-bold text-red-500 transition hover:bg-red-500 hover:text-white"
             >
               Видалити
             </button>
@@ -1035,7 +1035,7 @@ function StudentDetailsPanel({
                       setIsEditing(true)
                     }
               }
-              className="h-11 rounded-full border border-blue-600 px-8 font-bold text-blue-600 transition hover:bg-blue-50"
+              className="h-11 rounded-full border-2 border-blue-600 px-8 font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
             >
               {isEditing ? 'Скасувати' : 'Змінити'}
             </button>
@@ -1159,7 +1159,7 @@ function StudentDetailsPanel({
             <button
               type="button"
               onClick={cancelEdit}
-              className="h-11 rounded-full border border-blue-600 px-8 font-bold text-blue-600 transition hover:bg-blue-50"
+              className="h-11 rounded-full border-2 border-blue-600 px-8 font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
             >
               Скасувати
             </button>
@@ -1167,7 +1167,7 @@ function StudentDetailsPanel({
               type="button"
               disabled={saveMutation.isPending}
               onClick={() => saveMutation.mutate({ details, current: form })}
-              className="h-11 rounded-full border border-green-500 px-8 font-bold text-green-600 transition hover:bg-green-50 disabled:opacity-60"
+              className="h-11 rounded-full border-2 border-green-500 px-8 font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-green-600"
             >
               Зберегти зміни
             </button>
@@ -1533,14 +1533,14 @@ function GroupDialog({
           )}
         </div>
         <div className="mt-12 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="h-12 rounded-full border border-blue-600 px-8 text-lg font-bold text-blue-600">
+          <button type="button" onClick={onClose} className="h-12 rounded-full border-2 border-blue-600 px-8 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white">
             Скасувати
           </button>
           <button
             type="button"
             onClick={submit}
             disabled={mutation.isPending}
-            className="h-12 rounded-full border border-green-500 px-8 text-lg font-bold text-green-600 disabled:opacity-50"
+            className="h-12 rounded-full border-2 border-green-500 px-8 text-lg font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-green-600"
           >
             {mode === 'create' ? 'Створити' : 'Зберегти'}
           </button>
@@ -1598,10 +1598,10 @@ function AddStudentDialog({
           <InputField label="По-батькові" value={middleName} disabled={false} onChange={setMiddleName} />
         </div>
         <div className="mt-16 flex justify-end gap-3">
-          <button type="button" onClick={onClose} className="h-12 rounded-full border border-blue-600 px-8 text-lg font-bold text-blue-600">
+          <button type="button" onClick={onClose} className="h-12 rounded-full border-2 border-blue-600 px-8 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white">
             Скасувати
           </button>
-          <button type="button" onClick={submit} disabled={mutation.isPending} className="h-12 rounded-full border border-green-500 px-8 text-lg font-bold text-green-600 disabled:opacity-50">
+          <button type="button" onClick={submit} disabled={mutation.isPending} className="h-12 rounded-full border-2 border-green-500 px-8 text-lg font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-green-600">
             Додати
           </button>
         </div>
