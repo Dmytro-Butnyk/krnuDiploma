@@ -16,6 +16,13 @@ This file is client-focused. Use the server project at `src/DiplomaControlSystem
 - Prefer small feature-oriented modules on the client: API function, query/mutation hook, form schema, page/component.
 - Preserve the domain language used by the server. In particular, use `DefenseYear` for the actual diploma defence year.
 
+## Current Product Decisions
+
+- Authentication is not implemented yet. For now, the login screen asks for a secretary email and stores it on the client for API calls that require `SecretaryEmail`.
+- Future authentication is expected to use Google OAuth. Keep the temporary email-based session isolated so it can be replaced cleanly.
+- The Generator tab currently redirects to an external client/site. Until the real URL is known, use `https://www.google.com` as a placeholder target.
+- Group creation sends the Google Drive field as multipart form field `googleDriveUrl`, even though the server DTO property is named `GoogleDriveLink`.
+
 ## API Base
 
 All API routes are mounted under:
