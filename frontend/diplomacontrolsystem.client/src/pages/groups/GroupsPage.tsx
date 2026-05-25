@@ -711,8 +711,10 @@ function ResultsScreen({
                               style={{ width: `${Number(item.percentage)}%` }}
                             />
                           </div>
-                          <span className="w-20 text-right font-bold text-slate-500">
-                            {item.count} {Number(item.percentage).toFixed(1)}%
+                          <span className="grid w-28 grid-cols-[32px_1px_1fr] items-center gap-2 text-right font-bold text-slate-500">
+                            <span>{item.count}</span>
+                            <span className="h-5 w-px bg-slate-300" aria-hidden="true" />
+                            <span>{Number(item.percentage).toFixed(1)}%</span>
                           </span>
                         </div>
                       </div>
