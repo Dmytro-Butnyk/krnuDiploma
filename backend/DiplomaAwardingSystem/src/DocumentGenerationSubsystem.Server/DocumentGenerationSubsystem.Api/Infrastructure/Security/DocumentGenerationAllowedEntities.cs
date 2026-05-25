@@ -13,7 +13,6 @@ public static class DocumentGenerationAllowedEntities
             { "QualificationWork", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.QualificationWorks, inc) },
             
             // Study group
-            { "Department", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.Departments, inc) },
             { "Group", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.Groups, inc) },
             { "Specialty", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.Specialties, inc) },
             { "Student", (ctx, inc) => DynamicDocumentEngine.BuildQuery(ctx.Students, inc) },

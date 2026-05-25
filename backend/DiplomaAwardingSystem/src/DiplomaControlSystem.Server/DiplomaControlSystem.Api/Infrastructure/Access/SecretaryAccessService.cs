@@ -14,7 +14,12 @@ internal sealed class SecretaryAccessService(DbDocGenContext context) : IScopedS
         var secretary = await context.Secretaries
             .AsNoTracking()
             .Where(s => EF.Functions.ILike(s.Email, email.Trim()))
-                .Select(s => new SecretaryAccessContext(s.Id, s.FullName, s.SpecialtyId, s.IsActive))
+            .Select(s => new SecretaryAccessContext(
+                s.Id,
+                s.FullName,
+                s.SpecialtyId,
+                s.Specialty!.Name,
+                s.IsActive))
             .FirstOrDefaultAsync(ct);
 
         if (secretary is null)

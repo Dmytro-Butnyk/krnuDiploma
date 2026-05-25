@@ -71,7 +71,7 @@ public static class GetQualificationWorkOptions
 
             var reviewers = await context.Teachers
                 .AsNoTracking()
-                .Where(t => t.Specialty!.DepartmentId == access.DepartmentId)
+                .Where(t => t.SpecialtyId != access.SpecialtyId)
                 .OrderBy(t => t.ShortName)
                 .Select(t => new TeacherOptionDto(t.Id, t.FullName, t.ShortName))
                 .ToListAsync(ct);

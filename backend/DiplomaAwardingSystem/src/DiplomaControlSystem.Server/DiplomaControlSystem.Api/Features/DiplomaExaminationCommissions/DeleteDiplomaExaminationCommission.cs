@@ -57,7 +57,6 @@ public static class DeleteDiplomaExaminationCommission
 
             var secretary = secretaryResult.Value!;
             var commission = await context.DiplomaExaminationCommissions
-                .Include(dec => dec.Groups)
                 .FirstOrDefaultAsync(dec => dec.Id == commissionId, ct);
 
             if (commission is null)
@@ -67,8 +66,7 @@ public static class DeleteDiplomaExaminationCommission
                     "Diploma examination commission was not found.");
             }
 
-            if (commission.SecretaryId != secretary.SecretaryId
-                && !commission.Groups.Any(group => group.SpecialtyId == secretary.SpecialtyId))
+            if (commission.SpecialtyId != secretary.SpecialtyId)
             {
                 return ErrorDetails.Forbidden(
                     "DiplomaExaminationCommission.Forbidden",

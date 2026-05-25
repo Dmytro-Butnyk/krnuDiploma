@@ -7,29 +7,29 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace DiplomaControlSystem.Api.Features.Groups;
+namespace DiplomaControlSystem.Api.Features.CommissionHeads;
 
-public static class DeleteGroup
+public static class DeleteCommissionHead
 {
     internal static class Endpoint
     {
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
-            app.MapDelete("/groups/{groupId:int}", Handle)
-                .WithSummary("Deletes a group with students")
+            app.MapDelete("/commission-heads/{commissionHeadId:int}", Handle)
+                .WithSummary("Soft deletes a commission head")
                 .Produces(StatusCodes.Status204NoContent)
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
-                .WithTags("Groups");
+                .WithTags("Commission Heads");
         }
 
         private static async Task<Results<NoContent, ProblemHttpResult>> Handle(
-            [FromRoute] int groupId,
+            [FromRoute] int commissionHeadId,
             [FromQuery] string secretaryEmail,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
-            var result = await handler.HandleAsync(groupId, secretaryEmail, ct);
+            var result = await handler.HandleAsync(commissionHeadId, secretaryEmail, ct);
 
             if (result.IsFailure)
             {
@@ -45,7 +45,7 @@ public static class DeleteGroup
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
         public async Task<Result> HandleAsync(
-            int groupId,
+            int commissionHeadId,
             string secretaryEmail,
             CancellationToken ct)
         {
@@ -55,24 +55,25 @@ public static class DeleteGroup
                 return secretaryResult.ErrorDetails;
             }
 
-            var secretary = secretaryResult.Value!;
-            var group = await context.Groups.FirstOrDefaultAsync(g => g.Id == groupId, ct);
+            var commissionHead = await context.CommissionHeads
+                .FirstOrDefaultAsync(head => head.Id == commissionHeadId, ct);
 
-            if (group is null)
+            if (commissionHead is null)
             {
                 return ErrorDetails.NotFound(
-                    "Group.NotFound",
-                    "Group was not found.");
+                    "CommissionHead.NotFound",
+                    "Commission head was not found.");
             }
 
-            if (group.SpecialtyId != secretary.SpecialtyId)
+            var secretary = secretaryResult.Value!;
+            if (!string.Equals(commissionHead.Specialty, secretary.SpecialtyName, StringComparison.OrdinalIgnoreCase))
             {
                 return ErrorDetails.Forbidden(
-                    "Group.Forbidden",
-                    "Group does not belong to secretary specialty.");
+                    "CommissionHead.Forbidden",
+                    "Commission head does not belong to secretary specialty.");
             }
 
-            context.Groups.Remove(group);
+            commissionHead.IsDeleted = true;
             await context.SaveChangesAsync(ct);
 
             return Result.Success();

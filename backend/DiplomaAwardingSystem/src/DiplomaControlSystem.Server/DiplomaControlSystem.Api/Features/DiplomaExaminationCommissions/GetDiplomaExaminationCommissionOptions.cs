@@ -4,8 +4,6 @@ using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Access;
-using DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
-using DiplomaControlSystem.Api.Infrastructure.Groups;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -20,15 +18,12 @@ public static class GetDiplomaExaminationCommissionOptions
     public sealed class GetDiplomaExaminationCommissionOptionsRequest
     {
         public string SecretaryEmail { get; init; } = string.Empty;
-        public string EducationLevel { get; init; } = string.Empty;
-        public string DefenseYear { get; init; } = string.Empty;
-        public int? CommissionId { get; init; }
     }
 
     public sealed record GetDiplomaExaminationCommissionOptionsResponse(
-        IReadOnlyCollection<GroupDto> Groups,
         IReadOnlyCollection<TeacherDto> Teachers,
-        IReadOnlyCollection<SecretaryDto> Secretaries);
+        IReadOnlyCollection<SecretaryDto> Secretaries,
+        IReadOnlyCollection<CommissionHeadDto> CommissionHeads);
 
     internal sealed class Validator : AbstractValidator<GetDiplomaExaminationCommissionOptionsRequest>
     {
@@ -38,20 +33,6 @@ public static class GetDiplomaExaminationCommissionOptions
                 .NotEmpty()
                 .EmailAddress()
                 .MaximumLength(320);
-
-            RuleFor(x => x.EducationLevel)
-                .NotEmpty()
-                .Must(level => DiplomaExaminationCommissionRules.TryParseEducationLevel(level, out _))
-                .WithMessage("Education level must be Bachelor or Master.");
-
-            RuleFor(x => x.DefenseYear)
-                .NotEmpty()
-                .Must(year => GroupYearRules.TryNormalizeDefenseYear(year, out _))
-                .WithMessage("Defense year must be a 4-digit year like 2026.");
-
-            RuleFor(x => x.CommissionId)
-                .GreaterThan(0)
-                .When(x => x.CommissionId is not null);
         }
     }
 
@@ -60,7 +41,7 @@ public static class GetDiplomaExaminationCommissionOptions
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
             app.MapGet("/diploma-examination-commissions/options", Handle)
-                .WithSummary("Gets available groups and teachers for diploma examination commission form")
+                .WithSummary("Gets available teachers, secretaries, and heads for diploma examination commission form")
                 .Produces<GetDiplomaExaminationCommissionOptionsResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -105,37 +86,6 @@ public static class GetDiplomaExaminationCommissionOptions
             }
 
             var secretary = secretaryResult.Value!;
-            _ = DiplomaExaminationCommissionRules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
-            _ = GroupYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
-
-            if (request.CommissionId is not null)
-            {
-                var commissionBelongsToSecretary = await context.DiplomaExaminationCommissions
-                    .AsNoTracking()
-                    .AnyAsync(
-                        dec => dec.Id == request.CommissionId
-                               && (dec.SecretaryId == secretary.SecretaryId
-                                   || dec.Groups.Any(group => group.SpecialtyId == secretary.SpecialtyId)),
-                        ct);
-
-                if (!commissionBelongsToSecretary)
-                {
-                    return ErrorDetails.NotFound(
-                        "DiplomaExaminationCommission.NotFound",
-                        "Diploma examination commission was not found.");
-                }
-            }
-
-            var groups = await context.Groups
-                .AsNoTracking()
-                .Where(group => group.SpecialtyId == secretary.SpecialtyId)
-                .Where(group => group.EducationLevel == educationLevel)
-                .Where(group => group.Year == defenseYear)
-                .Where(group => group.DiplomaExaminationCommissionId == null
-                                || group.DiplomaExaminationCommissionId == request.CommissionId)
-                .OrderBy(group => group.Name)
-                .Select(group => new GroupDto(group.Id, group.Name))
-                .ToListAsync(ct);
 
             var teachers = await context.Teachers
                 .AsNoTracking()
@@ -155,10 +105,24 @@ public static class GetDiplomaExaminationCommissionOptions
                 .Select(candidate => new SecretaryDto(candidate.Id, candidate.FullName))
                 .ToListAsync(ct);
 
+            var commissionHeads = await context.CommissionHeads
+                .AsNoTracking()
+                .Where(head => !head.IsDeleted)
+                .Where(head => EF.Functions.ILike(head.Specialty, secretary.SpecialtyName))
+                .OrderBy(head => head.FullName)
+                .Select(head => new CommissionHeadDto(
+                    head.Id,
+                    head.FullName,
+                    head.Position,
+                    head.Company,
+                    head.Specialty,
+                    head.IsDeleted))
+                .ToListAsync(ct);
+
             return new GetDiplomaExaminationCommissionOptionsResponse(
-                groups,
                 teachers,
-                secretaries);
+                secretaries,
+                commissionHeads);
         }
     }
 }

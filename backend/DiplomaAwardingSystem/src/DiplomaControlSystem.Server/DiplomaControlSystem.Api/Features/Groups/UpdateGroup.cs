@@ -166,6 +166,13 @@ public static class UpdateGroup
             request.Name.UpdateIfNotNull(value => group.Name = value.Trim());
             normalizedYear.UpdateIfNotNull(value => group.Year = value);
             request.EducationLevel.UpdateIfNotNull(_ => group.EducationLevel = nextEducationLevel);
+            group.DiplomaExaminationCommissionId = await context.DiplomaExaminationCommissions
+                .AsNoTracking()
+                .Where(dec => dec.DefenseYear == group.Year)
+                .Where(dec => dec.SpecialtyId == group.SpecialtyId)
+                .Where(dec => dec.EducationLevel == group.EducationLevel)
+                .Select(dec => (int?)dec.Id)
+                .FirstOrDefaultAsync(ct);
 
             await context.SaveChangesAsync(ct);
 

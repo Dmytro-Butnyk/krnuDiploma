@@ -11,13 +11,13 @@ public static class DiplomaExaminationCommissionContracts
 
     public sealed record SecretaryDto(int Id, string FullName);
 
-    public sealed record PersonDto(
+    public sealed record CommissionHeadDto(
+        int Id,
         string FullName,
-        string? Position);
-
-    public sealed record HeadDto(
-        TeacherDto? Teacher,
-        PersonDto? Person);
+        string Position,
+        string Company,
+        string Specialty,
+        bool IsDeleted);
 
     public sealed record MemberDto(
         int TeacherId,
@@ -32,26 +32,27 @@ public static class DiplomaExaminationCommissionContracts
         string DefenseYear,
         DateOnly StartDate,
         DateOnly EndDate,
-        HeadDto Head,
+        CommissionHeadDto Head,
         IReadOnlyCollection<MemberDto> Members,
         SecretaryDto Secretary,
         IReadOnlyCollection<GroupDto> Groups);
 
-    public abstract class DiplomaExaminationCommissionUpsertRequest
+    public abstract class DiplomaExaminationCommissionUpdateRequest
     {
         public string SecretaryEmail { get; init; } = string.Empty;
         public int SecretaryId { get; init; }
         public string OrderNumber { get; init; } = string.Empty;
-        public string EducationLevel { get; init; } = string.Empty;
-        public string DefenseYear { get; init; } = string.Empty;
-        public IReadOnlyCollection<int> GroupIds { get; init; } = Array.Empty<int>();
-        public int? HeadTeacherId { get; init; }
-        public string? HeadPersonaName { get; init; }
-        public string? HeadPersonaPosition { get; init; }
+        public int CommissionHeadId { get; init; }
         public int FirstMemberTeacherId { get; init; }
         public int SecondMemberTeacherId { get; init; }
         public int ThirdMemberTeacherId { get; init; }
         public DateOnly StartDate { get; init; }
         public DateOnly EndDate { get; init; }
+    }
+
+    public abstract class DiplomaExaminationCommissionCreateRequest : DiplomaExaminationCommissionUpdateRequest
+    {
+        public string EducationLevel { get; init; } = string.Empty;
+        public string DefenseYear { get; init; } = string.Empty;
     }
 }

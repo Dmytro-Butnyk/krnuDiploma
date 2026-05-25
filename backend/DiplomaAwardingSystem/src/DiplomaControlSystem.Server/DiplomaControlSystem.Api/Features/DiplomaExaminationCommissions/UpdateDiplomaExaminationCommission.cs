@@ -16,9 +16,9 @@ namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 
 public static class UpdateDiplomaExaminationCommission
 {
-    public sealed class UpdateDiplomaExaminationCommissionRequest : DiplomaExaminationCommissionUpsertRequest;
+    public sealed class UpdateDiplomaExaminationCommissionRequest : DiplomaExaminationCommissionUpdateRequest;
 
-    internal sealed class Validator : DiplomaExaminationCommissionUpsertValidator<UpdateDiplomaExaminationCommissionRequest>;
+    internal sealed class Validator : DiplomaExaminationCommissionUpdateValidator<UpdateDiplomaExaminationCommissionRequest>;
 
     internal static class Endpoint
     {
@@ -76,7 +76,6 @@ public static class UpdateDiplomaExaminationCommission
 
             var secretary = secretaryResult.Value!;
             var commission = await context.DiplomaExaminationCommissions
-                .Include(dec => dec.Groups)
                 .FirstOrDefaultAsync(dec => dec.Id == commissionId, ct);
 
             if (commission is null)
@@ -86,19 +85,18 @@ public static class UpdateDiplomaExaminationCommission
                     "Diploma examination commission was not found.");
             }
 
-            if (commission.SecretaryId != secretary.SecretaryId
-                && !commission.Groups.Any(group => group.SpecialtyId == secretary.SpecialtyId))
+            if (commission.SpecialtyId != secretary.SpecialtyId)
             {
                 return ErrorDetails.Forbidden(
                     "DiplomaExaminationCommission.Forbidden",
                     "Diploma examination commission does not belong to secretary specialty.");
             }
 
-            var validationResult = await DiplomaExaminationCommissionUpsertSupport.ValidateAsync(
+            var validationResult = await DiplomaExaminationCommissionUpsertSupport.ValidateUpdateAsync(
                 context,
                 request,
+                commission,
                 secretary,
-                commissionId,
                 ct);
 
             if (validationResult.IsFailure)
@@ -107,27 +105,13 @@ public static class UpdateDiplomaExaminationCommission
             }
 
             var validated = validationResult.Value!;
-            var selectedGroupIds = validated.Groups.Select(group => group.Id).ToHashSet();
 
             await using var transaction = await context.Database.BeginTransactionAsync(ct);
 
-            foreach (var group in commission.Groups.Where(group => !selectedGroupIds.Contains(group.Id)).ToList())
-            {
-                group.DiplomaExaminationCommissionId = null;
-            }
-
-            foreach (var group in validated.Groups)
-            {
-                group.DiplomaExaminationCommissionId = commission.Id;
-            }
-
             commission.OrderNumber = validated.OrderNumber;
-            commission.EducationLevel = validated.EducationLevel;
             commission.StartDate = request.StartDate;
             commission.EndDate = request.EndDate;
-            commission.HeadTeacherId = validated.HeadTeacherId;
-            commission.HeadPersonaName = validated.HeadPersonaName;
-            commission.HeadPersonaPosition = validated.HeadPersonaPosition;
+            commission.CommissionHeadId = validated.CommissionHeadId;
             commission.FirstMemberTeacherId = request.FirstMemberTeacherId;
             commission.SecondMemberTeacherId = request.SecondMemberTeacherId;
             commission.ThirdMemberTeacherId = request.ThirdMemberTeacherId;
@@ -139,7 +123,6 @@ public static class UpdateDiplomaExaminationCommission
             return await DiplomaExaminationCommissionUpsertSupport.GetDtoAsync(
                 context,
                 commission.Id,
-                validated.DefenseYear,
                 ct);
         }
     }

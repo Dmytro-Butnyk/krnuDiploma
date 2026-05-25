@@ -13,17 +13,35 @@ public sealed class DiplomaExaminationCommissionConfiguration : IEntityTypeConfi
 
         builder.Property(dec => dec.OrderNumber).IsRequired().HasMaxLength(64);
         builder.Property(dec => dec.EducationLevel).IsRequired().HasConversion<string>();
-        builder.Property(dec => dec.HeadPersonaName).HasMaxLength(256);
-        builder.Property(dec => dec.HeadPersonaPosition).HasMaxLength(256);
+        builder.Property(dec => dec.DefenseYear).IsRequired().HasMaxLength(20);
+
+        builder.HasIndex(dec => new
+        {
+            dec.DefenseYear,
+            dec.SpecialtyId,
+            dec.EducationLevel
+        }).IsUnique();
+
+        builder.HasIndex(dec => new
+        {
+            dec.DefenseYear,
+            dec.SpecialtyId,
+            dec.OrderNumber
+        }).IsUnique();
 
         builder.HasOne(dec => dec.Archive)
             .WithOne(a => a.DiplomaExaminationCommission)
             .HasForeignKey<Archive>(a => a.DiplomaExaminationCommissionId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        builder.HasOne(dec => dec.HeadTeacher)
-            .WithMany()
-            .HasForeignKey(dec => dec.HeadTeacherId)
+        builder.HasOne(dec => dec.Specialty)
+            .WithMany(s => s.DiplomaExaminationCommissions)
+            .HasForeignKey(dec => dec.SpecialtyId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(dec => dec.CommissionHead)
+            .WithMany(head => head.DiplomaExaminationCommissions)
+            .HasForeignKey(dec => dec.CommissionHeadId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(dec => dec.FirstMemberTeacher)

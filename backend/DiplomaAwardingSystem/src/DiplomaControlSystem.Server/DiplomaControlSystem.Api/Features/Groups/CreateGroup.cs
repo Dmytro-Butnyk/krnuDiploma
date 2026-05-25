@@ -187,6 +187,14 @@ public static class CreateGroup
             await using var transaction = await context.Database.BeginTransactionAsync(ct);
 
             var group = new DomainGroup(groupName, normalizedYear, educationLevel, secretary.SpecialtyId);
+            group.DiplomaExaminationCommissionId = await context.DiplomaExaminationCommissions
+                .AsNoTracking()
+                .Where(dec => dec.DefenseYear == normalizedYear)
+                .Where(dec => dec.SpecialtyId == secretary.SpecialtyId)
+                .Where(dec => dec.EducationLevel == educationLevel)
+                .Select(dec => (int?)dec.Id)
+                .FirstOrDefaultAsync(ct);
+
             var studentNames = studentsImportResult.Value!;
             var studentsCount = studentNames.Count;
 

@@ -35,15 +35,4 @@ internal static class DiplomaExaminationCommissionRules
                && startDate.Year == parsedDefenseYear
                && endDate.Year == parsedDefenseYear;
     }
-
-    public static bool HasExactlyOneHeadSource(int? headTeacherId, string? headPersonaName, string? headPersonaPosition)
-    {
-        var hasTeacher = headTeacherId is not null;
-        var hasPersonaName = !string.IsNullOrWhiteSpace(headPersonaName);
-        var hasPersonaPosition = !string.IsNullOrWhiteSpace(headPersonaPosition);
-
-        return hasTeacher
-            ? !hasPersonaName && !hasPersonaPosition
-            : hasPersonaName && hasPersonaPosition;
-    }
 }

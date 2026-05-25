@@ -1,8 +1,8 @@
 using Core.Domain.Entities.StudyGroup;
+using Core.Domain.Entities.TeacherStaff;
 using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
-using DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.Groups;
 using Microsoft.EntityFrameworkCore;
@@ -12,27 +12,191 @@ namespace DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
 
 internal static class DiplomaExaminationCommissionUpsertSupport
 {
-    internal sealed record ValidatedInput(
+    internal sealed record ValidatedCreateInput(
         EducationLevel EducationLevel,
         string DefenseYear,
         string OrderNumber,
         IReadOnlyCollection<Group> Groups,
+        int SpecialtyId,
         int SecretaryId,
-        int? HeadTeacherId,
-        string? HeadPersonaName,
-        string? HeadPersonaPosition);
+        int CommissionHeadId);
 
-    public static async Task<Result<ValidatedInput>> ValidateAsync(
+    internal sealed record ValidatedUpdateInput(
+        string OrderNumber,
+        int SecretaryId,
+        int CommissionHeadId);
+
+    public static async Task<Result<ValidatedCreateInput>> ValidateCreateAsync(
         DbDocGenContext context,
-        DiplomaExaminationCommissionUpsertRequest request,
+        DiplomaExaminationCommissionCreateRequest request,
         SecretaryAccessContext secretary,
-        int? commissionId,
         CancellationToken ct)
     {
         _ = DiplomaExaminationCommissionRules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
         _ = GroupYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
         var orderNumber = request.OrderNumber.Trim();
 
+        var commonResult = await ValidateCommonAsync(context, request, secretary, ct);
+        if (commonResult.IsFailure)
+        {
+            return commonResult.ErrorDetails;
+        }
+
+        var duplicateCommissionExists = await context.DiplomaExaminationCommissions
+            .AsNoTracking()
+            .AnyAsync(
+                dec => dec.DefenseYear == defenseYear
+                       && dec.SpecialtyId == secretary.SpecialtyId
+                       && dec.EducationLevel == educationLevel,
+                ct);
+
+        if (duplicateCommissionExists)
+        {
+            return ErrorDetails.Conflict(
+                "DiplomaExaminationCommission.AlreadyExists",
+                "Diploma examination commission already exists for this defense year, specialty, and education level.");
+        }
+
+        var duplicateOrderExists = await context.DiplomaExaminationCommissions
+            .AsNoTracking()
+            .AnyAsync(
+                dec => dec.DefenseYear == defenseYear
+                       && dec.SpecialtyId == secretary.SpecialtyId
+                       && dec.OrderNumber == orderNumber,
+                ct);
+
+        if (duplicateOrderExists)
+        {
+            return ErrorDetails.Conflict(
+                "DiplomaExaminationCommission.OrderNumberAlreadyExists",
+                "Diploma examination commission with the same order number already exists for this specialty and defense year.");
+        }
+
+        var groups = await context.Groups
+            .Where(group => group.SpecialtyId == secretary.SpecialtyId)
+            .Where(group => group.EducationLevel == educationLevel)
+            .Where(group => group.Year == defenseYear)
+            .ToListAsync(ct);
+
+        if (groups.Count == 0)
+        {
+            return ErrorDetails.NotFound(
+                "Group.NotFound",
+                "No groups were found for this specialty, education level, and defense year.");
+        }
+
+        if (groups.Any(group => group.DiplomaExaminationCommissionId is not null))
+        {
+            return ErrorDetails.Conflict(
+                "Group.AlreadyHasCommission",
+                "One or more groups are already assigned to another diploma examination commission.");
+        }
+
+        return new ValidatedCreateInput(
+            educationLevel,
+            defenseYear,
+            orderNumber,
+            groups,
+            secretary.SpecialtyId,
+            request.SecretaryId,
+            request.CommissionHeadId);
+    }
+
+    public static async Task<Result<ValidatedUpdateInput>> ValidateUpdateAsync(
+        DbDocGenContext context,
+        DiplomaExaminationCommissionUpdateRequest request,
+        DiplomaExaminationCommission commission,
+        SecretaryAccessContext secretary,
+        CancellationToken ct)
+    {
+        if (!DiplomaExaminationCommissionRules.DatesBelongToDefenseYear(
+                request.StartDate,
+                request.EndDate,
+                commission.DefenseYear))
+        {
+            return ErrorDetails.Validation(
+                "DiplomaExaminationCommission.InvalidDates",
+                "Start and end dates must belong to the commission defense year.");
+        }
+
+        var commonResult = await ValidateCommonAsync(context, request, secretary, ct);
+        if (commonResult.IsFailure)
+        {
+            return commonResult.ErrorDetails;
+        }
+
+        var orderNumber = request.OrderNumber.Trim();
+        var duplicateOrderExists = await context.DiplomaExaminationCommissions
+            .AsNoTracking()
+            .AnyAsync(
+                dec => dec.Id != commission.Id
+                       && dec.DefenseYear == commission.DefenseYear
+                       && dec.SpecialtyId == commission.SpecialtyId
+                       && dec.OrderNumber == orderNumber,
+                ct);
+
+        if (duplicateOrderExists)
+        {
+            return ErrorDetails.Conflict(
+                "DiplomaExaminationCommission.OrderNumberAlreadyExists",
+                "Diploma examination commission with the same order number already exists for this specialty and defense year.");
+        }
+
+        return new ValidatedUpdateInput(
+            orderNumber,
+            request.SecretaryId,
+            request.CommissionHeadId);
+    }
+
+    public static async Task<DiplomaExaminationCommissionResponse> GetDtoAsync(
+        DbDocGenContext context,
+        int commissionId,
+        CancellationToken ct)
+    {
+        var commission = await context.DiplomaExaminationCommissions
+            .AsNoTracking()
+            .Include(dec => dec.Groups)
+            .Include(dec => dec.CommissionHead)
+            .Include(dec => dec.FirstMemberTeacher)
+            .Include(dec => dec.SecondMemberTeacher)
+            .Include(dec => dec.ThirdMemberTeacher)
+            .Include(dec => dec.Secretary)
+            .FirstAsync(dec => dec.Id == commissionId, ct);
+
+        return Map(commission);
+    }
+
+    public static DiplomaExaminationCommissionResponse Map(DiplomaExaminationCommission dec)
+    {
+        return new DiplomaExaminationCommissionResponse(
+            dec.Id,
+            dec.OrderNumber,
+            dec.EducationLevel.ToString(),
+            GroupYearRules.FormatAcademicYearFromDefenseYear(dec.DefenseYear),
+            dec.DefenseYear,
+            dec.StartDate,
+            dec.EndDate,
+            MapHead(dec.CommissionHead!),
+            new[]
+            {
+                MapMember(dec.FirstMemberTeacher!),
+                MapMember(dec.SecondMemberTeacher!),
+                MapMember(dec.ThirdMemberTeacher!)
+            },
+            new SecretaryDto(dec.Secretary!.Id, dec.Secretary.FullName),
+            dec.Groups
+                .Where(group => string.Equals(group.Year, dec.DefenseYear, StringComparison.Ordinal))
+                .OrderBy(group => group.Name, StringComparer.Ordinal)
+                .Select(group => new GroupDto(group.Id, group.Name))
+                .ToList());
+    }
+
+    private static async Task<Result> ValidateCommonAsync(
+        DbDocGenContext context,
+        DiplomaExaminationCommissionUpdateRequest request,
+        SecretaryAccessContext secretary,
+        CancellationToken ct)
+    {
         var assignedSecretaryResult = await ValidateAssignedSecretaryAsync(
             context,
             request.SecretaryId,
@@ -44,156 +208,78 @@ internal static class DiplomaExaminationCommissionUpsertSupport
             return assignedSecretaryResult.ErrorDetails;
         }
 
-        var groupIds = request.GroupIds.Distinct().ToList();
-        if (groupIds.Count != request.GroupIds.Count)
+        var commissionHeadResult = await ValidateCommissionHeadAsync(
+            context,
+            request.CommissionHeadId,
+            secretary.SpecialtyName,
+            ct);
+
+        if (commissionHeadResult.IsFailure)
         {
-            return ErrorDetails.Conflict(
-                "DiplomaExaminationCommission.DuplicateGroups",
-                "Group list must not contain duplicates.");
+            return commissionHeadResult.ErrorDetails;
         }
 
-        var groups = await context.Groups
-            .Where(group => groupIds.Contains(group.Id))
-            .ToListAsync(ct);
-
-        if (groups.Count != groupIds.Count)
-        {
-            return ErrorDetails.NotFound(
-                "Group.NotFound",
-                "One or more groups were not found.");
-        }
-
-        if (groups.Any(group => group.SpecialtyId != secretary.SpecialtyId))
-        {
-            return ErrorDetails.Forbidden(
-                "Group.Forbidden",
-                "One or more groups do not belong to secretary specialty.");
-        }
-
-        if (groups.Any(group => group.EducationLevel != educationLevel))
-        {
-            return ErrorDetails.Conflict(
-                "Group.EducationLevelMismatch",
-                "One or more groups do not match selected education level.");
-        }
-
-        if (groups.Any(group => !string.Equals(group.Year, defenseYear, StringComparison.Ordinal)))
-        {
-            return ErrorDetails.Conflict(
-                "Group.DefenseYearMismatch",
-                "One or more groups do not match selected defense year.");
-        }
-
-        if (groups.Any(group => group.DiplomaExaminationCommissionId is not null
-                                && group.DiplomaExaminationCommissionId != commissionId))
-        {
-            return ErrorDetails.Conflict(
-                "Group.AlreadyHasCommission",
-                "One or more groups are already assigned to another diploma examination commission.");
-        }
-
-        var teacherValidationResult = await ValidateTeachersAsync(context, request, secretary.SpecialtyId, ct);
-        if (teacherValidationResult.IsFailure)
-        {
-            return teacherValidationResult.ErrorDetails;
-        }
-
-        var duplicateOrderExists = await context.DiplomaExaminationCommissions
-            .AsNoTracking()
-            .AnyAsync(
-                dec => dec.Id != commissionId
-                       && dec.OrderNumber == orderNumber
-                       && dec.Groups.Any(group =>
-                           group.SpecialtyId == secretary.SpecialtyId
-                           && group.Year == defenseYear),
-                ct);
-
-        if (duplicateOrderExists)
-        {
-            return ErrorDetails.Conflict(
-                "DiplomaExaminationCommission.OrderNumberAlreadyExists",
-                "Diploma examination commission with the same order number already exists for this specialty and defense year.");
-        }
-
-        return new ValidatedInput(
-            educationLevel,
-            defenseYear,
-            orderNumber,
-            groups,
-            request.SecretaryId,
-            request.HeadTeacherId,
-            request.HeadPersonaName?.Trim(),
-            request.HeadPersonaPosition?.Trim());
+        return await ValidateTeachersAsync(context, request, secretary.SpecialtyId, ct);
     }
 
-    public static async Task<DiplomaExaminationCommissionResponse> GetDtoAsync(
+    private static async Task<Result> ValidateCommissionHeadAsync(
         DbDocGenContext context,
-        int commissionId,
-        string defenseYear,
+        int commissionHeadId,
+        string specialtyName,
         CancellationToken ct)
     {
-        var commission = await context.DiplomaExaminationCommissions
+        var commissionHead = await context.CommissionHeads
             .AsNoTracking()
-            .Include(dec => dec.Groups)
-            .Include(dec => dec.HeadTeacher)
-            .Include(dec => dec.FirstMemberTeacher)
-            .Include(dec => dec.SecondMemberTeacher)
-            .Include(dec => dec.ThirdMemberTeacher)
-            .Include(dec => dec.Secretary)
-            .FirstAsync(dec => dec.Id == commissionId, ct);
-
-        return Map(commission, defenseYear);
-    }
-
-    public static DiplomaExaminationCommissionResponse Map(
-        Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission dec,
-        string defenseYear)
-    {
-        return new DiplomaExaminationCommissionResponse(
-            dec.Id,
-            dec.OrderNumber,
-            dec.EducationLevel.ToString(),
-            GroupYearRules.FormatAcademicYearFromDefenseYear(defenseYear),
-            defenseYear,
-            dec.StartDate,
-            dec.EndDate,
-            MapHead(dec),
-            new[]
+            .Where(head => head.Id == commissionHeadId)
+            .Select(head => new
             {
-                MapMember(dec.FirstMemberTeacher!),
-                MapMember(dec.SecondMemberTeacher!),
-                MapMember(dec.ThirdMemberTeacher!)
-            },
-            new SecretaryDto(dec.Secretary!.Id, dec.Secretary.FullName),
-            dec.Groups
-                .Where(group => string.Equals(group.Year, defenseYear, StringComparison.Ordinal))
-                .OrderBy(group => group.Name, StringComparer.Ordinal)
-                .Select(group => new GroupDto(group.Id, group.Name))
-                .ToList());
+                head.Specialty,
+                head.IsDeleted
+            })
+            .FirstOrDefaultAsync(ct);
+
+        if (commissionHead is null)
+        {
+            return ErrorDetails.NotFound(
+                "CommissionHead.NotFound",
+                "Commission head was not found.");
+        }
+
+        if (commissionHead.IsDeleted)
+        {
+            return ErrorDetails.Conflict(
+                "CommissionHead.Deleted",
+                "Deleted commission head cannot be used.");
+        }
+
+        if (!string.Equals(commissionHead.Specialty, specialtyName, StringComparison.OrdinalIgnoreCase))
+        {
+            return ErrorDetails.Forbidden(
+                "CommissionHead.Forbidden",
+                "Commission head does not belong to secretary specialty.");
+        }
+
+        return Result.Success();
     }
 
     private static async Task<Result> ValidateTeachersAsync(
         DbDocGenContext context,
-        DiplomaExaminationCommissionUpsertRequest request,
+        DiplomaExaminationCommissionUpdateRequest request,
         int specialtyId,
         CancellationToken ct)
     {
         var teacherIds = new[]
-            {
-                request.FirstMemberTeacherId,
-                request.SecondMemberTeacherId,
-                request.ThirdMemberTeacherId
-            }
-            .Concat(request.HeadTeacherId is null
-                ? Array.Empty<int>()
-                : new[] { request.HeadTeacherId.Value })
-            .ToList();
+        {
+            request.FirstMemberTeacherId,
+            request.SecondMemberTeacherId,
+            request.ThirdMemberTeacherId
+        };
 
-        if (teacherIds.Distinct().Count() != teacherIds.Count)
+        if (teacherIds.Distinct().Count() != teacherIds.Length)
         {
             return ErrorDetails.Conflict(
                 "DiplomaExaminationCommission.DuplicateMembers",
-                "Commission roles must be assigned to different people.");
+                "Commission roles must be assigned to different teachers.");
         }
 
         var existingTeacherIds = await context.Teachers
@@ -203,7 +289,7 @@ internal static class DiplomaExaminationCommissionUpsertSupport
             .Select(teacher => teacher.Id)
             .ToListAsync(ct);
 
-        if (existingTeacherIds.Count != teacherIds.Count)
+        if (existingTeacherIds.Count != teacherIds.Length)
         {
             return ErrorDetails.NotFound(
                 "Teacher.NotFound",
@@ -253,26 +339,18 @@ internal static class DiplomaExaminationCommissionUpsertSupport
         return Result.Success();
     }
 
-    private static HeadDto MapHead(Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission dec)
+    private static CommissionHeadDto MapHead(CommissionHead head)
     {
-        if (dec.HeadTeacher is not null)
-        {
-            return new HeadDto(
-                new TeacherDto(
-                    dec.HeadTeacher.Id,
-                    dec.HeadTeacher.FullName,
-                    dec.HeadTeacher.Position),
-                Person: null);
-        }
-
-        return new HeadDto(
-            Teacher: null,
-            new PersonDto(
-                dec.HeadPersonaName ?? string.Empty,
-                dec.HeadPersonaPosition));
+        return new CommissionHeadDto(
+            head.Id,
+            head.FullName,
+            head.Position,
+            head.Company,
+            head.Specialty,
+            head.IsDeleted);
     }
 
-    private static MemberDto MapMember(Core.Domain.Entities.TeacherStaff.Teacher teacher)
+    private static MemberDto MapMember(Teacher teacher)
     {
         return new MemberDto(teacher.Id, teacher.FullName, teacher.Position);
     }

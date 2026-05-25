@@ -15,16 +15,16 @@ using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.Di
 
 namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 
-public static class GetDiplomaExaminationCommissions
+public static class GetDiplomaExaminationCommission
 {
-    public sealed class GetDiplomaExaminationCommissionsRequest
+    public sealed class GetDiplomaExaminationCommissionRequest
     {
         public string SecretaryEmail { get; init; } = string.Empty;
         public string EducationLevel { get; init; } = string.Empty;
         public string DefenseYear { get; init; } = string.Empty;
     }
 
-    internal sealed class Validator : AbstractValidator<GetDiplomaExaminationCommissionsRequest>
+    internal sealed class Validator : AbstractValidator<GetDiplomaExaminationCommissionRequest>
     {
         public Validator()
         {
@@ -39,9 +39,12 @@ public static class GetDiplomaExaminationCommissions
                 .WithMessage("Education level must be Bachelor or Master.");
 
             RuleFor(x => x.DefenseYear)
+                .Cascade(CascadeMode.Stop)
                 .NotEmpty()
                 .Must(year => GroupYearRules.TryNormalizeDefenseYear(year, out _))
-                .WithMessage("Defense year must be a 4-digit year like 2026.");
+                .WithMessage("Defense year must be a 4-digit year like 2026.")
+                .Must(GroupYearRules.IsAllowedDefenseYear)
+                .WithMessage(_ => GroupYearRules.GetAllowedDefenseYearRangeMessage());
         }
     }
 
@@ -50,17 +53,17 @@ public static class GetDiplomaExaminationCommissions
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
             app.MapGet("/diploma-examination-commissions", Handle)
-                .WithSummary("Gets diploma examination commissions by defense year and education level")
-                .Produces<IReadOnlyCollection<DiplomaExaminationCommissionResponse>>(StatusCodes.Status200OK)
+                .WithSummary("Gets diploma examination commission by defense year, specialty, and education level")
+                .Produces<DiplomaExaminationCommissionResponse>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Diploma Examination Commissions");
         }
 
-        private static async Task<Results<Ok<IReadOnlyCollection<DiplomaExaminationCommissionResponse>>, ProblemHttpResult, ValidationProblem>> Handle(
-            [AsParameters] GetDiplomaExaminationCommissionsRequest request,
-            [FromServices] IValidator<GetDiplomaExaminationCommissionsRequest> validator,
+        private static async Task<Results<Ok<DiplomaExaminationCommissionResponse>, ProblemHttpResult, ValidationProblem>> Handle(
+            [AsParameters] GetDiplomaExaminationCommissionRequest request,
+            [FromServices] IValidator<GetDiplomaExaminationCommissionRequest> validator,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
@@ -86,8 +89,8 @@ public static class GetDiplomaExaminationCommissions
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
-        public async Task<Result<IReadOnlyCollection<DiplomaExaminationCommissionResponse>>> HandleAsync(
-            GetDiplomaExaminationCommissionsRequest request,
+        public async Task<Result<DiplomaExaminationCommissionResponse>> HandleAsync(
+            GetDiplomaExaminationCommissionRequest request,
             CancellationToken ct)
         {
             var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
@@ -100,24 +103,27 @@ public static class GetDiplomaExaminationCommissions
             _ = DiplomaExaminationCommissionRules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
             _ = GroupYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
 
-            var commissions = await context.DiplomaExaminationCommissions
+            var commission = await context.DiplomaExaminationCommissions
                 .AsNoTracking()
                 .Include(dec => dec.Groups)
-                .Include(dec => dec.HeadTeacher)
+                .Include(dec => dec.CommissionHead)
                 .Include(dec => dec.FirstMemberTeacher)
                 .Include(dec => dec.SecondMemberTeacher)
                 .Include(dec => dec.ThirdMemberTeacher)
                 .Include(dec => dec.Secretary)
+                .Where(dec => dec.DefenseYear == defenseYear)
+                .Where(dec => dec.SpecialtyId == secretary.SpecialtyId)
                 .Where(dec => dec.EducationLevel == educationLevel)
-                .Where(dec => dec.Groups.Any(group =>
-                    group.SpecialtyId == secretary.SpecialtyId
-                    && group.Year == defenseYear))
-                .OrderBy(dec => dec.OrderNumber)
-                .ToListAsync(ct);
+                .FirstOrDefaultAsync(ct);
 
-            return commissions
-                .Select(dec => DiplomaExaminationCommissionUpsertSupport.Map(dec, defenseYear))
-                .ToList();
+            if (commission is null)
+            {
+                return ErrorDetails.NotFound(
+                    "DiplomaExaminationCommission.NotFound",
+                    "Diploma examination commission was not found.");
+            }
+
+            return DiplomaExaminationCommissionUpsertSupport.Map(commission);
         }
     }
 }

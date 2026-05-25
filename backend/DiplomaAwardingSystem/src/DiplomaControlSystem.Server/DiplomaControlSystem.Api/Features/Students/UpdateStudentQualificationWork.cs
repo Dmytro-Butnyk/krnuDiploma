@@ -162,14 +162,14 @@ public static class UpdateStudentQualificationWork
             {
                 var reviewerExists = await context.Teachers
                     .AnyAsync(
-                        t => t.Id == request.ReviewerId && t.Specialty!.DepartmentId == access.DepartmentId,
+                        t => t.Id == request.ReviewerId && t.SpecialtyId != access.SpecialtyId,
                         ct);
 
                 if (!reviewerExists)
                 {
                     return ErrorDetails.Validation(
                         "QualificationWork.ReviewerInvalid",
-                        "Reviewer must belong to student department.");
+                        "Reviewer must belong to another specialty.");
                 }
             }
 

@@ -17,9 +17,9 @@ namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 
 public static class CreateDiplomaExaminationCommission
 {
-    public sealed class CreateDiplomaExaminationCommissionRequest : DiplomaExaminationCommissionUpsertRequest;
+    public sealed class CreateDiplomaExaminationCommissionRequest : DiplomaExaminationCommissionCreateRequest;
 
-    internal sealed class Validator : DiplomaExaminationCommissionUpsertValidator<CreateDiplomaExaminationCommissionRequest>;
+    internal sealed class Validator : DiplomaExaminationCommissionCreateValidator<CreateDiplomaExaminationCommissionRequest>;
 
     internal static class Endpoint
     {
@@ -76,11 +76,10 @@ public static class CreateDiplomaExaminationCommission
             }
 
             var secretary = secretaryResult.Value!;
-            var validationResult = await DiplomaExaminationCommissionUpsertSupport.ValidateAsync(
+            var validationResult = await DiplomaExaminationCommissionUpsertSupport.ValidateCreateAsync(
                 context,
                 request,
                 secretary,
-                commissionId: null,
                 ct);
 
             if (validationResult.IsFailure)
@@ -94,11 +93,11 @@ public static class CreateDiplomaExaminationCommission
             var commission = new DomainCommission(
                 validated.OrderNumber,
                 validated.EducationLevel,
+                validated.DefenseYear,
                 request.StartDate,
                 request.EndDate,
-                validated.HeadTeacherId,
-                validated.HeadPersonaName,
-                validated.HeadPersonaPosition,
+                validated.SpecialtyId,
+                validated.CommissionHeadId,
                 request.FirstMemberTeacherId,
                 request.SecondMemberTeacherId,
                 request.ThirdMemberTeacherId,
@@ -116,7 +115,6 @@ public static class CreateDiplomaExaminationCommission
             return await DiplomaExaminationCommissionUpsertSupport.GetDtoAsync(
                 context,
                 commission.Id,
-                validated.DefenseYear,
                 ct);
         }
     }

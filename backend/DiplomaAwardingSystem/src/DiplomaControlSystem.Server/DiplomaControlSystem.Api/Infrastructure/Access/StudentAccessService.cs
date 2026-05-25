@@ -27,8 +27,7 @@ internal sealed class StudentAccessService(
             {
                 s.Id,
                 s.GroupId,
-                s.Group!.SpecialtyId,
-                s.Group.Specialty!.DepartmentId
+                s.Group!.SpecialtyId
             })
             .FirstOrDefaultAsync(ct);
 
@@ -50,7 +49,6 @@ internal sealed class StudentAccessService(
         return new StudentAccessContext(
             student.Id,
             student.GroupId,
-            student.SpecialtyId,
-            student.DepartmentId);
+            student.SpecialtyId);
     }
 }
