@@ -30,6 +30,7 @@ export function AppRouter() {
       <Route element={<ProtectedShell />}>
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/groups/:defenseYear" element={<GroupsPage />} />
+        <Route path="/groups/:defenseYear/commission" element={<GroupsPage />} />
         <Route path="/groups/:defenseYear/:groupId" element={<GroupsPage />} />
         <Route path="/groups/:defenseYear/:groupId/:view" element={<GroupsPage />} />
         <Route path="/groups/:defenseYear/:groupId/students/:studentId" element={<GroupsPage />} />

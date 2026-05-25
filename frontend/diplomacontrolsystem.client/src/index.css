@@ -46,6 +46,14 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  min-width: 1280px;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(206, 213, 249, 0.72), transparent 28%),
+    radial-gradient(circle at 76% 18%, rgba(241, 235, 255, 0.86), transparent 30%),
+    linear-gradient(135deg, #eef3ff 0%, #edf1ff 45%, #e6f5ff 100%);
+}
+
 * {
   box-sizing: border-box;
 }

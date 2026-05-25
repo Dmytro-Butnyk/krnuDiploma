@@ -1,6 +1,8 @@
 import { apiRequest } from '../../../shared/api/client'
 import type { EducationLevel, EntityId } from '../../groups/api/types'
 import type {
+  CommissionHeadDto,
+  CreateCommissionHeadRequest,
   CreateDiplomaExaminationCommissionRequest,
   DiplomaExaminationCommissionResponse,
   GetDiplomaExaminationCommissionOptionsResponse,
@@ -12,7 +14,7 @@ export function getDiplomaExaminationCommissions(
   educationLevel: EducationLevel,
   defenseYear: string,
 ) {
-  return apiRequest<DiplomaExaminationCommissionResponse[]>('/api/diploma-examination-commissions', {
+  return apiRequest<DiplomaExaminationCommissionResponse>('/api/diploma-examination-commissions', {
     query: {
       SecretaryEmail: secretaryEmail,
       EducationLevel: educationLevel,
@@ -23,8 +25,6 @@ export function getDiplomaExaminationCommissions(
 
 export function getDiplomaExaminationCommissionOptions(
   secretaryEmail: string,
-  educationLevel: EducationLevel,
-  defenseYear: string,
   commissionId?: EntityId,
 ) {
   return apiRequest<GetDiplomaExaminationCommissionOptionsResponse>(
@@ -32,12 +32,17 @@ export function getDiplomaExaminationCommissionOptions(
     {
       query: {
         SecretaryEmail: secretaryEmail,
-        EducationLevel: educationLevel,
-        DefenseYear: defenseYear,
         CommissionId: commissionId,
       },
     },
   )
+}
+
+export function createCommissionHead(request: CreateCommissionHeadRequest) {
+  return apiRequest<CommissionHeadDto>('/api/commission-heads', {
+    method: 'POST',
+    body: request,
+  })
 }
 
 export function createDiplomaExaminationCommission(request: CreateDiplomaExaminationCommissionRequest) {

@@ -1,8 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Check, ChevronDown, ChevronUp, Maximize2, Minimize2, Plus, Upload, X } from 'lucide-react'
-import { useMemo, useState, type DragEvent } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../features/auth/model/useAuth'
+import {
+  createCommissionHead,
+  createDiplomaExaminationCommission,
+  deleteDiplomaExaminationCommission,
+  updateDiplomaExaminationCommission,
+} from '../../features/commissions/api/commissionsApi'
+import type {
+  CommissionHeadDto,
+  DiplomaExaminationCommissionResponse,
+} from '../../features/commissions/api/types'
+import {
+  commissionOptionsQuery,
+  commissionQueryKeys,
+  commissionsQuery,
+} from '../../features/commissions/model/commissionsQueries'
 import {
   addStudent,
   createGroup,
@@ -38,6 +53,7 @@ import {
   qualificationWorkOptionsQuery,
   studentDetailsQuery,
 } from '../../features/groups/model/groupsQueries'
+import { ApiError } from '../../shared/api/client'
 import { getApiErrorMessage, getApiErrorMessages } from '../../shared/api/errorMessage'
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
 import { useToast } from '../../shared/ui/toast/ToastContext'
@@ -119,6 +135,16 @@ function makePath(path: string, educationLevel: EducationLevel) {
   return `${path}?level=${educationLevel}`
 }
 
+function displayDate(value: string) {
+  const [year, month, day] = value.split('-')
+
+  return day && month && year ? `${day}.${month}.${year}` : value
+}
+
+function isApiNotFound(error: unknown) {
+  return error instanceof ApiError && error.status === 404
+}
+
 function currentDefenseYears() {
   const currentYear = currentUkraineYear()
   return [currentYear, currentYear + 1, currentYear + 2].map(String)
@@ -130,6 +156,18 @@ function currentUkraineYear() {
 
 function isArchivedDefenseYear(defenseYear: string) {
   return Number(defenseYear) < currentUkraineYear()
+}
+
+function academicStartYear(year: string) {
+  const match = year.match(/^\d{4}/)
+
+  return match ? Number(match[0]) : null
+}
+
+function isPastAcademicYear(year: string) {
+  const startYear = academicStartYear(year)
+
+  return startYear !== null && startYear < currentUkraineYear()
 }
 
 function activeYears(years: AcademicYearOverviewResponse[]) {
@@ -237,22 +275,28 @@ function YearCards({
 }) {
   return (
     <div className="grid grid-cols-3 gap-8">
-      {years.map((item, index) => (
-        <Link
-          key={item.defenseYear}
-          to={makePath(`/groups/${item.defenseYear}`, educationLevel)}
-          className={[
-            'min-h-40 rounded-[18px] p-8 shadow-sm transition hover:-translate-y-0.5',
-            index === 0 ? 'bg-blue-600 text-white' : 'bg-white/70 text-blue-300',
-          ].join(' ')}
-        >
-          <p className="text-sm font-bold uppercase opacity-70">Навчальний рік</p>
-          <p className="mt-2 text-5xl font-bold">{item.year}</p>
-          <p className="mt-8 text-sm font-bold">
-            {isArchivedDefenseYear(item.defenseYear) ? 'Архів' : `${item.groups.length} групи`}
-          </p>
-        </Link>
-      ))}
+      {years.map((item) => {
+        const isPast = isPastAcademicYear(item.year)
+
+        return (
+          <Link
+            key={item.defenseYear}
+            to={makePath(`/groups/${item.defenseYear}`, educationLevel)}
+            className={[
+              'min-h-40 rounded-[18px] border p-8 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-600 hover:bg-blue-600 hover:text-white hover:shadow-lg active:bg-blue-700 active:text-white',
+              isPast
+                ? 'border-white/50 bg-white/70 text-blue-300'
+                : 'border-blue-200/60 bg-blue-100/80 text-blue-600',
+            ].join(' ')}
+          >
+            <p className="text-sm font-bold uppercase opacity-70">Навчальний рік</p>
+            <p className="mt-2 text-5xl font-bold">{item.year}</p>
+            <p className="mt-8 text-sm font-bold">
+              {isArchivedDefenseYear(item.defenseYear) ? 'Архів' : `${item.groups.length} групи`}
+            </p>
+          </Link>
+        )
+      })}
     </div>
   )
 }
@@ -297,34 +341,173 @@ function GroupSidebar({
   selectedGroupId,
   educationLevel,
   defenseYear,
+  commission,
+  isCommissionSelected = false,
+  onCreateCommission,
 }: {
   title?: string
   groups: GroupDto[]
   selectedGroupId?: EntityId
   educationLevel: EducationLevel
   defenseYear: string
+  commission?: DiplomaExaminationCommissionResponse
+  isCommissionSelected?: boolean
+  onCreateCommission?: () => void
 }) {
   return (
-    <aside className="min-h-[520px] rounded-[22px] bg-white/65 p-8 shadow-sm">
-      <h2 className="text-xl font-bold uppercase text-slate-500">{title}</h2>
-      <div className="mt-8 space-y-4">
-        {groups.map((group) => (
+    <aside className="flex min-h-[520px] flex-col rounded-[22px] bg-white/65 p-8 shadow-sm">
+      <div>
+        <h2 className="text-xl font-bold uppercase text-slate-500">{title}</h2>
+        <div className="mt-8 space-y-4">
+          {groups.map((group) => (
+            <Link
+              key={group.id}
+              to={makePath(`/groups/${defenseYear}/${group.id}`, educationLevel)}
+              className={[
+                'block rounded-2xl px-5 py-4 text-2xl font-bold transition',
+                asString(selectedGroupId) === asString(group.id)
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-500 hover:bg-white',
+              ].join(' ')}
+            >
+              {group.name}
+            </Link>
+          ))}
+          {groups.length === 0 && <p className="text-lg font-semibold text-slate-400">Груп ще немає</p>}
+        </div>
+      </div>
+
+      <div className="mt-auto pt-10">
+        <h2 className="text-xl font-bold uppercase text-slate-500">Комісія</h2>
+        {commission ? (
           <Link
-            key={group.id}
-            to={makePath(`/groups/${defenseYear}/${group.id}`, educationLevel)}
+            to={makePath(`/groups/${defenseYear}/commission`, educationLevel)}
             className={[
-              'block rounded-2xl px-5 py-4 text-2xl font-bold transition',
-              asString(selectedGroupId) === asString(group.id)
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-500 hover:bg-white',
+              'mt-5 flex min-h-16 items-center justify-between rounded-2xl border-2 px-5 py-4 font-bold transition',
+              isCommissionSelected
+                ? 'border-orange-500 bg-white text-orange-600'
+                : 'border-orange-500 bg-orange-500 text-white hover:bg-orange-600',
             ].join(' ')}
           >
-            {group.name}
+            <span className="text-2xl">ЕК №{commission.orderNumber}</span>
+            {!isCommissionSelected && <span className="text-sm">Переглянути відомості</span>}
           </Link>
-        ))}
-        {groups.length === 0 && <p className="text-lg font-semibold text-slate-400">Груп ще немає</p>}
+        ) : (
+          <button
+            type="button"
+            onClick={onCreateCommission}
+            className="mt-5 h-14 w-full rounded-full border-2 border-green-500 text-xl font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-50"
+            disabled={!onCreateCommission}
+          >
+            + Створити ДЕК
+          </button>
+        )}
       </div>
     </aside>
+  )
+}
+
+function commissionHeadName(commission: DiplomaExaminationCommissionResponse) {
+  return commission.head.fullName || 'Не призначено'
+}
+
+function commissionHeadPosition(commission: DiplomaExaminationCommissionResponse) {
+  return [commission.head.position, commission.head.company].filter(Boolean).join(', ')
+}
+
+function CommissionDetails({
+  commission,
+  onEdit,
+  onDelete,
+}: {
+  commission: DiplomaExaminationCommissionResponse
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  return (
+    <article className="min-h-[520px] rounded-[22px] bg-white/65 p-9 shadow-sm">
+      <div className="flex items-start justify-between gap-8">
+        <h1 className="text-4xl font-bold uppercase text-blue-600">ЕК №{commission.orderNumber}</h1>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onEdit}
+            className="h-11 rounded-full border-2 border-blue-600 px-8 font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
+          >
+            Змінити
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="h-11 rounded-full border-2 border-red-500 px-8 font-bold text-red-500 transition hover:bg-red-500 hover:text-white"
+          >
+            Видалити
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-10 grid grid-cols-[1fr_360px] gap-12">
+        <div className="space-y-8">
+          <section>
+            <h2 className="text-sm font-bold uppercase text-slate-500">Голова комісії</h2>
+            <p className="mt-5 text-2xl font-bold text-slate-800">{commissionHeadName(commission)}</p>
+            {commissionHeadPosition(commission) && (
+              <p className="mt-2 max-w-[520px] text-base font-bold text-slate-500">
+                {commissionHeadPosition(commission)}
+              </p>
+            )}
+            {commission.head.specialty && (
+              <p className="mt-1 max-w-[520px] text-base font-bold text-slate-500">{commission.head.specialty}</p>
+            )}
+          </section>
+
+          <section>
+            <h2 className="text-sm font-bold uppercase text-slate-500">Члени комісії</h2>
+            <div className="mt-5 space-y-5">
+              {commission.members.map((member, index) => (
+                <div key={member.teacherId} className="grid grid-cols-[34px_1fr] gap-3">
+                  <span className="text-2xl font-bold text-slate-800">{index + 1}.</span>
+                  <div>
+                    <p className="text-2xl font-bold text-slate-800">{member.fullName}</p>
+                    <p className="mt-2 max-w-[520px] text-base font-bold text-slate-500">{member.position}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-bold uppercase text-slate-500">Секретар комісії</h2>
+            <p className="mt-5 text-2xl font-bold text-slate-800">{commission.secretary.fullName}</p>
+          </section>
+        </div>
+
+        <div className="space-y-8">
+          <section className="rounded-[18px] bg-white p-7 shadow-sm">
+            <h2 className="text-sm font-bold uppercase text-slate-500">Термін роботи</h2>
+            <div className="mt-8 grid grid-cols-[1fr_auto] gap-y-6 text-lg font-bold">
+              <span className="text-slate-500">Початок роботи</span>
+              <span className="text-orange-600">{displayDate(commission.startDate)}</span>
+              <span className="text-slate-500">Кінець роботи</span>
+              <span className="text-orange-600">{displayDate(commission.endDate)}</span>
+            </div>
+          </section>
+
+          <section className="rounded-[18px] bg-orange-500 p-7 text-white shadow-sm">
+            <h2 className="text-sm font-bold uppercase">Група</h2>
+            <div className="mt-8 grid grid-cols-[1fr_auto] gap-x-8 text-xl font-bold">
+              <span>ДЕК призначено для групи</span>
+              <div className="space-y-5 text-right text-2xl">
+                {commission.groups.map((group) => (
+                  <p key={group.id}>{group.name}</p>
+                ))}
+                {commission.groups.length === 0 && <p>Автоматично</p>}
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -1612,9 +1795,514 @@ function AddStudentDialog({
   )
 }
 
+interface CommissionFormState {
+  orderNumber: string
+  commissionHeadId: string
+  firstMemberTeacherId: string
+  secondMemberTeacherId: string
+  thirdMemberTeacherId: string
+  secretaryId: string
+  startDate: string
+  endDate: string
+}
+
+const emptyCommissionForm: CommissionFormState = {
+  orderNumber: '',
+  commissionHeadId: '',
+  firstMemberTeacherId: '',
+  secondMemberTeacherId: '',
+  thirdMemberTeacherId: '',
+  secretaryId: '',
+  startDate: '',
+  endDate: '',
+}
+
+function makeDefaultCommissionForm(defenseYear: string): CommissionFormState {
+  return {
+    ...emptyCommissionForm,
+    startDate: `${defenseYear}-01-01`,
+    endDate: `${defenseYear}-12-31`,
+  }
+}
+
+function commissionFormFromResponse(commission?: DiplomaExaminationCommissionResponse): CommissionFormState {
+  if (!commission) {
+    return emptyCommissionForm
+  }
+
+  return {
+    orderNumber: commission.orderNumber,
+    commissionHeadId: asString(commission.head.id),
+    firstMemberTeacherId: asString(commission.members[0]?.teacherId),
+    secondMemberTeacherId: asString(commission.members[1]?.teacherId),
+    thirdMemberTeacherId: asString(commission.members[2]?.teacherId),
+    secretaryId: asString(commission.secretary.id),
+    startDate: commission.startDate,
+    endDate: commission.endDate,
+  }
+}
+
+function CommissionTextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  type?: string
+}) {
+  return (
+    <label className="grid max-w-[560px] grid-cols-[170px_1fr] items-center gap-6 text-lg font-bold text-slate-700">
+      <span>{label}</span>
+      <input
+        type={type}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 rounded-xl border border-slate-300 bg-transparent px-4 outline-none placeholder:text-slate-400 focus:border-blue-500"
+      />
+    </label>
+  )
+}
+
+function CommissionSelectField({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  children: ReactNode
+}) {
+  return (
+    <label className="grid grid-cols-[170px_1fr] items-center gap-6 text-lg font-bold text-slate-700">
+      <span>{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 rounded-xl border border-slate-300 bg-transparent px-4 outline-none focus:border-blue-500"
+      >
+        {children}
+      </select>
+    </label>
+  )
+}
+
+function AddCommissionHeadDialog({
+  secretaryEmail,
+  onClose,
+  onSuccess,
+}: {
+  secretaryEmail: string
+  onClose: () => void
+  onSuccess: (head: CommissionHeadDto) => void
+}) {
+  const { showError, showSuccess } = useToast()
+  const [fullName, setFullName] = useState('')
+  const [position, setPosition] = useState('')
+  const [company, setCompany] = useState('')
+  const [specialty, setSpecialty] = useState('')
+  const mutation = useMutation({
+    mutationFn: () =>
+      createCommissionHead({
+        secretaryEmail,
+        fullName: fullName.trim(),
+        position: position.trim(),
+        company: company.trim(),
+        specialty: specialty.trim(),
+      }),
+    onSuccess: (head) => {
+      showSuccess()
+      onSuccess(head)
+    },
+    onError: (error) => showError(getApiErrorMessages(error)),
+  })
+  const submit = () => {
+    if (!fullName.trim() || !position.trim() || !company.trim() || !specialty.trim()) {
+      showError('Заповніть дані голови комісії.')
+      return
+    }
+
+    mutation.mutate()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-blue-300/45 px-6 py-10 backdrop-blur-sm">
+      <section className="w-full max-w-[620px] rounded-[26px] bg-white/90 p-10 shadow-2xl">
+        <div className="flex justify-end">
+          <button type="button" onClick={onClose} aria-label="Закрити" className="text-red-500">
+            <X size={34} />
+          </button>
+        </div>
+        <h2 className="text-center text-4xl font-bold text-slate-700">Додавання голови комісії</h2>
+        <div className="mt-10 space-y-7">
+          <label className="block space-y-3 text-center text-xl font-medium text-slate-500">
+            <span>Введіть повний ПІБ</span>
+            <input
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              placeholder="Прізвище Ім’я По-батькові"
+              className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-lg font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
+            />
+          </label>
+          <label className="block space-y-3 text-center text-xl font-medium text-slate-500">
+            <span>Введіть посаду</span>
+            <input
+              value={position}
+              onChange={(event) => setPosition(event.target.value)}
+              placeholder="т.в.о. директора"
+              className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-lg font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
+            />
+          </label>
+          <label className="block space-y-3 text-center text-xl font-medium text-slate-500">
+            <span>Введіть підприємство</span>
+            <input
+              value={company}
+              onChange={(event) => setCompany(event.target.value)}
+              placeholder="Комунальне підприємство"
+              className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-lg font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
+            />
+          </label>
+          <label className="block space-y-3 text-center text-xl font-medium text-slate-500">
+            <span>Введіть спеціальність</span>
+            <input
+              value={specialty}
+              onChange={(event) => setSpecialty(event.target.value)}
+              placeholder="Інформаційні технології"
+              className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-lg font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={mutation.isPending}
+          className="mt-10 h-14 w-full rounded-full border-2 border-green-500 text-2xl font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-50"
+        >
+          Додати
+        </button>
+      </section>
+    </div>
+  )
+}
+
+function CommissionFormDialog({
+  mode,
+  secretaryEmail,
+  educationLevel,
+  defenseYear,
+  commission,
+  onClose,
+  onSuccess,
+}: {
+  mode: 'create' | 'edit'
+  secretaryEmail: string
+  educationLevel: EducationLevel
+  defenseYear: string
+  commission?: DiplomaExaminationCommissionResponse
+  onClose: () => void
+  onSuccess: (commission: DiplomaExaminationCommissionResponse) => void
+}) {
+  const queryClient = useQueryClient()
+  const { showError, showSuccess } = useToast()
+  const optionsQuery = useQuery(commissionOptionsQuery(secretaryEmail, commission?.id))
+  const [form, setForm] = useState<CommissionFormState>(() =>
+    commission ? commissionFormFromResponse(commission) : makeDefaultCommissionForm(defenseYear),
+  )
+  const [isHeadDialogOpen, setIsHeadDialogOpen] = useState(false)
+  const options = optionsQuery.data
+  const selectedMemberIds = [
+    form.firstMemberTeacherId,
+    form.secondMemberTeacherId,
+    form.thirdMemberTeacherId,
+  ].filter(Boolean)
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
+  const mutation = useMutation({
+    mutationFn: () => {
+      if (mode === 'create') {
+        return createDiplomaExaminationCommission({
+          secretaryEmail,
+          secretaryId: form.secretaryId,
+          orderNumber: form.orderNumber.trim(),
+          educationLevel,
+          defenseYear,
+          commissionHeadId: form.commissionHeadId,
+          firstMemberTeacherId: form.firstMemberTeacherId,
+          secondMemberTeacherId: form.secondMemberTeacherId,
+          thirdMemberTeacherId: form.thirdMemberTeacherId,
+          startDate: form.startDate,
+          endDate: form.endDate,
+        })
+      }
+
+      return updateDiplomaExaminationCommission(commission?.id ?? '', {
+        secretaryEmail,
+        secretaryId: form.secretaryId,
+        orderNumber: form.orderNumber.trim(),
+        commissionHeadId: form.commissionHeadId,
+        firstMemberTeacherId: form.firstMemberTeacherId,
+        secondMemberTeacherId: form.secondMemberTeacherId,
+        thirdMemberTeacherId: form.thirdMemberTeacherId,
+        startDate: form.startDate,
+        endDate: form.endDate,
+      })
+    },
+    onSuccess: async (response) => {
+      await queryClient.invalidateQueries({ queryKey: commissionQueryKeys.all })
+      showSuccess()
+      onSuccess(response)
+    },
+    onError: (error) => showError(getApiErrorMessages(error)),
+  })
+
+  const updateForm = (patch: Partial<CommissionFormState>) => setForm((current) => ({ ...current, ...patch }))
+  const validate = () => {
+    const messages: string[] = []
+    const memberIds = [form.firstMemberTeacherId, form.secondMemberTeacherId, form.thirdMemberTeacherId]
+
+    if (!form.orderNumber.trim()) {
+      messages.push('Вкажіть № комісії.')
+    }
+    if (!form.commissionHeadId) {
+      messages.push('Оберіть голову комісії.')
+    }
+    if (memberIds.some((id) => !id)) {
+      messages.push('Оберіть трьох членів комісії.')
+    }
+    if (!form.secretaryId) {
+      messages.push('Оберіть секретаря комісії.')
+    }
+    if (!form.startDate || !form.endDate) {
+      messages.push('Вкажіть термін роботи ДЕК.')
+    }
+    if (form.startDate && !form.startDate.startsWith(`${defenseYear}-`)) {
+      messages.push('Початок роботи має належати обраному року захисту.')
+    }
+    if (form.endDate && !form.endDate.startsWith(`${defenseYear}-`)) {
+      messages.push('Кінець роботи має належати обраному року захисту.')
+    }
+    if (form.startDate && form.endDate && form.endDate < form.startDate) {
+      messages.push('Кінець роботи має бути не раніше початку.')
+    }
+    if (memberIds.filter(Boolean).length !== new Set(memberIds.filter(Boolean)).size) {
+      messages.push('Члени комісії мають бути різними викладачами.')
+    }
+    return messages
+  }
+  const submit = () => {
+    const messages = validate()
+    if (messages.length > 0) {
+      showError(messages)
+      return
+    }
+
+    mutation.mutate()
+  }
+  const handleHeadCreated = async (head: CommissionHeadDto) => {
+    await queryClient.invalidateQueries({ queryKey: commissionQueryKeys.all })
+    updateForm({ commissionHeadId: asString(head.id) })
+    setIsHeadDialogOpen(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 overflow-hidden bg-[#dcecff]/80 px-6 py-10 backdrop-blur-sm">
+      <section className="mx-auto max-h-[calc(100vh-80px)] max-w-[1280px] overflow-y-auto rounded-[28px] bg-white/80 p-10 shadow-xl">
+        <div className="flex items-start justify-between">
+          <h2 className="text-4xl font-bold uppercase text-blue-600">
+            {mode === 'create' ? 'Створення екзаменаційної комісії' : 'Зміна екзаменаційної комісії'}
+          </h2>
+          <button type="button" onClick={onClose} aria-label="Закрити" className="text-red-500">
+            <X size={42} />
+          </button>
+        </div>
+
+        {optionsQuery.isLoading && <div className="mt-10"><SectionMessage>Завантажуємо дані форми...</SectionMessage></div>}
+        {optionsQuery.error && <div className="mt-10"><ErrorMessage error={optionsQuery.error} /></div>}
+
+        {options && (
+          <div className="mt-10 max-w-[1120px] space-y-10">
+            <section className="space-y-6">
+              <h3 className="text-sm font-bold uppercase text-slate-500">Загальна інформація</h3>
+              <CommissionTextField
+                label="№ комісії"
+                value={form.orderNumber}
+                onChange={(orderNumber) => updateForm({ orderNumber })}
+              />
+            </section>
+
+            <section className="space-y-5">
+              <h3 className="text-sm font-bold uppercase text-slate-500">Склад комісії</h3>
+              <div className="grid grid-cols-[170px_1fr] items-center gap-6 text-lg font-bold text-slate-700">
+                <span>Голова комісії</span>
+                <div className="flex gap-3">
+                  <select
+                    value={form.commissionHeadId}
+                    onChange={(event) => updateForm({ commissionHeadId: event.target.value })}
+                    className="h-12 min-w-0 flex-1 rounded-xl border border-slate-300 bg-transparent px-4 outline-none focus:border-blue-500"
+                  >
+                    <option value="">Оберіть голову</option>
+                    {options.commissionHeads.map((head) => (
+                      <option key={head.id} value={head.id}>
+                        {head.fullName}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsHeadDialogOpen(true)}
+                    className="h-12 shrink-0 rounded-full border-2 border-blue-600 px-6 font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
+                  >
+                    + Додати персону
+                  </button>
+                </div>
+              </div>
+
+              <CommissionSelectField
+                label="1."
+                value={form.firstMemberTeacherId}
+                onChange={(firstMemberTeacherId) => updateForm({ firstMemberTeacherId })}
+              >
+                <option value="">Оберіть викладача</option>
+                {options.teachers.map((teacher) => (
+                  <option
+                    key={teacher.id}
+                    value={teacher.id}
+                    disabled={
+                      selectedMemberIds.includes(asString(teacher.id)) &&
+                      asString(teacher.id) !== form.firstMemberTeacherId
+                    }
+                  >
+                    {teacher.fullName}
+                  </option>
+                ))}
+              </CommissionSelectField>
+              <CommissionSelectField
+                label="2."
+                value={form.secondMemberTeacherId}
+                onChange={(secondMemberTeacherId) => updateForm({ secondMemberTeacherId })}
+              >
+                <option value="">Оберіть викладача</option>
+                {options.teachers.map((teacher) => (
+                  <option
+                    key={teacher.id}
+                    value={teacher.id}
+                    disabled={
+                      selectedMemberIds.includes(asString(teacher.id)) &&
+                      asString(teacher.id) !== form.secondMemberTeacherId
+                    }
+                  >
+                    {teacher.fullName}
+                  </option>
+                ))}
+              </CommissionSelectField>
+              <CommissionSelectField
+                label="3."
+                value={form.thirdMemberTeacherId}
+                onChange={(thirdMemberTeacherId) => updateForm({ thirdMemberTeacherId })}
+              >
+                <option value="">Оберіть викладача</option>
+                {options.teachers.map((teacher) => (
+                  <option
+                    key={teacher.id}
+                    value={teacher.id}
+                    disabled={
+                      selectedMemberIds.includes(asString(teacher.id)) &&
+                      asString(teacher.id) !== form.thirdMemberTeacherId
+                    }
+                  >
+                    {teacher.fullName}
+                  </option>
+                ))}
+              </CommissionSelectField>
+              <CommissionSelectField
+                label="Секретар комісії"
+                value={form.secretaryId}
+                onChange={(secretaryId) => updateForm({ secretaryId })}
+              >
+                <option value="">Оберіть секретаря</option>
+                {options.secretaries.map((secretary) => (
+                  <option key={secretary.id} value={secretary.id}>
+                    {secretary.fullName}
+                  </option>
+                ))}
+              </CommissionSelectField>
+            </section>
+
+            <section className="space-y-5">
+              <h3 className="text-sm font-bold uppercase text-slate-500">Термін роботи ДЕК</h3>
+              <div className="grid max-w-[620px] grid-cols-2 gap-8">
+                <label className="space-y-3 text-lg font-bold text-slate-700">
+                  <span>Початок роботи</span>
+                  <input
+                    type="date"
+                    value={form.startDate}
+                    onChange={(event) => updateForm({ startDate: event.target.value })}
+                    className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 outline-none focus:border-blue-500"
+                  />
+                </label>
+                <label className="space-y-3 text-lg font-bold text-slate-700">
+                  <span>Кінець роботи</span>
+                  <input
+                    type="date"
+                    value={form.endDate}
+                    onChange={(event) => updateForm({ endDate: event.target.value })}
+                    className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 outline-none focus:border-blue-500"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-12 rounded-full border-2 border-blue-600 px-8 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
+              >
+                Скасувати
+              </button>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={mutation.isPending}
+                className="h-12 rounded-full border-2 border-green-500 px-8 text-lg font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-green-600"
+              >
+                {mode === 'create' ? 'Створити' : 'Зберегти'}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {isHeadDialogOpen && (
+        <AddCommissionHeadDialog
+          secretaryEmail={secretaryEmail}
+          onClose={() => setIsHeadDialogOpen(false)}
+          onSuccess={handleHeadCreated}
+        />
+      )}
+    </div>
+  )
+}
+
 export function GroupsPage() {
   const { defenseYear = '', groupId, view, studentId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { secretaryEmail } = useAuth()
@@ -1623,20 +2311,26 @@ export function GroupsPage() {
   const yearsQuery = useQuery(academicYearsQuery(secretaryEmail, educationLevel))
   const years = yearsQuery.data ?? []
   const selectedYear = years.find((item) => item.defenseYear === defenseYear) ?? years[0]
+  const isCommissionView = Boolean(defenseYear && location.pathname.endsWith(`/groups/${defenseYear}/commission`))
   const selectedGroup = useMemo(() => {
-    if (!selectedYear) {
+    if (!selectedYear || isCommissionView) {
       return undefined
     }
 
     return selectedYear.groups.find((group) => asString(group.id) === groupId) ?? selectedYear.groups[0]
-  }, [groupId, selectedYear])
+  }, [groupId, isCommissionView, selectedYear])
   const selectedGroupId = selectedGroup?.id
   const studentsQuery = useQuery(groupStudentsQuery(selectedGroupId, secretaryEmail))
+  const commissionQuery = useQuery(commissionsQuery(secretaryEmail, educationLevel, selectedYear?.defenseYear ?? ''))
+  const commission = commissionQuery.data
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false)
+  const [isCreateCommissionOpen, setIsCreateCommissionOpen] = useState(false)
+  const [isEditCommissionOpen, setIsEditCommissionOpen] = useState(false)
   const [groupToDelete, setGroupToDelete] = useState<GroupDto | null>(null)
   const [studentToDelete, setStudentToDelete] = useState<StudentDetailsResponse | null>(null)
+  const [commissionToDelete, setCommissionToDelete] = useState<DiplomaExaminationCommissionResponse | null>(null)
   const deleteGroupMutation = useMutation({
     mutationFn: (group: GroupDto) => deleteGroup(group.id, secretaryEmail),
     onSuccess: async () => {
@@ -1657,6 +2351,17 @@ export function GroupsPage() {
     },
     onError: (error) => showError(getApiErrorMessages(error)),
   })
+  const deleteCommissionMutation = useMutation({
+    mutationFn: (currentCommission: DiplomaExaminationCommissionResponse) =>
+      deleteDiplomaExaminationCommission(currentCommission.id, secretaryEmail),
+    onSuccess: async () => {
+      setCommissionToDelete(null)
+      await queryClient.invalidateQueries({ queryKey: commissionQueryKeys.all })
+      navigate(makePath(`/groups/${selectedYear?.defenseYear ?? defenseYear}`, educationLevel), { replace: true })
+      showSuccess()
+    },
+    onError: (error) => showError(getApiErrorMessages(error)),
+  })
 
   const handleEducationChange = (nextLevel: EducationLevel) => {
     setSearchParams({ level: nextLevel })
@@ -1670,6 +2375,12 @@ export function GroupsPage() {
     if (nextDefenseYear && nextGroupId) {
       navigate(makePath(`/groups/${nextDefenseYear}/${nextGroupId}`, educationLevel))
     }
+  }
+  const handleCommissionSuccess = async (nextCommission: DiplomaExaminationCommissionResponse) => {
+    setIsCreateCommissionOpen(false)
+    setIsEditCommissionOpen(false)
+    await queryClient.invalidateQueries({ queryKey: commissionQueryKeys.all })
+    navigate(makePath(`/groups/${nextCommission.defenseYear}/commission`, educationLevel))
   }
   const isExpandedGroupView =
     view === 'admission' || view === 'material-components' || view === 'electronic-components' || view === 'results'
@@ -1749,13 +2460,34 @@ export function GroupsPage() {
                 selectedGroupId={selectedGroupId}
                 educationLevel={educationLevel}
                 defenseYear={selectedYear.defenseYear}
+                commission={commission}
+                isCommissionSelected={isCommissionView}
+                onCreateCommission={() => setIsCreateCommissionOpen(true)}
               />
             </div>
 
-            {!selectedGroup && <SectionMessage>Оберіть або створіть групу.</SectionMessage>}
-            {selectedGroup && studentsQuery.isLoading && <SectionMessage>Завантажуємо студентів...</SectionMessage>}
-            {selectedGroup && studentsQuery.error && <ErrorMessage error={studentsQuery.error} />}
-            {selectedGroup && studentsQuery.data && !view && (
+            {isCommissionView && commissionQuery.isLoading && <SectionMessage>Завантажуємо комісію...</SectionMessage>}
+            {isCommissionView && commissionQuery.error && !isApiNotFound(commissionQuery.error) && (
+              <ErrorMessage error={commissionQuery.error} />
+            )}
+            {isCommissionView && commission && (
+              <CommissionDetails
+                commission={commission}
+                onEdit={() => setIsEditCommissionOpen(true)}
+                onDelete={() => setCommissionToDelete(commission)}
+              />
+            )}
+            {isCommissionView && !commissionQuery.isLoading && !commissionQuery.error && !commission && (
+              <SectionMessage>Для цього року ще не створено екзаменаційну комісію.</SectionMessage>
+            )}
+            {isCommissionView && isApiNotFound(commissionQuery.error) && (
+              <SectionMessage>Для цього року ще не створено екзаменаційну комісію.</SectionMessage>
+            )}
+
+            {!isCommissionView && !selectedGroup && <SectionMessage>Оберіть або створіть групу.</SectionMessage>}
+            {!isCommissionView && selectedGroup && studentsQuery.isLoading && <SectionMessage>Завантажуємо студентів...</SectionMessage>}
+            {!isCommissionView && selectedGroup && studentsQuery.error && <ErrorMessage error={studentsQuery.error} />}
+            {!isCommissionView && selectedGroup && studentsQuery.data && !view && (
               <GroupOverview
                 group={selectedGroup}
                 students={studentsQuery.data}
@@ -1766,7 +2498,7 @@ export function GroupsPage() {
                 onAddStudent={() => setIsAddStudentOpen(true)}
               />
             )}
-            {selectedGroup && studentsQuery.data && view === 'admission' && (
+            {!isCommissionView && selectedGroup && studentsQuery.data && view === 'admission' && (
               <AdmissionScreen
                 students={studentsQuery.data}
                 group={selectedGroup}
@@ -1774,7 +2506,7 @@ export function GroupsPage() {
                 defenseYear={selectedYear.defenseYear}
               />
             )}
-            {selectedGroup && studentsQuery.data && view === 'material-components' && (
+            {!isCommissionView && selectedGroup && studentsQuery.data && view === 'material-components' && (
               <ChecklistTable
                 title="Матеріальні компоненти"
                 students={studentsQuery.data}
@@ -1784,7 +2516,7 @@ export function GroupsPage() {
                 defenseYear={selectedYear.defenseYear}
               />
             )}
-            {selectedGroup && studentsQuery.data && view === 'electronic-components' && (
+            {!isCommissionView && selectedGroup && studentsQuery.data && view === 'electronic-components' && (
               <ChecklistTable
                 title="Електронні компоненти"
                 students={studentsQuery.data}
@@ -1794,7 +2526,7 @@ export function GroupsPage() {
                 defenseYear={selectedYear.defenseYear}
               />
             )}
-            {selectedGroup && view === 'results' && (
+            {!isCommissionView && selectedGroup && view === 'results' && (
               <ResultsScreen
                 group={selectedGroup}
                 educationLevel={educationLevel}
@@ -1847,6 +2579,27 @@ export function GroupsPage() {
           onSuccess={() => handleMutationSuccess(defenseYear, selectedGroupId)}
         />
       )}
+      {isCreateCommissionOpen && selectedYear && (
+        <CommissionFormDialog
+          mode="create"
+          secretaryEmail={secretaryEmail}
+          educationLevel={educationLevel}
+          defenseYear={selectedYear.defenseYear}
+          onClose={() => setIsCreateCommissionOpen(false)}
+          onSuccess={handleCommissionSuccess}
+        />
+      )}
+      {isEditCommissionOpen && commission && (
+        <CommissionFormDialog
+          mode="edit"
+          secretaryEmail={secretaryEmail}
+          educationLevel={educationLevel}
+          defenseYear={commission.defenseYear}
+          commission={commission}
+          onClose={() => setIsEditCommissionOpen(false)}
+          onSuccess={handleCommissionSuccess}
+        />
+      )}
       {groupToDelete && (
         <ConfirmDialog
           title="Видалення групи"
@@ -1865,6 +2618,16 @@ export function GroupsPage() {
           onCancel={() => setStudentToDelete(null)}
         >
           Ви впевнені, що хочете видалити студента {studentToDelete.fullName}? Цю дію неможливо скасувати.
+        </ConfirmDialog>
+      )}
+      {commissionToDelete && (
+        <ConfirmDialog
+          title="Видалення комісії"
+          confirmLabel="Видалити"
+          onConfirm={() => deleteCommissionMutation.mutate(commissionToDelete)}
+          onCancel={() => setCommissionToDelete(null)}
+        >
+          Ви впевнені, що хочете видалити ЕК №{commissionToDelete.orderNumber}? Цю дію неможливо скасувати.
         </ConfirmDialog>
       )}
     </section>

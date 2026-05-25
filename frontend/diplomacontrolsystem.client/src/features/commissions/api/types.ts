@@ -11,14 +11,13 @@ export interface SecretaryDto {
   fullName: string
 }
 
-export interface PersonDto {
+export interface CommissionHeadDto {
+  id: EntityId
   fullName: string
-  position: string | null
-}
-
-export interface HeadDto {
-  teacher: TeacherDto | null
-  person: PersonDto | null
+  position: string
+  company: string
+  specialty: string
+  isDeleted: boolean
 }
 
 export interface MemberDto {
@@ -35,16 +34,24 @@ export interface DiplomaExaminationCommissionResponse {
   defenseYear: string
   startDate: string
   endDate: string
-  head: HeadDto
+  head: CommissionHeadDto
   members: MemberDto[]
   secretary: SecretaryDto
   groups: GroupDto[]
 }
 
 export interface GetDiplomaExaminationCommissionOptionsResponse {
-  groups: GroupDto[]
   teachers: TeacherDto[]
   secretaries: SecretaryDto[]
+  commissionHeads: CommissionHeadDto[]
+}
+
+export interface CreateCommissionHeadRequest {
+  secretaryEmail: string
+  fullName: string
+  position: string
+  company: string
+  specialty: string
 }
 
 export interface CreateDiplomaExaminationCommissionRequest {
@@ -53,10 +60,7 @@ export interface CreateDiplomaExaminationCommissionRequest {
   orderNumber: string
   educationLevel: EducationLevel
   defenseYear: string
-  groupIds: EntityId[]
-  headTeacherId: EntityId | null
-  headPersonaName: string | null
-  headPersonaPosition: string | null
+  commissionHeadId: EntityId
   firstMemberTeacherId: EntityId
   secondMemberTeacherId: EntityId
   thirdMemberTeacherId: EntityId
@@ -64,4 +68,7 @@ export interface CreateDiplomaExaminationCommissionRequest {
   endDate: string
 }
 
-export type UpdateDiplomaExaminationCommissionRequest = CreateDiplomaExaminationCommissionRequest
+export type UpdateDiplomaExaminationCommissionRequest = Omit<
+  CreateDiplomaExaminationCommissionRequest,
+  'educationLevel' | 'defenseYear'
+>

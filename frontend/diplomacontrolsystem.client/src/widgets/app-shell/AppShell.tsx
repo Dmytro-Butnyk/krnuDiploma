@@ -6,7 +6,6 @@ import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
 
 const navItems = [
   { to: '/groups', label: 'Групи' },
-  { to: '/commissions', label: 'ДЕК' },
   { to: '/generator', label: 'Генератор' },
 ]
 

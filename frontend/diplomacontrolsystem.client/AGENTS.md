@@ -1,27 +1,25 @@
 # AGENTS.md
 
-Guidance for AI agents working on the client application for the Diploma Control System.
+Guidance for AI agents working on the Diploma Control System client.
 
-This file is client-focused. Use the server project at `src/DiplomaControlSystem.Server` as the source of truth for API contracts, domain rules, validation behavior, and endpoint semantics.
+This repository folder is the React client application. Do not inspect or modify sibling backend projects unless the user explicitly asks for it. Use the OpenAPI document supplied by the user, such as `v1 (3).json`, plus this file as the contract source for client work.
 
-## Working Principles
+## Project Shape
 
-- Read the relevant server feature before changing client behavior.
-- Treat `src/DiplomaControlSystem.Server/DiplomaControlSystem.Api/Features` as the API contract source.
-- Keep client models aligned with server contracts:
-  - Incoming payloads to the server are named `FeatureNameRequest`.
-  - Server responses are named `FeatureNameResponse`.
-  - Shared resource responses may use domain names such as `DiplomaExaminationCommissionResponse`.
-- Do not invent client-only request or response shapes when the server already has a contract.
-- Prefer small feature-oriented modules on the client: API function, query/mutation hook, form schema, page/component.
-- Preserve the domain language used by the server. In particular, use `DefenseYear` for the actual diploma defence year.
+- Vite + React + TypeScript single-page application.
+- Routing is handled by `react-router-dom`.
+- Server state is handled by TanStack Query.
+- Forms use local state or React Hook Form/Zod when already present or clearly useful.
+- Styling uses Tailwind CSS utilities and the existing visual language in `src/index.css`.
 
-## Current Product Decisions
+## Product Decisions
 
-- Authentication is not implemented yet. For now, the login screen asks for a secretary email and stores it on the client for API calls that require `SecretaryEmail`.
-- Future authentication is expected to use Google OAuth. Keep the temporary email-based session isolated so it can be replaced cleanly.
-- The Generator tab currently redirects to an external client/site. Until the real URL is known, use `https://www.google.com` as a placeholder target.
-- Group creation sends the Google Drive field as multipart form field `googleDriveUrl`, even though the server DTO property is named `GoogleDriveLink`.
+- Authentication is temporary and email-based. The login screen stores a secretary email on the client and sends it to API calls that require `secretaryEmail`.
+- Future authentication is expected to use Google OAuth. Keep the temporary secretary-email session isolated.
+- The Generator tab redirects to an external client/site. Until the real URL is known, use `https://www.google.com`.
+- The DEC is not a top-level navigation tab. It is part of the Groups workflow.
+- There is one diploma examination commission for the selected `secretaryEmail + educationLevel + defenseYear`.
+- Groups are automatically associated with that commission on the server. The client must not send group ids when creating or updating a DEC.
 
 ## API Base
 
@@ -31,116 +29,29 @@ All API routes are mounted under:
 /api
 ```
 
-Expected client API areas:
+Use camelCase JSON body keys unless the endpoint requires multipart form data or the OpenAPI contract explicitly says otherwise.
 
-- Groups: `/api/groups`
-- Students: `/api/students`
-- Diploma examination commissions: `/api/diploma-examination-commissions`
-
-Use the server route mappings in `DiplomaControlSystem.Api/Extensions/WebApplicationExtension.cs` and each feature's `Endpoint.MapEndpoint` method as the canonical endpoint list.
-
-## Domain Rules The Client Must Respect
-
-### Defense Year
-
-The group year stored by the server is the actual defence year.
-
-Example:
-
-```text
-DefenseYear: 2026
-Academic display year: 2025/26
-```
-
-Client forms for creating or editing groups and commissions must ask the user for the actual defence year only, for example `2026`.
-
-Do not send academic-year strings such as `2025/26` back to the server as a year value.
-
-### Allowed Group Year Range
-
-For group create/update, the defence year must be:
-
-```text
-current Ukraine year <= DefenseYear <= current Ukraine year + 2
-```
-
-The server validates this using Ukraine time. The client may mirror the validation for UX, but the server remains authoritative.
-
-### Education Level
-
-Valid education levels are:
-
-```text
-Bachelor
-Master
-```
-
-Keep client values aligned with server enum strings. Avoid localized enum values in API payloads.
-
-### Secretary Access
-
-Most read/write operations are scoped by `SecretaryEmail`. The client should keep this value available for API calls that require it.
-
-If the API returns `403`, treat it as an access/specialty mismatch or inactive secretary state, not as a generic network failure.
-
-### Dates
-
-Use ISO date-only strings for `DateOnly` values:
-
-```text
-YYYY-MM-DD
-```
-
-Do not send local date-time strings with time zones for date-only fields.
-
-For DEC creation/update, `StartDate` and `EndDate` must belong to the selected `DefenseYear`, and `EndDate` must be greater than or equal to `StartDate`.
-
-## Main API Surface
+## Main Client Areas
 
 ### Groups
 
 - `GET /api/groups/academic-years`
-  - Query: `secretaryEmail`, `educationLevel`
-  - Returns academic years with `Year`, `DefenseYear`, and groups.
-  - `Year` is display-only academic year, for example `2025/26`.
-  - `DefenseYear` is the full actual year, for example `2026`.
-
 - `POST /api/groups`
-  - Content type: `multipart/form-data`
-  - Body fields: `secretaryEmail`, `name`, `year`, `educationLevel`, and either `studentsFile` or `googleDriveUrl`.
-  - Send `year` as the actual defence year.
-
 - `PATCH /api/groups/{groupId}`
-  - Update group metadata.
-  - Send `year` as the actual defence year.
-
 - `DELETE /api/groups/{groupId}`
-  - Deletes a group only when server rules allow it.
-
 - `GET /api/groups/{groupId}/students`
-  - Query: `secretaryEmail`
-  - Returns students and checklist state for group screens.
-
 - `GET /api/groups/{groupId}/statistics`
-  - Query: `secretaryEmail`
-  - Returns defence-result statistics for charts/summary panels.
+
+Group creation uses `multipart/form-data`.
+
+When sending a Google Drive import value, include the multipart field expected by the current API contract. Preserve compatibility with the existing client behavior unless the OpenAPI spec is updated.
 
 ### Students
 
 - `POST /api/groups/{groupId}/students`
-  - Adds a student with default diploma data.
-
 - `GET /api/students/{studentId}/details`
-  - Query: `secretaryEmail`
-  - Returns the full student diploma process state.
-
 - `DELETE /api/students/{studentId}`
-  - Deletes a student and related default diploma data.
-
 - `GET /api/students/{studentId}/qualification-work-options`
-  - Query: `secretaryEmail`
-  - Returns supervisor and reviewer options.
-
 - `PATCH /api/students/{studentId}/name`
 - `PATCH /api/students/{studentId}/qualification-work`
 - `PATCH /api/students/{studentId}/physical-checklist`
@@ -149,120 +60,118 @@ For DEC creation/update, `StartDate` and `EndDate` must belong to the selected `
 - `PATCH /api/students/{studentId}/defence-results`
 - `PATCH /api/students/{studentId}/qualification-work-characteristics`
 
-For student PATCH endpoints, use the matching server `Update...Request` and `Update...Response` contracts.
+For student PATCH endpoints, keep request and response types aligned with the OpenAPI schema.
 
-### Diploma Examination Commissions
+### Diploma Examination Commission
 
 - `GET /api/diploma-examination-commissions`
-  - Query: `secretaryEmail`, `educationLevel`, `defenseYear`
-  - Returns commissions for the selected specialty, education level, and defence year.
-
+  - Query: `SecretaryEmail`, `EducationLevel`, `DefenseYear`.
+  - Returns the single commission for the selected secretary, education level, and defense year.
 - `GET /api/diploma-examination-commissions/options`
-  - Query: `secretaryEmail`, `educationLevel`, `defenseYear`
-  - Returns groups, teachers, and secretary data needed by the DEC form.
-
+  - Query: `SecretaryEmail`, optional `CommissionId`.
+  - Returns teachers, secretaries, and commission heads for the form.
 - `POST /api/diploma-examination-commissions`
-  - Creates a commission.
-
+  - Creates the single commission.
+  - Sends `educationLevel`, `defenseYear`, `secretaryEmail`, `secretaryId`, `orderNumber`, `commissionHeadId`, member teacher ids, `startDate`, and `endDate`.
+  - Does not send group ids.
 - `PUT /api/diploma-examination-commissions/{commissionId}`
-  - Updates a commission.
-
+  - Updates commission metadata, head, members, secretary, and dates.
+  - Does not send group ids.
 - `DELETE /api/diploma-examination-commissions/{commissionId}`
-  - Deletes a commission without deleting archived defence data.
+  - Deletes the commission without deleting archived defense data.
 
-DEC form rules:
+Commission heads are managed separately:
 
-- A commission must have at least one group.
-- Groups are filtered by secretary specialty, education level, and defence year.
-- The head can be either a teacher or an invited person.
-- If the head is invited, both name and position are required.
-- Commission members must be teachers.
-- Head, members, and secretary must be different people.
-- Dates must be within the selected defence year.
+- `GET /api/commission-heads`
+- `POST /api/commission-heads`
+- `PUT /api/commission-heads/{commissionHeadId}`
+- `DELETE /api/commission-heads/{commissionHeadId}`
 
-## Client Implementation Rules
+When creating a commission head, collect `fullName`, `position`, `company`, and `specialty` from the user. This `specialty` belongs to the external commission head and is not the same specialty used for secretary scoping.
 
-### API Layer
+## Domain Rules
 
-- Keep a typed API function per server feature.
-- Use the server feature name in client API function names where practical.
-- Keep request/response TypeScript types close to the API function or in a feature-local `types.ts`.
-- Use `FormData` only for endpoints that require multipart data, such as group creation with student import.
-- Keep JSON payload keys camelCase unless the server contract explicitly requires otherwise.
+### Defense Year
 
-### Validation
+The server stores the actual defense year.
 
-- Mirror server validation in the UI for immediate feedback, but do not rely on client validation as security.
-- When using a schema library, name schemas after server contracts, for example `createGroupRequestSchema`.
-- Show server validation errors returned as problem details near the relevant fields.
+```text
+DefenseYear: 2026
+Academic display year: 2025/26
+```
 
-### State Management
+Client forms must send the actual defense year, for example `2026`. Do not send academic display strings such as `2025/26` as year values.
 
-- Server state should be loaded through query/mutation primitives.
-- Invalidate or refresh related queries after mutations:
-  - Group create/update/delete should refresh academic years and group lists.
-  - Student updates should refresh group students and student details.
-  - DEC create/update/delete should refresh DEC list and DEC options when group assignment may change.
-- Avoid duplicating derived server state in global client stores.
+### Education Level
 
-### UI Behavior
+API enum values are:
 
-- The first screen of a feature should be the working interface, not a marketing or explanatory page.
-- Use dense, operational UI for admin workflows.
-- Do not add visible instructional text for obvious controls.
-- Use icon buttons for common actions such as edit, delete, back, save, and close.
-- Keep table/list rows and form controls stable in size to avoid layout shift.
-- Make validation and loading states explicit.
+```text
+Bachelor
+Master
+```
 
-### Localization
+Keep API payload values in English. User-facing labels should be Ukrainian.
 
-- User-facing labels are expected to be Ukrainian unless the existing client uses another language in that area.
-- API enum values and request fields must remain server-compatible English values.
-- Format dates for display locally, but send date-only API values as `YYYY-MM-DD`.
+### Dates
+
+Use ISO date-only strings:
+
+```text
+YYYY-MM-DD
+```
+
+Do not send date-time strings or time zones for date-only fields.
+
+DEC `startDate` and `endDate` must belong to the selected `defenseYear`, and `endDate` must be greater than or equal to `startDate`.
+
+## UI Behavior
+
+- The first screen of a feature should be the working interface.
+- Use dense operational UI for admin workflows.
+- Keep Groups and DEC in one flow: the left panel lists groups and the commission block; the right panel shows either the selected group or the commission details.
+- Use icon buttons for common compact actions where practical.
+- Keep destructive actions behind a confirmation dialog.
+- Show loading, empty, validation, and server-error states explicitly.
+- User-facing labels are expected to be Ukrainian.
+
+## State And Cache
+
+- Load server state through TanStack Query.
+- Invalidate group queries after group and student mutations.
+- Invalidate commission queries after commission or commission-head mutations.
+- Do not duplicate derived server state in global client stores.
 
 ## Error Handling
 
-The server commonly returns:
+The API commonly returns:
 
 - `400` validation problem
 - `403` forbidden
 - `404` not found
 - `409` conflict
 
-Client behavior:
+Show validation errors near relevant fields when available. Treat `403` as an access/specialty/inactive-secretary problem, not as a generic network failure.
 
-- Display field-level validation errors when available.
-- Display conflict errors as actionable messages, for example duplicate group or invalid assignment.
-- Do not silently swallow `403`; it usually means the selected entity does not belong to the secretary specialty or the secretary is inactive.
-- Keep destructive actions behind a confirmation UI.
+For `GET /api/diploma-examination-commissions`, a `404` can mean no commission exists yet for the selected context; the UI should allow creating one.
 
-## Before Finishing Client Work
+## Before Finishing Work
 
-Run the relevant client checks available in the client project, for example:
+Run the relevant client checks:
 
 ```text
 npm run lint
-npm run typecheck
 npm run build
 ```
 
-If a local backend is needed, verify requests against the actual server rather than mocked assumptions.
-
-For API-related changes, also inspect the matching server feature to confirm:
-
-- Route
-- HTTP method
-- Query parameters
-- Request body
-- Response shape
-- Error statuses
-- Validation rules
+If a check cannot be run, report why.
 
 ## Do Not
 
+- Do not add the DEC back as a top-level tab.
+- Do not send group ids in DEC create/update requests.
 - Do not send academic-year display values such as `2025/26` as `DefenseYear`.
 - Do not convert date-only fields into date-time strings.
 - Do not localize enum values inside API payloads.
-- Do not assume a group can exist without a secretary specialty context.
-- Do not assume a DEC can exist without at least one group.
-- Do not add client-only business rules that contradict server validation.
+- Do not silently swallow `403`.
+- Do not modify sibling backend projects unless explicitly requested.

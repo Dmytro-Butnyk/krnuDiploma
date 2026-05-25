@@ -7,20 +7,18 @@ import {
 
 export const commissionQueryKeys = {
   all: ['commissions'] as const,
-  lists: () => [...commissionQueryKeys.all, 'list'] as const,
-  list: (secretaryEmail: string, educationLevel: EducationLevel, defenseYear: string) =>
-    [...commissionQueryKeys.lists(), secretaryEmail, educationLevel, defenseYear] as const,
+  details: () => [...commissionQueryKeys.all, 'detail'] as const,
+  detail: (secretaryEmail: string, educationLevel: EducationLevel, defenseYear: string) =>
+    [...commissionQueryKeys.details(), secretaryEmail, educationLevel, defenseYear] as const,
   options: (
     secretaryEmail: string,
-    educationLevel: EducationLevel,
-    defenseYear: string,
     commissionId?: EntityId,
-  ) => [...commissionQueryKeys.all, 'options', secretaryEmail, educationLevel, defenseYear, commissionId ?? null] as const,
+  ) => [...commissionQueryKeys.all, 'options', secretaryEmail, commissionId ?? null] as const,
 }
 
 export function commissionsQuery(secretaryEmail: string, educationLevel: EducationLevel, defenseYear: string) {
   return queryOptions({
-    queryKey: commissionQueryKeys.list(secretaryEmail, educationLevel, defenseYear),
+    queryKey: commissionQueryKeys.detail(secretaryEmail, educationLevel, defenseYear),
     queryFn: () => getDiplomaExaminationCommissions(secretaryEmail, educationLevel, defenseYear),
     enabled: Boolean(secretaryEmail && defenseYear),
   })
@@ -28,14 +26,11 @@ export function commissionsQuery(secretaryEmail: string, educationLevel: Educati
 
 export function commissionOptionsQuery(
   secretaryEmail: string,
-  educationLevel: EducationLevel,
-  defenseYear: string,
   commissionId?: EntityId,
 ) {
   return queryOptions({
-    queryKey: commissionQueryKeys.options(secretaryEmail, educationLevel, defenseYear, commissionId),
-    queryFn: () =>
-      getDiplomaExaminationCommissionOptions(secretaryEmail, educationLevel, defenseYear, commissionId),
-    enabled: Boolean(secretaryEmail && defenseYear),
+    queryKey: commissionQueryKeys.options(secretaryEmail, commissionId),
+    queryFn: () => getDiplomaExaminationCommissionOptions(secretaryEmail, commissionId),
+    enabled: Boolean(secretaryEmail),
   })
 }
