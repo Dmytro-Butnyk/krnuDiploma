@@ -22,6 +22,9 @@
 - Put reusable feature-area support under `Infrastructure/<Area>`, for example shared validators, request interfaces, normalization helpers, mappers, and business-rule helpers.
 - Endpoint-specific request DTOs can stay nested in their feature file. Move them to `Contracts` only when another feature needs the same request/response shape.
 - Prefer dependencies flowing from features to `Contracts` and `Infrastructure`, not from one feature area into another feature area's contracts by accident.
+- Put cross-area rules under a neutral infrastructure area, not under the first feature that used them. For example, academic/defense year helpers live under `Infrastructure/AcademicYears`.
+- Split large infrastructure support files by responsibility when they start mixing validation, querying, mapping, import parsing, or external-source handling.
+- Keep cross-cutting access policy services under `Infrastructure/Access`.
 
 ## Commission Heads
 
@@ -30,6 +33,13 @@
 - Do not require commission head specialty to exist in the `Specialties` table.
 - Shared commission head DTOs live in `Contracts/CommissionHeads`.
 - Shared commission head request validation/support lives in `Infrastructure/CommissionHeads`.
+
+## Diploma Examination Commissions
+
+- Shared request/response contracts live in `Contracts/DiplomaExaminationCommissions`.
+- Reusable create/update validation support lives in `Infrastructure/DiplomaExaminationCommissions`.
+- Mapping/query helpers for commission responses live separately from upsert validation support.
+- Use `Infrastructure/AcademicYears/AcademicYearRules` for defense-year validation, formatting, and sorting.
 
 ## Endpoint Rules
 

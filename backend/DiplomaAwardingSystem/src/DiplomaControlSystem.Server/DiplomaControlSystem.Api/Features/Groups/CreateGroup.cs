@@ -4,7 +4,7 @@ using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
-using DiplomaControlSystem.Api.Infrastructure.Groups;
+using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 using DiplomaControlSystem.Api.Infrastructure.Students;
 using DiplomaControlSystem.Api.Infrastructure.StudentImports;
 using FluentValidation;
@@ -60,10 +60,10 @@ public static class CreateGroup
             RuleFor(x => x.Year)
                 .Cascade(CascadeMode.Stop)
                 .NotEmpty()
-                .Must(year => GroupYearRules.TryNormalizeDefenseYear(year, out _))
+                .Must(year => AcademicYearRules.TryNormalizeDefenseYear(year, out _))
                 .WithMessage("Year must be a 4-digit defense year like 2026.")
-                .Must(GroupYearRules.IsAllowedDefenseYear)
-                .WithMessage(_ => GroupYearRules.GetAllowedDefenseYearRangeMessage());
+                .Must(AcademicYearRules.IsAllowedDefenseYear)
+                .WithMessage(_ => AcademicYearRules.GetAllowedDefenseYearRangeMessage());
 
             RuleFor(x => x.EducationLevel)
                 .NotEmpty()
@@ -149,7 +149,7 @@ public static class CreateGroup
         public async Task<Result<CreateGroupResponse>> HandleAsync(CreateGroupRequest request, CancellationToken ct)
         {
             _ = TryParseEducationLevel(request.EducationLevel, out var educationLevel);
-            _ = GroupYearRules.TryNormalizeDefenseYear(request.Year, out var normalizedYear);
+            _ = AcademicYearRules.TryNormalizeDefenseYear(request.Year, out var normalizedYear);
 
             var studentsImportResult = await studentImportReader.ReadAsync(
                 request.StudentsFile,
@@ -211,7 +211,7 @@ public static class CreateGroup
             return new CreateGroupResponse(
                 group.Id,
                 group.Name,
-                GroupYearRules.FormatAcademicYearFromDefenseYear(group.Year),
+                AcademicYearRules.FormatAcademicYearFromDefenseYear(group.Year),
                 group.Year,
                 group.EducationLevel.ToString(),
                 studentsCount);

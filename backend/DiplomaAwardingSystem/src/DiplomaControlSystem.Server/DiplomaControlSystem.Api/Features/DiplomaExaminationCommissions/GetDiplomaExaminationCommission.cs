@@ -5,7 +5,7 @@ using Core.Infrastructure;
 using DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
-using DiplomaControlSystem.Api.Infrastructure.Groups;
+using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -41,10 +41,10 @@ public static class GetDiplomaExaminationCommission
             RuleFor(x => x.DefenseYear)
                 .Cascade(CascadeMode.Stop)
                 .NotEmpty()
-                .Must(year => GroupYearRules.TryNormalizeDefenseYear(year, out _))
+                .Must(year => AcademicYearRules.TryNormalizeDefenseYear(year, out _))
                 .WithMessage("Defense year must be a 4-digit year like 2026.")
-                .Must(GroupYearRules.IsAllowedDefenseYear)
-                .WithMessage(_ => GroupYearRules.GetAllowedDefenseYearRangeMessage());
+                .Must(AcademicYearRules.IsAllowedDefenseYear)
+                .WithMessage(_ => AcademicYearRules.GetAllowedDefenseYearRangeMessage());
         }
     }
 
@@ -101,7 +101,7 @@ public static class GetDiplomaExaminationCommission
 
             var secretary = secretaryResult.Value!;
             _ = DiplomaExaminationCommissionRules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
-            _ = GroupYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
+            _ = AcademicYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
 
             var commission = await context.DiplomaExaminationCommissions
                 .AsNoTracking()
@@ -123,7 +123,7 @@ public static class GetDiplomaExaminationCommission
                     "Diploma examination commission was not found.");
             }
 
-            return DiplomaExaminationCommissionUpsertSupport.Map(commission);
+            return DiplomaExaminationCommissionMappingSupport.Map(commission);
         }
     }
 }

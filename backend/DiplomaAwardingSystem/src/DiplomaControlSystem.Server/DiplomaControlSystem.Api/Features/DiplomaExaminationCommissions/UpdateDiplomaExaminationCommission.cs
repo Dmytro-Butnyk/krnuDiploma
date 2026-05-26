@@ -120,7 +120,7 @@ public static class UpdateDiplomaExaminationCommission
             await context.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
 
-            return await DiplomaExaminationCommissionUpsertSupport.GetDtoAsync(
+            return await DiplomaExaminationCommissionMappingSupport.GetDtoAsync(
                 context,
                 commission.Id,
                 ct);

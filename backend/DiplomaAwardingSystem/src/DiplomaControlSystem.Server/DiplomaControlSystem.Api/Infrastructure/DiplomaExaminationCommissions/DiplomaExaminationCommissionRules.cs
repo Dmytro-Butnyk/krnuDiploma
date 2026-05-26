@@ -1,6 +1,6 @@
 using System.Globalization;
 using Core.Domain.Enums;
-using DiplomaControlSystem.Api.Infrastructure.Groups;
+using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 
 namespace DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
 
@@ -17,7 +17,7 @@ internal static class DiplomaExaminationCommissionRules
     public static bool TryParseDefenseYear(string? defenseYear, out string normalizedDefenseYear, out int parsedDefenseYear)
     {
         parsedDefenseYear = 0;
-        if (!GroupYearRules.TryNormalizeDefenseYear(defenseYear, out normalizedDefenseYear))
+        if (!AcademicYearRules.TryNormalizeDefenseYear(defenseYear, out normalizedDefenseYear))
         {
             return false;
         }

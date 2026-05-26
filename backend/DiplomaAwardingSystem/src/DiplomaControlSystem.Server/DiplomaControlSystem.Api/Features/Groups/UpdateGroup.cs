@@ -4,7 +4,7 @@ using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
-using DiplomaControlSystem.Api.Infrastructure.Groups;
+using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -51,10 +51,10 @@ public static class UpdateGroup
 
             RuleFor(x => x.Year)
                 .Cascade(CascadeMode.Stop)
-                .Must(year => GroupYearRules.TryNormalizeDefenseYear(year, out _))
+                .Must(year => AcademicYearRules.TryNormalizeDefenseYear(year, out _))
                 .WithMessage("Year must be a 4-digit defense year like 2026.")
-                .Must(GroupYearRules.IsAllowedDefenseYear)
-                .WithMessage(_ => GroupYearRules.GetAllowedDefenseYearRangeMessage())
+                .Must(AcademicYearRules.IsAllowedDefenseYear)
+                .WithMessage(_ => AcademicYearRules.GetAllowedDefenseYearRangeMessage())
                 .When(x => x.Year is not null);
 
             RuleFor(x => x.EducationLevel)
@@ -138,7 +138,7 @@ public static class UpdateGroup
             string? normalizedYear = null;
             if (request.Year is not null)
             {
-                _ = GroupYearRules.TryNormalizeDefenseYear(request.Year, out normalizedYear);
+                _ = AcademicYearRules.TryNormalizeDefenseYear(request.Year, out normalizedYear);
             }
 
             _ = TryParseEducationLevel(request.EducationLevel, out var parsedEducationLevel);
@@ -179,7 +179,7 @@ public static class UpdateGroup
             return new UpdateGroupResponse(
                 group.Id,
                 group.Name,
-                GroupYearRules.FormatAcademicYearFromDefenseYear(group.Year),
+                AcademicYearRules.FormatAcademicYearFromDefenseYear(group.Year),
                 group.Year,
                 group.EducationLevel.ToString());
         }

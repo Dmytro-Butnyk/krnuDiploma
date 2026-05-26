@@ -1,4 +1,4 @@
-using DiplomaControlSystem.Api.Infrastructure.Groups;
+using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 using FluentValidation;
 using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
 
@@ -19,10 +19,10 @@ internal abstract class DiplomaExaminationCommissionCreateValidator<TRequest> : 
         RuleFor(x => x.DefenseYear)
             .Cascade(CascadeMode.Stop)
             .NotEmpty()
-            .Must(year => GroupYearRules.TryNormalizeDefenseYear(year, out _))
+            .Must(year => AcademicYearRules.TryNormalizeDefenseYear(year, out _))
             .WithMessage("Defense year must be a 4-digit year like 2026.")
-            .Must(GroupYearRules.IsAllowedDefenseYear)
-            .WithMessage(_ => GroupYearRules.GetAllowedDefenseYearRangeMessage());
+            .Must(AcademicYearRules.IsAllowedDefenseYear)
+            .WithMessage(_ => AcademicYearRules.GetAllowedDefenseYearRangeMessage());
 
         RuleFor(x => x)
             .Must(x => DiplomaExaminationCommissionRules.DatesBelongToDefenseYear(

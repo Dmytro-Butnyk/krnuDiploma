@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace DiplomaControlSystem.Api.Infrastructure.Groups;
+namespace DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 
-internal static partial class GroupYearRules
+internal static partial class AcademicYearRules
 {
     private const int MaxFutureDefenseYearOffset = 2;
 

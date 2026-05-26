@@ -4,9 +4,8 @@ using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
-using DiplomaControlSystem.Api.Infrastructure.Groups;
+using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
 using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
 
 namespace DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
@@ -34,7 +33,7 @@ internal static class DiplomaExaminationCommissionUpsertSupport
         CancellationToken ct)
     {
         _ = DiplomaExaminationCommissionRules.TryParseEducationLevel(request.EducationLevel, out var educationLevel);
-        _ = GroupYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
+        _ = AcademicYearRules.TryNormalizeDefenseYear(request.DefenseYear, out var defenseYear);
         var orderNumber = request.OrderNumber.Trim();
 
         var commonResult = await ValidateCommonAsync(context, request, secretary, ct);
@@ -147,49 +146,6 @@ internal static class DiplomaExaminationCommissionUpsertSupport
             orderNumber,
             request.SecretaryId,
             request.CommissionHeadId);
-    }
-
-    public static async Task<DiplomaExaminationCommissionResponse> GetDtoAsync(
-        DbDocGenContext context,
-        int commissionId,
-        CancellationToken ct)
-    {
-        var commission = await context.DiplomaExaminationCommissions
-            .AsNoTracking()
-            .Include(dec => dec.Groups)
-            .Include(dec => dec.CommissionHead)
-            .Include(dec => dec.FirstMemberTeacher)
-            .Include(dec => dec.SecondMemberTeacher)
-            .Include(dec => dec.ThirdMemberTeacher)
-            .Include(dec => dec.Secretary)
-            .FirstAsync(dec => dec.Id == commissionId, ct);
-
-        return Map(commission);
-    }
-
-    public static DiplomaExaminationCommissionResponse Map(DiplomaExaminationCommission dec)
-    {
-        return new DiplomaExaminationCommissionResponse(
-            dec.Id,
-            dec.OrderNumber,
-            dec.EducationLevel.ToString(),
-            GroupYearRules.FormatAcademicYearFromDefenseYear(dec.DefenseYear),
-            dec.DefenseYear,
-            dec.StartDate,
-            dec.EndDate,
-            MapHead(dec.CommissionHead!),
-            new[]
-            {
-                MapMember(dec.FirstMemberTeacher!),
-                MapMember(dec.SecondMemberTeacher!),
-                MapMember(dec.ThirdMemberTeacher!)
-            },
-            new SecretaryDto(dec.Secretary!.Id, dec.Secretary.FullName),
-            dec.Groups
-                .Where(group => string.Equals(group.Year, dec.DefenseYear, StringComparison.Ordinal))
-                .OrderBy(group => group.Name, StringComparer.Ordinal)
-                .Select(group => new GroupDto(group.Id, group.Name))
-                .ToList());
     }
 
     private static async Task<Result> ValidateCommonAsync(
@@ -328,21 +284,5 @@ internal static class DiplomaExaminationCommissionUpsertSupport
         }
 
         return Result.Success();
-    }
-
-    private static CommissionHeadDto MapHead(CommissionHead head)
-    {
-        return new CommissionHeadDto(
-            head.Id,
-            head.FullName,
-            head.Position,
-            head.Company,
-            head.Specialty,
-            head.IsDeleted);
-    }
-
-    private static MemberDto MapMember(Teacher teacher)
-    {
-        return new MemberDto(teacher.Id, teacher.FullName, teacher.Position);
     }
 }

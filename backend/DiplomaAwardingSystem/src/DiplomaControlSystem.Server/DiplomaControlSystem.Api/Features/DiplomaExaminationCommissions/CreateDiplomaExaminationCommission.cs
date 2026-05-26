@@ -112,7 +112,7 @@ public static class CreateDiplomaExaminationCommission
             await context.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
 
-            return await DiplomaExaminationCommissionUpsertSupport.GetDtoAsync(
+            return await DiplomaExaminationCommissionMappingSupport.GetDtoAsync(
                 context,
                 commission.Id,
                 ct);

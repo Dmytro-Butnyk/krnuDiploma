@@ -3,7 +3,7 @@ using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
-using DiplomaControlSystem.Api.Infrastructure.Groups;
+using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -133,9 +133,9 @@ public static class GetAcademicYearsOverview
 
             return groups
                 .GroupBy(g => g.Year, StringComparer.Ordinal)
-                .OrderByDescending(g => GroupYearRules.GetDefenseYearSortKey(g.Key) ?? int.MinValue)
+                .OrderByDescending(g => AcademicYearRules.GetDefenseYearSortKey(g.Key) ?? int.MinValue)
                 .Select(g => new GetAcademicYearsOverviewResponse(
-                    GroupYearRules.FormatAcademicYearFromDefenseYear(g.Key),
+                    AcademicYearRules.FormatAcademicYearFromDefenseYear(g.Key),
                     g.Key,
                     g.OrderBy(group => group.Name, StringComparer.Ordinal)
                         .Select(group => new GroupDto(group.Id, group.Name))
