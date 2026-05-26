@@ -1,4 +1,4 @@
-namespace DiplomaControlSystem.Api.Features.CommissionHeads;
+namespace DiplomaControlSystem.Api.Infrastructure.CommissionHeads;
 
 internal interface ICommissionHeadRequest
 {

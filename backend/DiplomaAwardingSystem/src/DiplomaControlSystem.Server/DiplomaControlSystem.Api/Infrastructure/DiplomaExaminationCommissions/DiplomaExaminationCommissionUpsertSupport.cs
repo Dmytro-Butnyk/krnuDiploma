@@ -6,6 +6,7 @@ using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.Groups;
 using Microsoft.EntityFrameworkCore;
+using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
 using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
 
 namespace DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
@@ -211,7 +212,6 @@ internal static class DiplomaExaminationCommissionUpsertSupport
         var commissionHeadResult = await ValidateCommissionHeadAsync(
             context,
             request.CommissionHeadId,
-            secretary.SpecialtyName,
             ct);
 
         if (commissionHeadResult.IsFailure)
@@ -225,7 +225,6 @@ internal static class DiplomaExaminationCommissionUpsertSupport
     private static async Task<Result> ValidateCommissionHeadAsync(
         DbDocGenContext context,
         int commissionHeadId,
-        string specialtyName,
         CancellationToken ct)
     {
         var commissionHead = await context.CommissionHeads
@@ -233,7 +232,6 @@ internal static class DiplomaExaminationCommissionUpsertSupport
             .Where(head => head.Id == commissionHeadId)
             .Select(head => new
             {
-                head.Specialty,
                 head.IsDeleted
             })
             .FirstOrDefaultAsync(ct);
@@ -250,13 +248,6 @@ internal static class DiplomaExaminationCommissionUpsertSupport
             return ErrorDetails.Conflict(
                 "CommissionHead.Deleted",
                 "Deleted commission head cannot be used.");
-        }
-
-        if (!string.Equals(commissionHead.Specialty, specialtyName, StringComparison.OrdinalIgnoreCase))
-        {
-            return ErrorDetails.Forbidden(
-                "CommissionHead.Forbidden",
-                "Commission head does not belong to secretary specialty.");
         }
 
         return Result.Success();

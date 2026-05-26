@@ -9,6 +9,7 @@ using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
 using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
 
 namespace DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
@@ -108,7 +109,6 @@ public static class GetDiplomaExaminationCommissionOptions
             var commissionHeads = await context.CommissionHeads
                 .AsNoTracking()
                 .Where(head => !head.IsDeleted)
-                .Where(head => EF.Functions.ILike(head.Specialty, secretary.SpecialtyName))
                 .OrderBy(head => head.FullName)
                 .Select(head => new CommissionHeadDto(
                     head.Id,

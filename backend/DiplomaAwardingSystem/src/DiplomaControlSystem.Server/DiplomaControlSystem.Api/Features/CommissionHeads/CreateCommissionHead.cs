@@ -4,12 +4,12 @@ using Core.Domain.Entities.TeacherStaff;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.CommissionHeads;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
+using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
 
 namespace DiplomaControlSystem.Api.Features.CommissionHeads;
 
@@ -82,14 +82,7 @@ public static class CreateCommissionHead
                 return secretaryResult.ErrorDetails;
             }
 
-            var secretary = secretaryResult.Value!;
             var normalized = CommissionHeadRequestSupport.Normalize(request);
-
-            var specialtyResult = CommissionHeadRequestSupport.ValidateSpecialty(normalized.Specialty, secretary.SpecialtyName);
-            if (specialtyResult.IsFailure)
-            {
-                return specialtyResult.ErrorDetails;
-            }
 
             var duplicateExists = await CommissionHeadRequestSupport.ActiveDuplicateExistsAsync(
                 context,

@@ -3,12 +3,13 @@ using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.CommissionHeads;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
+using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
 
 namespace DiplomaControlSystem.Api.Features.CommissionHeads;
 
@@ -100,20 +101,7 @@ public static class UpdateCommissionHead
                     "Deleted commission head cannot be updated.");
             }
 
-            var secretary = secretaryResult.Value!;
-            if (!string.Equals(commissionHead.Specialty, secretary.SpecialtyName, StringComparison.OrdinalIgnoreCase))
-            {
-                return ErrorDetails.Forbidden(
-                    "CommissionHead.Forbidden",
-                    "Commission head does not belong to secretary specialty.");
-            }
-
             var normalized = CommissionHeadRequestSupport.Normalize(request);
-            var specialtyResult = CommissionHeadRequestSupport.ValidateSpecialty(normalized.Specialty, secretary.SpecialtyName);
-            if (specialtyResult.IsFailure)
-            {
-                return specialtyResult.ErrorDetails;
-            }
 
             var duplicateExists = await CommissionHeadRequestSupport.ActiveDuplicateExistsAsync(
                 context,

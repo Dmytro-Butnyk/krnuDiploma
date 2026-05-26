@@ -65,14 +65,6 @@ public static class DeleteCommissionHead
                     "Commission head was not found.");
             }
 
-            var secretary = secretaryResult.Value!;
-            if (!string.Equals(commissionHead.Specialty, secretary.SpecialtyName, StringComparison.OrdinalIgnoreCase))
-            {
-                return ErrorDetails.Forbidden(
-                    "CommissionHead.Forbidden",
-                    "Commission head does not belong to secretary specialty.");
-            }
-
             commissionHead.IsDeleted = true;
             await context.SaveChangesAsync(ct);
 

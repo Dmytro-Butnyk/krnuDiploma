@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace DiplomaControlSystem.Api.Features.CommissionHeads;
+namespace DiplomaControlSystem.Api.Infrastructure.CommissionHeads;
 
 internal sealed class CommissionHeadRequestValidator<TRequest> : AbstractValidator<TRequest>
     where TRequest : ICommissionHeadRequest

@@ -1,9 +1,8 @@
-using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
+using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
 
-namespace DiplomaControlSystem.Api.Features.CommissionHeads;
+namespace DiplomaControlSystem.Api.Infrastructure.CommissionHeads;
 
 internal static class CommissionHeadRequestSupport
 {
@@ -20,15 +19,6 @@ internal static class CommissionHeadRequestSupport
             request.Position.Trim(),
             request.Company.Trim(),
             request.Specialty.Trim());
-    }
-
-    public static Result ValidateSpecialty(string specialty, string secretarySpecialty)
-    {
-        return string.Equals(specialty, secretarySpecialty, StringComparison.OrdinalIgnoreCase)
-            ? Result.Success()
-            : ErrorDetails.Forbidden(
-                "CommissionHead.Forbidden",
-                "Commission head specialty must match secretary specialty.");
     }
 
     public static Task<bool> ActiveDuplicateExistsAsync(

@@ -8,7 +8,7 @@ using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using static DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions.DiplomaExaminationCommissionContracts;
+using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
 
 namespace DiplomaControlSystem.Api.Features.CommissionHeads;
 
@@ -35,7 +35,7 @@ public static class GetCommissionHeads
         public static void MapEndpoint(IEndpointRouteBuilder app)
         {
             app.MapGet("/commission-heads", Handle)
-                .WithSummary("Gets active commission heads for secretary specialty")
+                .WithSummary("Gets active commission heads")
                 .Produces<IReadOnlyCollection<CommissionHeadDto>>(StatusCodes.Status200OK)
                 .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -81,11 +81,9 @@ public static class GetCommissionHeads
                 return secretaryResult.ErrorDetails;
             }
 
-            var specialtyName = secretaryResult.Value!.SpecialtyName;
             return await context.CommissionHeads
                 .AsNoTracking()
                 .Where(head => !head.IsDeleted)
-                .Where(head => EF.Functions.ILike(head.Specialty, specialtyName))
                 .OrderBy(head => head.FullName)
                 .Select(head => new CommissionHeadDto(
                     head.Id,

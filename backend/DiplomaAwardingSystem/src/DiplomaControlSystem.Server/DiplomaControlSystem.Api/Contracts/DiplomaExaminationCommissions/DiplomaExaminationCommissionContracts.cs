@@ -1,3 +1,5 @@
+using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
+
 namespace DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 
 public static class DiplomaExaminationCommissionContracts
@@ -10,14 +12,6 @@ public static class DiplomaExaminationCommissionContracts
         string Position);
 
     public sealed record SecretaryDto(int Id, string FullName);
-
-    public sealed record CommissionHeadDto(
-        int Id,
-        string FullName,
-        string Position,
-        string Company,
-        string Specialty,
-        bool IsDeleted);
 
     public sealed record MemberDto(
         int TeacherId,
