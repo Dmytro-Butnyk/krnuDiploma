@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Enums;
@@ -16,7 +17,7 @@ using DomainGroup = Core.Domain.Entities.StudyGroup.Group;
 
 namespace DiplomaControlSystem.Api.Features.Groups;
 
-public static class CreateGroup
+public static partial class CreateGroup
 {
     public sealed class CreateGroupRequest
     {
@@ -36,7 +37,15 @@ public static class CreateGroup
         string Year,
         string DefenseYear,
         string EducationLevel,
-        int StudentsCreated);
+        int StudentsCreated,
+        StudentImportStatisticsDto ImportStatistics);
+
+    public sealed record StudentImportStatisticsDto(
+        int SupervisorsMatched,
+        int SupervisorsMissing,
+        int SupervisorsUnspecified,
+        int TopicsImported,
+        int PracticeBasesImported);
 
     private static bool TryParseEducationLevel(string educationLevel, out EducationLevel parsedEducationLevel)
     {
@@ -141,7 +150,7 @@ public static class CreateGroup
         }
     }
 
-    private sealed class Handler(
+    private sealed partial class Handler(
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService,
         StudentImportReader studentImportReader) : IScopedService
@@ -195,12 +204,49 @@ public static class CreateGroup
                 .Select(dec => (int?)dec.Id)
                 .FirstOrDefaultAsync(ct);
 
-            var studentNames = studentsImportResult.Value!;
-            var studentsCount = studentNames.Count;
+            var importedStudents = studentsImportResult.Value!;
+            var studentsCount = importedStudents.Count;
+            var supervisorIdsByShortName = await GetUniqueTeacherIdsByShortNameAsync(ct);
+            var supervisorsMatched = 0;
+            var supervisorsMissing = 0;
+            var supervisorsUnspecified = 0;
+            var topicsImported = 0;
+            var practiceBasesImported = 0;
 
-            foreach (var fullName in studentNames)
+            foreach (var importedStudent in importedStudents)
             {
-                group.Students.Add(StudentDraftFactory.Create(fullName));
+                int? supervisorId = null;
+                if (string.IsNullOrWhiteSpace(importedStudent.SupervisorShortName))
+                {
+                    supervisorsUnspecified++;
+                }
+                else if (supervisorIdsByShortName.TryGetValue(
+                             NormalizeTeacherShortName(importedStudent.SupervisorShortName),
+                             out var matchedSupervisorId))
+                {
+                    supervisorId = matchedSupervisorId;
+                    supervisorsMatched++;
+                }
+                else
+                {
+                    supervisorsMissing++;
+                }
+
+                if (!string.IsNullOrWhiteSpace(importedStudent.Topic))
+                {
+                    topicsImported++;
+                }
+
+                if (!string.IsNullOrWhiteSpace(importedStudent.PracticeBase))
+                {
+                    practiceBasesImported++;
+                }
+
+                group.Students.Add(StudentDraftFactory.Create(
+                    importedStudent.FullName,
+                    importedStudent.Topic,
+                    importedStudent.PracticeBase,
+                    supervisorId));
             }
 
             await context.Groups.AddAsync(group, ct);
@@ -214,7 +260,39 @@ public static class CreateGroup
                 AcademicYearRules.FormatAcademicYearFromDefenseYear(group.Year),
                 group.Year,
                 group.EducationLevel.ToString(),
-                studentsCount);
+                studentsCount,
+                new StudentImportStatisticsDto(
+                    supervisorsMatched,
+                    supervisorsMissing,
+                    supervisorsUnspecified,
+                    topicsImported,
+                    practiceBasesImported));
         }
+
+        private async Task<Dictionary<string, int>> GetUniqueTeacherIdsByShortNameAsync(CancellationToken ct)
+        {
+            var teachers = await context.Teachers
+                .AsNoTracking()
+                .Select(t => new { t.Id, t.ShortName })
+                .ToListAsync(ct);
+
+            return teachers
+                .Where(t => !string.IsNullOrWhiteSpace(t.ShortName))
+                .GroupBy(t => NormalizeTeacherShortName(t.ShortName))
+                .Where(group => group.Count() == 1)
+                .ToDictionary(group => group.Key, group => group.Single().Id);
+        }
+
+        private static string NormalizeTeacherShortName(string value)
+        {
+            var normalized = WhitespaceRegex().Replace(value.Trim(), " ");
+            return InitialDotSpacingRegex().Replace(normalized, ".").ToUpperInvariant();
+        }
+
+        [GeneratedRegex(@"\s+")]
+        private static partial Regex WhitespaceRegex();
+
+        [GeneratedRegex(@"\s*\.\s*")]
+        private static partial Regex InitialDotSpacingRegex();
     }
 }

@@ -10,8 +10,10 @@ namespace DiplomaControlSystem.Api.Infrastructure.StudentImports;
 internal sealed partial class StudentImportReader(IHttpClientFactory httpClientFactory) : IScopedService
 {
     private const int MaxStudentsCount = 500;
+    private const int TopicMaxLength = 500;
+    private const int PracticeBaseMaxLength = 256;
 
-    private static readonly HashSet<string> HeaderNames = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> StudentFullNameHeaderNames = new(StringComparer.Ordinal)
     {
         "FULLNAME",
         "FULL NAME",
@@ -24,7 +26,32 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
         "\u0406\u041c\u042f \u0421\u0422\u0423\u0414\u0415\u041d\u0422\u0410",
         "\u0418\u041c\u042f \u0421\u0422\u0423\u0414\u0415\u041d\u0422\u0410",
         "\u041f\u0420\u0406\u0417\u0412\u0418\u0429\u0415 \u0406\u041c'\u042f \u041f\u041e \u0411\u0410\u0422\u042c\u041a\u041e\u0412\u0406",
-        "\u041f\u0420\u0406\u0417\u0412\u0418\u0429\u0415 \u0406\u041c\u042f \u041f\u041e \u0411\u0410\u0422\u042c\u041A\u041E\u0412\u0406"
+        "\u041f\u0420\u0406\u0417\u0412\u0418\u0429\u0415 \u0406\u041c\u042f \u041f\u041e \u0411\u0410\u0422\u042c\u041A\u041E\u0412\u0406",
+        "\u041f\u0406\u0411 \u0421\u0422\u0423\u0414\u0415\u041d\u0422\u0410"
+    };
+
+    private static readonly HashSet<string> SupervisorHeaderNames = new(StringComparer.Ordinal)
+    {
+        "\u041f\u0406\u0411 \u041a\u0415\u0420\u0406\u0412\u041d\u0418\u041a\u0410",
+        "\u041a\u0415\u0420\u0406\u0412\u041d\u0418\u041a",
+        "SUPERVISOR",
+        "SUPERVISOR NAME"
+    };
+
+    private static readonly HashSet<string> TopicHeaderNames = new(StringComparer.Ordinal)
+    {
+        "\u0422\u0415\u041c\u0410 \u0420\u041e\u0411\u041e\u0422\u0418",
+        "\u0422\u0415\u041c\u0410",
+        "TOPIC",
+        "WORK TOPIC"
+    };
+
+    private static readonly HashSet<string> PracticeBaseHeaderNames = new(StringComparer.Ordinal)
+    {
+        "\u041c\u0406\u0421\u0426\u0415 \u041f\u0420\u0410\u041a\u0422\u0418\u041a\u0418",
+        "\u041c\u0406\u0421\u0426\u0415 \u041f\u0420\u041e\u0425\u041e\u0414\u0416\u0415\u041d\u041d\u042f \u041f\u0420\u0410\u041a\u0422\u0418\u041a\u0418",
+        "PRACTICE BASE",
+        "PRACTICE PLACE"
     };
 
     static StudentImportReader()
@@ -32,7 +59,7 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
 
-    public async Task<Result<IReadOnlyCollection<string>>> ReadAsync(
+    public async Task<Result<IReadOnlyCollection<StudentImportRow>>> ReadAsync(
         IFormFile? studentsFile,
         string? googleDriveUrl,
         CancellationToken ct)
@@ -53,7 +80,7 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
             "Students file or Google Sheets URL is required.");
     }
 
-    private async Task<Result<IReadOnlyCollection<string>>> ReadFromGoogleUrlAsync(
+    private async Task<Result<IReadOnlyCollection<StudentImportRow>>> ReadFromGoogleUrlAsync(
         string googleDriveUrl,
         CancellationToken ct)
     {
@@ -110,26 +137,31 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
             "Google URL must be a public Google Sheets link or Google Drive file link.");
     }
 
-    private static Result<IReadOnlyCollection<string>> ReadFromStream(Stream stream, string fileName)
+    private static Result<IReadOnlyCollection<StudentImportRow>> ReadFromStream(Stream stream, string fileName)
     {
         using var reader = CreateReader(stream, fileName);
-        var names = ReadStudentNames(reader);
+        var rowsResult = ReadStudentRows(reader);
+        if (rowsResult.IsFailure)
+        {
+            return rowsResult.ErrorDetails;
+        }
 
-        if (names.Count == 0)
+        var rows = rowsResult.Value!;
+        if (rows.Count == 0)
         {
             return ErrorDetails.Validation(
                 "StudentImport.Empty",
                 "Students table does not contain any names.");
         }
 
-        if (names.Count > MaxStudentsCount)
+        if (rows.Count > MaxStudentsCount)
         {
             return ErrorDetails.Validation(
                 "StudentImport.TooManyStudents",
                 string.Create(CultureInfo.InvariantCulture, $"Students count cannot exceed {MaxStudentsCount}."));
         }
 
-        var duplicates = FindDuplicates(names);
+        var duplicates = FindDuplicates(rows.Select(row => row.FullName));
         if (duplicates.Count > 0)
         {
             return ErrorDetails.Validation(
@@ -137,7 +169,23 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
                 string.Create(CultureInfo.InvariantCulture, $"Students table contains duplicate names: {string.Join(", ", duplicates)}."));
         }
 
-        return names;
+        var tooLongTopic = rows.FirstOrDefault(row => row.Topic.Length > TopicMaxLength);
+        if (tooLongTopic is not null)
+        {
+            return ErrorDetails.Validation(
+                "StudentImport.TopicTooLong",
+                string.Create(CultureInfo.InvariantCulture, $"Topic for student {tooLongTopic.FullName} cannot exceed {TopicMaxLength} characters."));
+        }
+
+        var tooLongPracticeBase = rows.FirstOrDefault(row => row.PracticeBase.Length > PracticeBaseMaxLength);
+        if (tooLongPracticeBase is not null)
+        {
+            return ErrorDetails.Validation(
+                "StudentImport.PracticeBaseTooLong",
+                string.Create(CultureInfo.InvariantCulture, $"Practice base for student {tooLongPracticeBase.FullName} cannot exceed {PracticeBaseMaxLength} characters."));
+        }
+
+        return rows;
     }
 
     private static IExcelDataReader CreateReader(Stream stream, string fileName)
@@ -152,49 +200,80 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
         return ExcelReaderFactory.CreateReader(stream);
     }
 
-    private static List<string> ReadStudentNames(IExcelDataReader reader)
+    private static Result<List<StudentImportRow>> ReadStudentRows(IExcelDataReader reader)
     {
-        var students = new List<string>();
-        var selectedColumnIndex = 0;
-        var hasDetectedHeader = false;
+        var students = new List<StudentImportRow>();
+        StudentImportColumns? columns = null;
 
         while (reader.Read())
         {
-            if (!hasDetectedHeader)
+            if (columns is null)
             {
-                var headerColumnIndex = TryDetectHeader(reader);
-                if (headerColumnIndex is not null)
-                {
-                    selectedColumnIndex = headerColumnIndex.Value;
-                    hasDetectedHeader = true;
-                    continue;
-                }
-
-                hasDetectedHeader = true;
+                columns = TryDetectColumns(reader);
+                continue;
             }
 
-            var fullName = NormalizeCellValue(reader.GetValue(selectedColumnIndex));
+            var fullName = NormalizeCellValue(reader.GetValue(columns.StudentFullNameColumnIndex));
             if (!string.IsNullOrWhiteSpace(fullName))
             {
-                students.Add(fullName);
+                students.Add(new StudentImportRow(
+                    fullName,
+                    GetOptionalCellValue(reader, columns.SupervisorColumnIndex),
+                    GetOptionalCellValue(reader, columns.TopicColumnIndex),
+                    GetOptionalCellValue(reader, columns.PracticeBaseColumnIndex)));
             }
+        }
+
+        if (columns is null)
+        {
+            return ErrorDetails.Validation(
+                "StudentImport.StudentNameHeaderMissing",
+                "Students table must contain a student full name column.");
         }
 
         return students;
     }
 
-    private static int? TryDetectHeader(IExcelDataReader reader)
+    private static StudentImportColumns? TryDetectColumns(IExcelDataReader reader)
     {
+        int? studentFullNameColumnIndex = null;
+        int? supervisorColumnIndex = null;
+        int? topicColumnIndex = null;
+        int? practiceBaseColumnIndex = null;
+
         for (var i = 0; i < reader.FieldCount; i++)
         {
             var value = NormalizeHeaderValue(reader.GetValue(i));
-            if (HeaderNames.Contains(value))
+            if (StudentFullNameHeaderNames.Contains(value))
             {
-                return i;
+                studentFullNameColumnIndex = i;
+            }
+            else if (SupervisorHeaderNames.Contains(value))
+            {
+                supervisorColumnIndex = i;
+            }
+            else if (TopicHeaderNames.Contains(value))
+            {
+                topicColumnIndex = i;
+            }
+            else if (PracticeBaseHeaderNames.Contains(value))
+            {
+                practiceBaseColumnIndex = i;
             }
         }
 
-        return null;
+        return studentFullNameColumnIndex is null
+            ? null
+            : new StudentImportColumns(
+                studentFullNameColumnIndex.Value,
+                supervisorColumnIndex,
+                topicColumnIndex,
+                practiceBaseColumnIndex);
+    }
+
+    private static string GetOptionalCellValue(IExcelDataReader reader, int? columnIndex)
+    {
+        return columnIndex is null ? string.Empty : NormalizeCellValue(reader.GetValue(columnIndex.Value));
     }
 
     private static string NormalizeCellValue(object? value)
@@ -204,12 +283,16 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
 
     private static string NormalizeHeaderValue(object? value)
     {
-        return NormalizeCellValue(value).ToUpperInvariant();
+        var normalized = NormalizeCellValue(value)
+            .Replace(".", string.Empty, StringComparison.Ordinal)
+            .ToUpperInvariant();
+
+        return WhitespaceRegex().Replace(normalized, " ");
     }
 
-    private static List<string> FindDuplicates(List<string> names)
+    private static List<string> FindDuplicates(IEnumerable<string> names)
     {
-        var uniqueNames = new HashSet<string>(names.Count, StringComparer.OrdinalIgnoreCase);
+        var uniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var duplicates = new List<string>();
 
         foreach (var name in names)
@@ -251,7 +334,16 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
         return builder.Uri;
     }
 
+    private sealed record StudentImportColumns(
+        int StudentFullNameColumnIndex,
+        int? SupervisorColumnIndex,
+        int? TopicColumnIndex,
+        int? PracticeBaseColumnIndex);
+
     private sealed record GoogleDownloadSource(Uri Url, string FileName);
+
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex WhitespaceRegex();
 
     [GeneratedRegex(@"docs\.google\.com/spreadsheets/d/(?<id>[-\w]+)", RegexOptions.IgnoreCase)]
     private static partial Regex GoogleSheetIdRegex();

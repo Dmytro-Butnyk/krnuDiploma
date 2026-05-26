@@ -147,14 +147,14 @@ public static class UpdateStudentQualificationWork
             {
                 var supervisorExists = await context.Teachers
                     .AnyAsync(
-                        t => t.Id == request.SupervisorId && t.SpecialtyId == access.SpecialtyId,
+                        t => t.Id == request.SupervisorId && t.SpecialtyId == access.GroupSpecialtyId,
                         ct);
 
                 if (!supervisorExists)
                 {
                     return ErrorDetails.Validation(
                         "QualificationWork.SupervisorInvalid",
-                        "Supervisor must belong to student specialty.");
+                        "Supervisor must belong to student group specialty.");
                 }
             }
 
@@ -162,14 +162,14 @@ public static class UpdateStudentQualificationWork
             {
                 var reviewerExists = await context.Teachers
                     .AnyAsync(
-                        t => t.Id == request.ReviewerId && t.SpecialtyId != access.SpecialtyId,
+                        t => t.Id == request.ReviewerId && t.SpecialtyId != access.GroupSpecialtyId,
                         ct);
 
                 if (!reviewerExists)
                 {
                     return ErrorDetails.Validation(
                         "QualificationWork.ReviewerInvalid",
-                        "Reviewer must belong to another specialty.");
+                        "Reviewer must not belong to student group specialty.");
                 }
             }
 

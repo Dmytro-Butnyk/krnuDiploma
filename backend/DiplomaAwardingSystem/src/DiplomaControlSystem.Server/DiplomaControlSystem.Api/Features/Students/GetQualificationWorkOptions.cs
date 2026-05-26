@@ -64,14 +64,14 @@ public static class GetQualificationWorkOptions
             var access = accessResult.Value!;
             var supervisors = await context.Teachers
                 .AsNoTracking()
-                .Where(t => t.SpecialtyId == access.SpecialtyId)
+                .Where(t => t.SpecialtyId == access.GroupSpecialtyId)
                 .OrderBy(t => t.ShortName)
                 .Select(t => new TeacherOptionDto(t.Id, t.FullName, t.ShortName))
                 .ToListAsync(ct);
 
             var reviewers = await context.Teachers
                 .AsNoTracking()
-                .Where(t => t.SpecialtyId != access.SpecialtyId)
+                .Where(t => t.SpecialtyId != access.GroupSpecialtyId)
                 .OrderBy(t => t.ShortName)
                 .Select(t => new TeacherOptionDto(t.Id, t.FullName, t.ShortName))
                 .ToListAsync(ct);
