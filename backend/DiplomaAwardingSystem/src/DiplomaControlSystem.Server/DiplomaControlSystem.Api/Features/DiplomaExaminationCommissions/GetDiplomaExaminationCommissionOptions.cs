@@ -95,7 +95,7 @@ public static class GetDiplomaExaminationCommissionOptions
                 .Select(teacher => new TeacherDto(
                     teacher.Id,
                     teacher.FullName,
-                    teacher.Position))
+                    teacher.TeacherPosition != null ? teacher.TeacherPosition.FullName : string.Empty))
                 .ToListAsync(ct);
 
             var secretaries = await context.Secretaries

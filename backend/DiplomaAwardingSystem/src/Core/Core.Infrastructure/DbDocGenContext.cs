@@ -53,5 +53,6 @@ public sealed class DbDocGenContext(
     public DbSet<AcademicDegree> AcademicDegrees => Set<AcademicDegree>();
     public DbSet<CommissionHead> CommissionHeads => Set<CommissionHead>();
     public DbSet<DiplomaExaminationCommission> DiplomaExaminationCommissions => Set<DiplomaExaminationCommission>();
+    public DbSet<TeacherPosition> TeacherPositions => Set<TeacherPosition>();
     public DbSet<Teacher> Teachers => Set<Teacher>();
 }

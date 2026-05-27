@@ -1,3 +1,4 @@
+using System.Globalization;
 using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Enums;
@@ -23,11 +24,18 @@ public static class GetGroupStatistics
         string Title,
         IReadOnlyCollection<StatisticItemDto> Items);
 
+    public sealed record PreviousYearStatisticsDto(
+        string DefenseYear,
+        int GroupsCount,
+        int TotalStudents,
+        IReadOnlyCollection<StatisticSectionDto> Sections);
+
     public sealed record GetGroupStatisticsResponse(
         int GroupId,
         string GroupName,
         int TotalStudents,
-        IReadOnlyCollection<StatisticSectionDto> Sections);
+        IReadOnlyCollection<StatisticSectionDto> Sections,
+        PreviousYearStatisticsDto? PreviousYearStatistics);
 
     internal static class Endpoint
     {
@@ -81,7 +89,9 @@ public static class GetGroupStatistics
                 {
                     g.Id,
                     g.Name,
-                    g.SpecialtyId
+                    g.SpecialtyId,
+                    g.Year,
+                    g.EducationLevel
                 })
                 .FirstOrDefaultAsync(ct);
 
@@ -99,9 +109,65 @@ public static class GetGroupStatistics
                     "Group does not belong to secretary specialty.");
             }
 
-            var students = await context.Students
+            var students = await GetStudentStatisticsAsync([groupId], ct);
+            var totalStudents = students.Count;
+            var sections = BuildSections(students, totalStudents, includePerformanceSection: true);
+            var previousYearStatistics = await GetPreviousYearStatisticsAsync(
+                group.SpecialtyId,
+                group.EducationLevel,
+                group.Year,
+                ct);
+
+            return new GetGroupStatisticsResponse(
+                group.Id,
+                group.Name,
+                totalStudents,
+                sections,
+                previousYearStatistics);
+        }
+
+        private async Task<PreviousYearStatisticsDto?> GetPreviousYearStatisticsAsync(
+            int specialtyId,
+            EducationLevel educationLevel,
+            string defenseYear,
+            CancellationToken ct)
+        {
+            if (!int.TryParse(defenseYear, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedDefenseYear))
+            {
+                return null;
+            }
+
+            var previousDefenseYear = (parsedDefenseYear - 1).ToString(CultureInfo.InvariantCulture);
+            var previousGroupIds = await context.Groups
                 .AsNoTracking()
-                .Where(student => student.GroupId == groupId)
+                .Where(group => group.SpecialtyId == specialtyId)
+                .Where(group => group.EducationLevel == educationLevel)
+                .Where(group => group.Year == previousDefenseYear)
+                .Select(group => group.Id)
+                .ToListAsync(ct);
+
+            if (previousGroupIds.Count == 0)
+            {
+                return null;
+            }
+
+            var students = await GetStudentStatisticsAsync(previousGroupIds, ct);
+            var totalStudents = students.Count;
+
+            return new PreviousYearStatisticsDto(
+                previousDefenseYear,
+                previousGroupIds.Count,
+                totalStudents,
+                BuildSections(students, totalStudents, includePerformanceSection: false));
+        }
+
+        private async Task<List<StudentStatisticsProjection>> GetStudentStatisticsAsync(
+            IReadOnlyCollection<int> groupIds,
+            CancellationToken ct)
+        {
+            return await context.Students
+                .AsNoTracking()
+                .Where(student => groupIds.Contains(student.GroupId))
                 .Select(student => new StudentStatisticsProjection
                 {
                     NationalGrade = student.QualificationWork != null
@@ -144,19 +210,46 @@ public static class GetGroupStatistics
                                              && student.QualificationWork.QualificationWorkCharacteristics.IsDefendedAtEnterprise
                 })
                 .ToListAsync(ct);
+        }
 
-            var totalStudents = students.Count;
+        private static StatisticSectionDto[] BuildSections(
+            IReadOnlyCollection<StudentStatisticsProjection> students,
+            int totalStudents,
+            bool includePerformanceSection)
+        {
+            var sections = new List<StatisticSectionDto>();
 
-            return new GetGroupStatisticsResponse(
-                group.Id,
-                group.Name,
-                totalStudents,
-                new[]
-                {
+            if (includePerformanceSection)
+            {
+                sections.Add(BuildPerformanceSection(students, totalStudents));
+            }
+
+            sections.AddRange(
+                [
                     BuildGradesSection(students, totalStudents),
                     BuildWorkCharacterSection(students, totalStudents),
                     BuildComplexDesignSection(students, totalStudents),
                     BuildAdditionalSection(students, totalStudents)
+                ]);
+
+            return sections.ToArray();
+        }
+
+        private static StatisticSectionDto BuildPerformanceSection(
+            IReadOnlyCollection<StudentStatisticsProjection> students,
+            int totalStudents)
+        {
+            var excellentCount = Count(students, s => s.NationalGrade == NationalGrade.Excellent);
+            var goodCount = Count(students, s => s.NationalGrade == NationalGrade.Good);
+            var satisfactoryCount = Count(students, s => s.NationalGrade == NationalGrade.Satisfactory);
+
+            return new StatisticSectionDto(
+                "performanceIndicators",
+                "Показники успішності",
+                new[]
+                {
+                    CreateItem("educationQuality", "Якість навчання", excellentCount + goodCount, totalStudents),
+                    CreateItem("overallSuccess", "Загальна успішність", excellentCount + goodCount + satisfactoryCount, totalStudents)
                 });
         }
 

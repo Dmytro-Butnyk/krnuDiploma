@@ -9,10 +9,12 @@ public sealed class Teacher : BaseEntity
     public string ShortName { get; set; }
     public string Email { get; set; }
     public string PhoneNumber { get; set; }
-    public string Position { get; set; }
 
     public int AcademicDegreeId { get; set; }
     public AcademicDegree? AcademicDegree { get; set; }
+
+    public int TeacherPositionId { get; set; }
+    public TeacherPosition? TeacherPosition { get; set; }
 
     public int SpecialtyId { get; set; }
     public Specialty? Specialty { get; set; }
@@ -26,17 +28,23 @@ public sealed class Teacher : BaseEntity
         ShortName = string.Empty;
         Email = string.Empty;
         PhoneNumber = string.Empty;
-        Position = string.Empty;
     }
 
-    public Teacher(string fullName, string shortName, string email, string phoneNumber, string position, int academicDegreeId, int specialtyId)
+    public Teacher(
+        string fullName,
+        string shortName,
+        string email,
+        string phoneNumber,
+        int academicDegreeId,
+        int teacherPositionId,
+        int specialtyId)
     {
         FullName = fullName;
         ShortName = shortName;
         Email = email;
         PhoneNumber = phoneNumber;
-        Position = position;
         AcademicDegreeId = academicDegreeId;
+        TeacherPositionId = teacherPositionId;
         SpecialtyId = specialtyId;
     }
 }

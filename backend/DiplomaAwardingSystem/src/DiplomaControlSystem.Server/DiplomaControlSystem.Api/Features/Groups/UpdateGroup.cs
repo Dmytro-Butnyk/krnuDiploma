@@ -5,6 +5,7 @@ using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
+using DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -105,7 +106,8 @@ public static class UpdateGroup
 
     private sealed class Handler(
         DbDocGenContext context,
-        SecretaryAccessService secretaryAccessService) : IScopedService
+        SecretaryAccessService secretaryAccessService,
+        DiplomaExaminationCommissionCleanupService commissionCleanupService) : IScopedService
     {
         public async Task<Result<UpdateGroupResponse>> HandleAsync(
             int groupId,
@@ -166,6 +168,7 @@ public static class UpdateGroup
             request.Name.UpdateIfNotNull(value => group.Name = value.Trim());
             normalizedYear.UpdateIfNotNull(value => group.Year = value);
             request.EducationLevel.UpdateIfNotNull(_ => group.EducationLevel = nextEducationLevel);
+            var previousCommissionId = group.DiplomaExaminationCommissionId;
             group.DiplomaExaminationCommissionId = await context.DiplomaExaminationCommissions
                 .AsNoTracking()
                 .Where(dec => dec.DefenseYear == group.Year)
@@ -174,7 +177,17 @@ public static class UpdateGroup
                 .Select(dec => (int?)dec.Id)
                 .FirstOrDefaultAsync(ct);
 
+            await using var transaction = await context.Database.BeginTransactionAsync(ct);
+
             await context.SaveChangesAsync(ct);
+
+            if (previousCommissionId != group.DiplomaExaminationCommissionId)
+            {
+                await commissionCleanupService.RemoveEmptyCommissionsAsync([previousCommissionId], ct);
+                await context.SaveChangesAsync(ct);
+            }
+
+            await transaction.CommitAsync(ct);
 
             return new UpdateGroupResponse(
                 group.Id,

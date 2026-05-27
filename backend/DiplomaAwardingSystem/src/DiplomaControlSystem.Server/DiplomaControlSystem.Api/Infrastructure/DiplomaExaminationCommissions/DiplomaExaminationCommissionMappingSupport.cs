@@ -19,8 +19,11 @@ internal static class DiplomaExaminationCommissionMappingSupport
             .Include(dec => dec.Groups)
             .Include(dec => dec.CommissionHead)
             .Include(dec => dec.FirstMemberTeacher)
+            .ThenInclude(teacher => teacher!.TeacherPosition)
             .Include(dec => dec.SecondMemberTeacher)
+            .ThenInclude(teacher => teacher!.TeacherPosition)
             .Include(dec => dec.ThirdMemberTeacher)
+            .ThenInclude(teacher => teacher!.TeacherPosition)
             .Include(dec => dec.Secretary)
             .FirstAsync(dec => dec.Id == commissionId, ct);
 
@@ -65,6 +68,9 @@ internal static class DiplomaExaminationCommissionMappingSupport
 
     private static MemberDto MapMember(Teacher teacher)
     {
-        return new MemberDto(teacher.Id, teacher.FullName, teacher.Position);
+        return new MemberDto(
+            teacher.Id,
+            teacher.FullName,
+            teacher.TeacherPosition?.FullName ?? string.Empty);
     }
 }

@@ -3,6 +3,7 @@ using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.DiplomaExaminationCommissions;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -42,7 +43,8 @@ public static class DeleteGroup
 
     private sealed class Handler(
         DbDocGenContext context,
-        SecretaryAccessService secretaryAccessService) : IScopedService
+        SecretaryAccessService secretaryAccessService,
+        DiplomaExaminationCommissionCleanupService commissionCleanupService) : IScopedService
     {
         public async Task<Result> HandleAsync(
             int groupId,
@@ -72,8 +74,16 @@ public static class DeleteGroup
                     "Group does not belong to secretary specialty.");
             }
 
+            var commissionId = group.DiplomaExaminationCommissionId;
+
+            await using var transaction = await context.Database.BeginTransactionAsync(ct);
+
             context.Groups.Remove(group);
             await context.SaveChangesAsync(ct);
+
+            await commissionCleanupService.RemoveEmptyCommissionsAsync([commissionId], ct);
+            await context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
 
             return Result.Success();
         }
