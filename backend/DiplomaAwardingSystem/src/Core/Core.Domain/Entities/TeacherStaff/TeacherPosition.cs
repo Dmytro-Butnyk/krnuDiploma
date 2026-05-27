@@ -4,6 +4,7 @@ public sealed class TeacherPosition : BaseEntity
 {
     public string FullName { get; set; }
     public string ShortName { get; set; }
+    public bool IsActive { get; set; }
 
     public ICollection<Teacher> Teachers { get; init; } = new HashSet<Teacher>();
 
@@ -17,5 +18,6 @@ public sealed class TeacherPosition : BaseEntity
     {
         FullName = fullName;
         ShortName = shortName;
+        IsActive = true;
     }
 }

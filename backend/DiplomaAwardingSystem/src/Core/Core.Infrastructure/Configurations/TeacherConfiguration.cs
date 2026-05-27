@@ -11,9 +11,10 @@ public sealed class TeacherConfiguration : IEntityTypeConfiguration<Teacher>
         builder.HasKey(t => t.Id);
         
         builder.Property(t => t.FullName).IsRequired().HasMaxLength(256);
-        builder.Property(t => t.ShortName).IsRequired().HasMaxLength(100);
+        builder.Property(t => t.ShortName).IsRequired().HasMaxLength(256);
         builder.Property(t => t.Email).IsRequired().HasMaxLength(150);
         builder.Property(t => t.PhoneNumber).HasMaxLength(50);
+        builder.Property(t => t.IsActive).IsRequired();
         
         builder.HasIndex(t => t.Email).IsUnique();
 

@@ -1,7 +1,14 @@
+using DiplomaControlSystem.Api.Features.AcademicDegrees;
+using DiplomaControlSystem.Api.Features.Auth;
 using DiplomaControlSystem.Api.Features.CommissionHeads;
 using DiplomaControlSystem.Api.Features.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Features.Groups;
+using DiplomaControlSystem.Api.Features.Secretaries;
+using DiplomaControlSystem.Api.Features.Specialties;
 using DiplomaControlSystem.Api.Features.Students;
+using DiplomaControlSystem.Api.Features.TeacherPositions;
+using DiplomaControlSystem.Api.Features.Teachers;
+using DiplomaControlSystem.Api.Infrastructure.Auth;
 
 namespace DiplomaControlSystem.Api.Extensions;
 
@@ -9,7 +16,16 @@ public static class WebApplicationExtension
 {
     public static void MapAllEndpoints(this WebApplication app)
     {
-        var apiGroup = app.MapGroup("/api");
+        var apiGroup = app.MapGroup("/api")
+            .RequireAuthorization(AuthPolicies.Secretary);
+
+        LoginWithGoogle.Endpoint.MapEndpoint(apiGroup);
+
+        ManageAcademicDegrees.Endpoint.MapEndpoint(apiGroup);
+        ManageSecretaries.Endpoint.MapEndpoint(apiGroup);
+        ManageSpecialties.Endpoint.MapEndpoint(apiGroup);
+        ManageTeacherPositions.Endpoint.MapEndpoint(apiGroup);
+        ManageTeachers.Endpoint.MapEndpoint(apiGroup);
 
         CreateCommissionHead.Endpoint.MapEndpoint(apiGroup);
         DeleteCommissionHead.Endpoint.MapEndpoint(apiGroup);

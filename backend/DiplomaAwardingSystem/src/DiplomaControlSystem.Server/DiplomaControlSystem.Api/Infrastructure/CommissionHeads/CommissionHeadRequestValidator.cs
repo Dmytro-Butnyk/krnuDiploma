@@ -7,11 +7,6 @@ internal sealed class CommissionHeadRequestValidator<TRequest> : AbstractValidat
 {
     public CommissionHeadRequestValidator()
     {
-        RuleFor(x => x.SecretaryEmail)
-            .NotEmpty()
-            .EmailAddress()
-            .MaximumLength(320);
-
         RuleFor(x => x.FullName)
             .NotEmpty()
             .MaximumLength(256);

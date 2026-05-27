@@ -19,7 +19,6 @@ public static class GetDiplomaExaminationCommission
 {
     public sealed class GetDiplomaExaminationCommissionRequest
     {
-        public string SecretaryEmail { get; init; } = string.Empty;
         public string EducationLevel { get; init; } = string.Empty;
         public string DefenseYear { get; init; } = string.Empty;
     }
@@ -28,11 +27,6 @@ public static class GetDiplomaExaminationCommission
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-
             RuleFor(x => x.EducationLevel)
                 .NotEmpty()
                 .Must(level => DiplomaExaminationCommissionRules.TryParseEducationLevel(level, out _))
@@ -93,7 +87,7 @@ public static class GetDiplomaExaminationCommission
             GetDiplomaExaminationCommissionRequest request,
             CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;

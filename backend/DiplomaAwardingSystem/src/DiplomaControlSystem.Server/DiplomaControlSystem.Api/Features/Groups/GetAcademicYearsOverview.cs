@@ -3,6 +3,7 @@ using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 using FluentValidation;
 using FluentValidation.Results;
@@ -16,7 +17,6 @@ public static class GetAcademicYearsOverview
 {
     public sealed class GetAcademicYearsOverviewRequest
     {
-        public string SecretaryEmail { get; init; } = string.Empty;
         public string EducationLevel { get; init; } = string.Empty;
     }
 
@@ -37,11 +37,6 @@ public static class GetAcademicYearsOverview
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-
             RuleFor(x => x.EducationLevel)
                 .NotEmpty()
                 .Must(BeValidEducationLevel)
@@ -91,39 +86,23 @@ public static class GetAcademicYearsOverview
         }
     }
 
-    private sealed class Handler(DbDocGenContext context) : IScopedService
+    private sealed class Handler(
+        DbDocGenContext context,
+        SecretaryAccessService secretaryAccessService) : IScopedService
     {
         public async Task<Result<IReadOnlyCollection<GetAcademicYearsOverviewResponse>>> HandleAsync(
             GetAcademicYearsOverviewRequest request,
             CancellationToken ct)
         {
-            var email = request.SecretaryEmail.Trim();
             _ = TryParseEducationLevel(request.EducationLevel, out var educationLevel);
 
-            var secretary = await context.Secretaries
-                .AsNoTracking()
-                .Where(s => EF.Functions.ILike(s.Email, email))
-                .Select(s => new
-                {
-                    s.SpecialtyId,
-                    s.IsActive
-                })
-                .FirstOrDefaultAsync(ct);
-
-            if (secretary is null)
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
+            if (secretaryResult.IsFailure)
             {
-                return ErrorDetails.NotFound(
-                    "Secretary.NotFound",
-                    "Secretary with the specified email was not found.");
+                return secretaryResult.ErrorDetails;
             }
 
-            if (!secretary.IsActive)
-            {
-                return ErrorDetails.Forbidden(
-                    "Secretary.Inactive",
-                    "Secretary with the specified email is inactive.");
-            }
-
+            var secretary = secretaryResult.Value!;
             var groups = await context.Groups
                 .AsNoTracking()
                 .Where(g => g.SpecialtyId == secretary.SpecialtyId)

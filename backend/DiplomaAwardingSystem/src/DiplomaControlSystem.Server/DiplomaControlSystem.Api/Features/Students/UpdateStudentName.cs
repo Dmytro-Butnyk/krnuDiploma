@@ -15,7 +15,6 @@ namespace DiplomaControlSystem.Api.Features.Students;
 public static class UpdateStudentName
 {
     public sealed record UpdateStudentNameRequest(
-        string SecretaryEmail,
         string LastName,
         string FirstName,
         string MiddleName);
@@ -26,11 +25,6 @@ public static class UpdateStudentName
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-
             RuleFor(x => x.LastName)
                 .NotEmpty()
                 .MaximumLength(100);
@@ -92,7 +86,7 @@ public static class UpdateStudentName
             UpdateStudentNameRequest request,
             CancellationToken ct)
         {
-            var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
+            var accessResult = await studentAccessService.GetForCurrentSecretaryAsync(studentId, ct);
             if (accessResult.IsFailure)
             {
                 return accessResult.ErrorDetails;

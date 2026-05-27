@@ -18,7 +18,6 @@ public static class GetDiplomaExaminationCommissionOptions
 {
     public sealed class GetDiplomaExaminationCommissionOptionsRequest
     {
-        public string SecretaryEmail { get; init; } = string.Empty;
     }
 
     public sealed record GetDiplomaExaminationCommissionOptionsResponse(
@@ -30,10 +29,6 @@ public static class GetDiplomaExaminationCommissionOptions
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
         }
     }
 
@@ -80,7 +75,7 @@ public static class GetDiplomaExaminationCommissionOptions
     {
         public async Task<Result<GetDiplomaExaminationCommissionOptionsResponse>> HandleAsync(GetDiplomaExaminationCommissionOptionsRequest request, CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;
@@ -90,6 +85,7 @@ public static class GetDiplomaExaminationCommissionOptions
 
             var teachers = await context.Teachers
                 .AsNoTracking()
+                .Where(teacher => teacher.IsActive)
                 .Where(teacher => teacher.SpecialtyId == secretary.SpecialtyId)
                 .OrderBy(teacher => teacher.FullName)
                 .Select(teacher => new TeacherDto(
@@ -100,6 +96,7 @@ public static class GetDiplomaExaminationCommissionOptions
 
             var secretaries = await context.Secretaries
                 .AsNoTracking()
+                .Where(candidate => candidate.IsActive)
                 .Where(candidate => candidate.SpecialtyId == secretary.SpecialtyId)
                 .Where(candidate => candidate.IsActive)
                 .OrderBy(candidate => candidate.FullName)

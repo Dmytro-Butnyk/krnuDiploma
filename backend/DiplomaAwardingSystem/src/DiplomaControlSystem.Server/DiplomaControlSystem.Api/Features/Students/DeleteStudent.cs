@@ -25,11 +25,10 @@ public static class DeleteStudent
 
         private static async Task<Results<NoContent, ProblemHttpResult>> Handle(
             [FromRoute] int studentId,
-            [FromQuery] string secretaryEmail,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
-            var result = await handler.HandleAsync(studentId, secretaryEmail, ct);
+            var result = await handler.HandleAsync(studentId, ct);
 
             if (result.IsFailure)
             {
@@ -46,10 +45,9 @@ public static class DeleteStudent
     {
         public async Task<Result> HandleAsync(
             int studentId,
-            string secretaryEmail,
             CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(secretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;

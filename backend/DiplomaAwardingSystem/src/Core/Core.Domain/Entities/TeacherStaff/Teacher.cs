@@ -9,6 +9,7 @@ public sealed class Teacher : BaseEntity
     public string ShortName { get; set; }
     public string Email { get; set; }
     public string PhoneNumber { get; set; }
+    public bool IsActive { get; set; }
 
     public int AcademicDegreeId { get; set; }
     public AcademicDegree? AcademicDegree { get; set; }
@@ -46,5 +47,6 @@ public sealed class Teacher : BaseEntity
         AcademicDegreeId = academicDegreeId;
         TeacherPositionId = teacherPositionId;
         SpecialtyId = specialtyId;
+        IsActive = true;
     }
 }

@@ -232,6 +232,7 @@ internal static class DiplomaExaminationCommissionUpsertSupport
         var existingTeacherIds = await context.Teachers
             .AsNoTracking()
             .Where(teacher => teacher.SpecialtyId == specialtyId)
+            .Where(teacher => teacher.IsActive)
             .Where(teacher => teacherIds.Contains(teacher.Id))
             .Select(teacher => teacher.Id)
             .ToListAsync(ct);

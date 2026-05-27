@@ -16,7 +16,6 @@ namespace DiplomaControlSystem.Api.Features.Students;
 public static class UpdateDefenceResults
 {
     public sealed record UpdateDefenceResultsRequest(
-        string SecretaryEmail,
         float PlagiarismPercent,
         float UniquePercent,
         int SupervisorScore,
@@ -41,11 +40,6 @@ public static class UpdateDefenceResults
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-
             RuleFor(x => x.PlagiarismPercent)
                 .InclusiveBetween(0, 100);
 
@@ -130,7 +124,7 @@ public static class UpdateDefenceResults
             UpdateDefenceResultsRequest request,
             CancellationToken ct)
         {
-            var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
+            var accessResult = await studentAccessService.GetForCurrentSecretaryAsync(studentId, ct);
             if (accessResult.IsFailure)
             {
                 return accessResult.ErrorDetails;

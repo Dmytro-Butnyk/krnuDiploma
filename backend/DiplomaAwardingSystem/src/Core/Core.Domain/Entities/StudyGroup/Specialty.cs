@@ -6,6 +6,7 @@ public sealed class Specialty : BaseEntity
 {
     public string Code { get; set; }
     public string Name { get; set; }
+    public bool IsActive { get; set; }
 
     public ICollection<Group> Groups { get; init; } = new HashSet<Group>();
     public ICollection<Teacher> Teachers { get; init; } = new HashSet<Teacher>();
@@ -22,5 +23,6 @@ public sealed class Specialty : BaseEntity
     {
         Code = code;
         Name = name;
+        IsActive = true;
     }
 }

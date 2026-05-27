@@ -15,7 +15,6 @@ namespace DiplomaControlSystem.Api.Features.Students;
 public static class UpdateElectronicChecklist
 {
     public sealed record UpdateElectronicChecklistRequest(
-        string SecretaryEmail,
         bool HasRegulatoryControl,
         bool HasExplanatoryNoteDoc,
         bool HasExplanatoryNotePdf,
@@ -36,10 +35,6 @@ public static class UpdateElectronicChecklist
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
         }
     }
 
@@ -90,7 +85,7 @@ public static class UpdateElectronicChecklist
             UpdateElectronicChecklistRequest request,
             CancellationToken ct)
         {
-            var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
+            var accessResult = await studentAccessService.GetForCurrentSecretaryAsync(studentId, ct);
             if (accessResult.IsFailure)
             {
                 return accessResult.ErrorDetails;

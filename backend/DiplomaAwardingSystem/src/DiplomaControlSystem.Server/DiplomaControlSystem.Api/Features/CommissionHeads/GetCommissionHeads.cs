@@ -14,22 +14,6 @@ namespace DiplomaControlSystem.Api.Features.CommissionHeads;
 
 public static class GetCommissionHeads
 {
-    public sealed class GetCommissionHeadsRequest
-    {
-        public string SecretaryEmail { get; init; } = string.Empty;
-    }
-
-    internal sealed class Validator : AbstractValidator<GetCommissionHeadsRequest>
-    {
-        public Validator()
-        {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-        }
-    }
-
     internal static class Endpoint
     {
         public static void MapEndpoint(IEndpointRouteBuilder app)
@@ -37,26 +21,16 @@ public static class GetCommissionHeads
             app.MapGet("/commission-heads", Handle)
                 .WithSummary("Gets active commission heads")
                 .Produces<IReadOnlyCollection<CommissionHeadDto>>(StatusCodes.Status200OK)
-                .ProducesValidationProblem()
                 .ProducesProblem(StatusCodes.Status403Forbidden)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .WithTags("Commission Heads");
         }
 
-        private static async Task<Results<Ok<IReadOnlyCollection<CommissionHeadDto>>, ProblemHttpResult, ValidationProblem>> Handle(
-            [AsParameters] GetCommissionHeadsRequest request,
-            [FromServices] IValidator<GetCommissionHeadsRequest> validator,
+        private static async Task<Results<Ok<IReadOnlyCollection<CommissionHeadDto>>, ProblemHttpResult>> Handle(
             [FromServices] Handler handler,
             CancellationToken ct)
         {
-            ValidationResult validationResult = await validator.ValidateAsync(request, ct);
-
-            if (!validationResult.IsValid)
-            {
-                return TypedResults.ValidationProblem(validationResult.ToDictionary());
-            }
-
-            var result = await handler.HandleAsync(request, ct);
+            var result = await handler.HandleAsync(ct);
 
             if (result.IsFailure)
             {
@@ -72,10 +46,9 @@ public static class GetCommissionHeads
         SecretaryAccessService secretaryAccessService) : IScopedService
     {
         public async Task<Result<IReadOnlyCollection<CommissionHeadDto>>> HandleAsync(
-            GetCommissionHeadsRequest request,
             CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;

@@ -51,11 +51,10 @@ public static class GetGroupStatistics
 
         private static async Task<Results<Ok<GetGroupStatisticsResponse>, ProblemHttpResult>> Handle(
             [FromRoute] int groupId,
-            [FromQuery] string secretaryEmail,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
-            var result = await handler.HandleAsync(groupId, secretaryEmail, ct);
+            var result = await handler.HandleAsync(groupId, ct);
 
             if (result.IsFailure)
             {
@@ -72,10 +71,9 @@ public static class GetGroupStatistics
     {
         public async Task<Result<GetGroupStatisticsResponse>> HandleAsync(
             int groupId,
-            string secretaryEmail,
             CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(secretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;

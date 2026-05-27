@@ -33,7 +33,6 @@ public static class DiplomaExaminationCommissionContracts
 
     public abstract class DiplomaExaminationCommissionUpdateRequest
     {
-        public string SecretaryEmail { get; init; } = string.Empty;
         public int SecretaryId { get; init; }
         public string OrderNumber { get; init; } = string.Empty;
         public int CommissionHeadId { get; init; }

@@ -25,11 +25,10 @@ public static class DeleteCommissionHead
 
         private static async Task<Results<NoContent, ProblemHttpResult>> Handle(
             [FromRoute] int commissionHeadId,
-            [FromQuery] string secretaryEmail,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
-            var result = await handler.HandleAsync(commissionHeadId, secretaryEmail, ct);
+            var result = await handler.HandleAsync(commissionHeadId, ct);
 
             if (result.IsFailure)
             {
@@ -46,10 +45,9 @@ public static class DeleteCommissionHead
     {
         public async Task<Result> HandleAsync(
             int commissionHeadId,
-            string secretaryEmail,
             CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(secretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;

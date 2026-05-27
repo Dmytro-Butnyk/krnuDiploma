@@ -14,7 +14,7 @@ namespace DiplomaControlSystem.Api.Features.Students;
 
 public static class UpdateStudentDefence
 {
-    public sealed record UpdateStudentDefenceRequest(string SecretaryEmail, DateOnly? DefenceDate);
+    public sealed record UpdateStudentDefenceRequest(DateOnly? DefenceDate);
 
     public sealed record UpdateStudentDefenceResponse(int StudentId, DateOnly? DefenceDate);
 
@@ -22,10 +22,6 @@ public static class UpdateStudentDefence
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
         }
     }
 
@@ -76,7 +72,7 @@ public static class UpdateStudentDefence
             UpdateStudentDefenceRequest request,
             CancellationToken ct)
         {
-            var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
+            var accessResult = await studentAccessService.GetForCurrentSecretaryAsync(studentId, ct);
             if (accessResult.IsFailure)
             {
                 return accessResult.ErrorDetails;

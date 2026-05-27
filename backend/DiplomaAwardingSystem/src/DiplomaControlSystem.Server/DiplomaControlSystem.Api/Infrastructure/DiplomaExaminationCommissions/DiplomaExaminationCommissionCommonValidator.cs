@@ -8,11 +8,6 @@ internal sealed class DiplomaExaminationCommissionCommonValidator<TRequest> : Ab
 {
     public DiplomaExaminationCommissionCommonValidator()
     {
-        RuleFor(x => x.SecretaryEmail)
-            .NotEmpty()
-            .EmailAddress()
-            .MaximumLength(320);
-
         RuleFor(x => x.SecretaryId)
             .GreaterThan(0);
 

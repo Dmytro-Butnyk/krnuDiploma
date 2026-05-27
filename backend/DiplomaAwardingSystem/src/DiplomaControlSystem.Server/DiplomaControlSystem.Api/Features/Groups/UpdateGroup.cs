@@ -17,7 +17,6 @@ namespace DiplomaControlSystem.Api.Features.Groups;
 public static class UpdateGroup
 {
     public sealed record UpdateGroupRequest(
-        string SecretaryEmail,
         string? Name,
         string? Year,
         string? EducationLevel);
@@ -41,11 +40,6 @@ public static class UpdateGroup
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-
             RuleFor(x => x.Name)
                 .MaximumLength(100)
                 .When(x => x.Name is not null);
@@ -114,7 +108,7 @@ public static class UpdateGroup
             UpdateGroupRequest request,
             CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;

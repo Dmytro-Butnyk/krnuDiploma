@@ -15,7 +15,6 @@ namespace DiplomaControlSystem.Api.Features.Students;
 public static class UpdateQualificationWorkCharacteristics
 {
     public sealed record UpdateQualificationWorkCharacteristicsRequest(
-        string SecretaryEmail,
         bool IsResearchBased,
         bool HasRealProjects,
         bool IsEcoFriendly,
@@ -46,10 +45,6 @@ public static class UpdateQualificationWorkCharacteristics
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
         }
     }
 
@@ -100,7 +95,7 @@ public static class UpdateQualificationWorkCharacteristics
             UpdateQualificationWorkCharacteristicsRequest request,
             CancellationToken ct)
         {
-            var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
+            var accessResult = await studentAccessService.GetForCurrentSecretaryAsync(studentId, ct);
             if (accessResult.IsFailure)
             {
                 return accessResult.ErrorDetails;

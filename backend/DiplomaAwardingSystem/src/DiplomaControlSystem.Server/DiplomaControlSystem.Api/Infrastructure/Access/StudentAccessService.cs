@@ -9,12 +9,11 @@ internal sealed class StudentAccessService(
     DbDocGenContext context,
     SecretaryAccessService secretaryAccessService) : IScopedService
 {
-    public async Task<Result<StudentAccessContext>> GetForSecretaryAsync(
+    public async Task<Result<StudentAccessContext>> GetForCurrentSecretaryAsync(
         int studentId,
-        string secretaryEmail,
         CancellationToken ct)
     {
-        var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(secretaryEmail, ct);
+        var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
         if (secretaryResult.IsFailure)
         {
             return secretaryResult.ErrorDetails;

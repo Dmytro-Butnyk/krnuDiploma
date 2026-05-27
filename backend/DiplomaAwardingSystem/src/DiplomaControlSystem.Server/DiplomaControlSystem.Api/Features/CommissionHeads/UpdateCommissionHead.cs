@@ -16,7 +16,6 @@ namespace DiplomaControlSystem.Api.Features.CommissionHeads;
 public static class UpdateCommissionHead
 {
     public sealed record UpdateCommissionHeadRequest(
-        string SecretaryEmail,
         string FullName,
         string Position,
         string Company,
@@ -78,7 +77,7 @@ public static class UpdateCommissionHead
             UpdateCommissionHeadRequest request,
             CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;

@@ -12,6 +12,7 @@ public sealed class SpecialtyConfiguration : IEntityTypeConfiguration<Specialty>
         
         builder.Property(s => s.Code).IsRequired().HasMaxLength(50);
         builder.Property(s => s.Name).IsRequired().HasMaxLength(256);
+        builder.Property(s => s.IsActive).IsRequired();
         builder.HasIndex(s => s.Code).IsUnique();
 
         builder.HasMany(s => s.Groups)

@@ -31,11 +31,10 @@ public static class GetQualificationWorkOptions
 
         private static async Task<Results<Ok<GetQualificationWorkOptionsResponse>, ProblemHttpResult>> Handle(
             [FromRoute] int studentId,
-            [FromQuery] string secretaryEmail,
             [FromServices] Handler handler,
             CancellationToken ct)
         {
-            var result = await handler.HandleAsync(studentId, secretaryEmail, ct);
+            var result = await handler.HandleAsync(studentId, ct);
 
             if (result.IsFailure)
             {
@@ -52,10 +51,9 @@ public static class GetQualificationWorkOptions
     {
         public async Task<Result<GetQualificationWorkOptionsResponse>> HandleAsync(
             int studentId,
-            string secretaryEmail,
             CancellationToken ct)
         {
-            var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, secretaryEmail, ct);
+            var accessResult = await studentAccessService.GetForCurrentSecretaryAsync(studentId, ct);
             if (accessResult.IsFailure)
             {
                 return accessResult.ErrorDetails;
@@ -64,6 +62,7 @@ public static class GetQualificationWorkOptions
             var access = accessResult.Value!;
             var supervisors = await context.Teachers
                 .AsNoTracking()
+                .Where(t => t.IsActive)
                 .Where(t => t.SpecialtyId == access.GroupSpecialtyId)
                 .OrderBy(t => t.ShortName)
                 .Select(t => new TeacherOptionDto(t.Id, t.FullName, t.ShortName))
@@ -71,6 +70,7 @@ public static class GetQualificationWorkOptions
 
             var reviewers = await context.Teachers
                 .AsNoTracking()
+                .Where(t => t.IsActive)
                 .Where(t => t.SpecialtyId != access.GroupSpecialtyId)
                 .OrderBy(t => t.ShortName)
                 .Select(t => new TeacherOptionDto(t.Id, t.FullName, t.ShortName))

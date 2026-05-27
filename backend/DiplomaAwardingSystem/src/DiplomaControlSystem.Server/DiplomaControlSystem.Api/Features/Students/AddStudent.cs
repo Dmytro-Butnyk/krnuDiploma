@@ -15,7 +15,6 @@ namespace DiplomaControlSystem.Api.Features.Students;
 public static class AddStudent
 {
     public sealed record AddStudentRequest(
-        string SecretaryEmail,
         string LastName,
         string FirstName,
         string MiddleName);
@@ -26,11 +25,6 @@ public static class AddStudent
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-
             RuleFor(x => x.LastName)
                 .NotEmpty()
                 .MaximumLength(100);
@@ -93,7 +87,7 @@ public static class AddStudent
             AddStudentRequest request,
             CancellationToken ct)
         {
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;

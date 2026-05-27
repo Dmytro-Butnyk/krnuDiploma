@@ -21,7 +21,6 @@ public static partial class CreateGroup
 {
     public sealed class CreateGroupRequest
     {
-        public string SecretaryEmail { get; init; } = string.Empty;
         public string Name { get; init; } = string.Empty;
         public string Year { get; init; } = string.Empty;
         public string EducationLevel { get; init; } = string.Empty;
@@ -57,11 +56,6 @@ public static partial class CreateGroup
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-
             RuleFor(x => x.Name)
                 .NotEmpty()
                 .MaximumLength(100);
@@ -170,7 +164,7 @@ public static partial class CreateGroup
                 return studentsImportResult.ErrorDetails;
             }
 
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;
@@ -206,7 +200,7 @@ public static partial class CreateGroup
 
             var importedStudents = studentsImportResult.Value!;
             var studentsCount = importedStudents.Count;
-            var supervisorIdsByShortName = await GetUniqueTeacherIdsByShortNameAsync(ct);
+            var supervisorIdsByShortName = await GetUniqueTeacherIdsByShortNameAsync(secretary.SpecialtyId, ct);
             var supervisorsMatched = 0;
             var supervisorsMissing = 0;
             var supervisorsUnspecified = 0;
@@ -269,10 +263,14 @@ public static partial class CreateGroup
                     practiceBasesImported));
         }
 
-        private async Task<Dictionary<string, int>> GetUniqueTeacherIdsByShortNameAsync(CancellationToken ct)
+        private async Task<Dictionary<string, int>> GetUniqueTeacherIdsByShortNameAsync(
+            int specialtyId,
+            CancellationToken ct)
         {
             var teachers = await context.Teachers
                 .AsNoTracking()
+                .Where(t => t.IsActive)
+                .Where(t => t.SpecialtyId == specialtyId)
                 .Select(t => new { t.Id, t.ShortName })
                 .ToListAsync(ct);
 

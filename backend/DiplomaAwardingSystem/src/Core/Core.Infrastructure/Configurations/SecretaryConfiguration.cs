@@ -11,9 +11,14 @@ public sealed class SecretaryConfiguration : IEntityTypeConfiguration<Secretary>
         builder.HasKey(s => s.Id);
 
         builder.Property(s => s.Email).IsRequired().HasMaxLength(320);
+        builder.Property(s => s.GoogleSubject).HasMaxLength(128);
         builder.Property(s => s.FullName).IsRequired().HasMaxLength(256);
         builder.Property(s => s.IsActive).IsRequired();
+        builder.Property(s => s.IsSuperSecretary).IsRequired();
 
         builder.HasIndex(s => s.Email).IsUnique();
+        builder.HasIndex(s => s.GoogleSubject)
+            .IsUnique()
+            .HasFilter("\"GoogleSubject\" IS NOT NULL");
     }
 }

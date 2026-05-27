@@ -15,7 +15,6 @@ namespace DiplomaControlSystem.Api.Features.Students;
 public static class UpdatePhysicalChecklist
 {
     public sealed record UpdatePhysicalChecklistRequest(
-        string SecretaryEmail,
         bool HasStudentCard,
         bool HasGradeBook,
         bool HasCircular,
@@ -36,10 +35,6 @@ public static class UpdatePhysicalChecklist
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
         }
     }
 
@@ -90,7 +85,7 @@ public static class UpdatePhysicalChecklist
             UpdatePhysicalChecklistRequest request,
             CancellationToken ct)
         {
-            var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
+            var accessResult = await studentAccessService.GetForCurrentSecretaryAsync(studentId, ct);
             if (accessResult.IsFailure)
             {
                 return accessResult.ErrorDetails;

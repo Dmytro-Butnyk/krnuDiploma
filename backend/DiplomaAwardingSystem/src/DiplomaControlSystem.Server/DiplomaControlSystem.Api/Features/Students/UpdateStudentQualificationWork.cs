@@ -15,7 +15,6 @@ namespace DiplomaControlSystem.Api.Features.Students;
 public static class UpdateStudentQualificationWork
 {
     public sealed record UpdateStudentQualificationWorkRequest(
-        string SecretaryEmail,
         string Topic,
         int? SupervisorId,
         string PracticeBase,
@@ -32,11 +31,6 @@ public static class UpdateStudentQualificationWork
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-
             RuleFor(x => x.Topic)
                 .NotNull()
                 .MaximumLength(500);
@@ -98,7 +92,7 @@ public static class UpdateStudentQualificationWork
             UpdateStudentQualificationWorkRequest request,
             CancellationToken ct)
         {
-            var accessResult = await studentAccessService.GetForSecretaryAsync(studentId, request.SecretaryEmail, ct);
+            var accessResult = await studentAccessService.GetForCurrentSecretaryAsync(studentId, ct);
             if (accessResult.IsFailure)
             {
                 return accessResult.ErrorDetails;
@@ -147,7 +141,7 @@ public static class UpdateStudentQualificationWork
             {
                 var supervisorExists = await context.Teachers
                     .AnyAsync(
-                        t => t.Id == request.SupervisorId && t.SpecialtyId == access.GroupSpecialtyId,
+                        t => t.Id == request.SupervisorId && t.IsActive && t.SpecialtyId == access.GroupSpecialtyId,
                         ct);
 
                 if (!supervisorExists)
@@ -162,7 +156,7 @@ public static class UpdateStudentQualificationWork
             {
                 var reviewerExists = await context.Teachers
                     .AnyAsync(
-                        t => t.Id == request.ReviewerId && t.SpecialtyId != access.GroupSpecialtyId,
+                        t => t.Id == request.ReviewerId && t.IsActive && t.SpecialtyId != access.GroupSpecialtyId,
                         ct);
 
                 if (!reviewerExists)

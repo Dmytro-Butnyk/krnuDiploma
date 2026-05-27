@@ -18,7 +18,6 @@ public static class ImportGroupDefenceResults
 {
     public sealed class ImportGroupDefenceResultsRequest
     {
-        public string SecretaryEmail { get; init; } = string.Empty;
         public IFormFile? ResultsFile { get; init; }
 
         [FromForm(Name = "googleDriveUrl")]
@@ -38,11 +37,6 @@ public static class ImportGroupDefenceResults
     {
         public Validator()
         {
-            RuleFor(x => x.SecretaryEmail)
-                .NotEmpty()
-                .EmailAddress()
-                .MaximumLength(320);
-
             RuleFor(x => x)
                 .Must(HaveExactlyOneResultSource)
                 .WithMessage("Specify either results file or Google Drive URL, but not both.");
@@ -134,7 +128,7 @@ public static class ImportGroupDefenceResults
                 return importResult.ErrorDetails;
             }
 
-            var secretaryResult = await secretaryAccessService.GetActiveSecretaryAsync(request.SecretaryEmail, ct);
+            var secretaryResult = await secretaryAccessService.GetCurrentSecretaryAsync(ct);
             if (secretaryResult.IsFailure)
             {
                 return secretaryResult.ErrorDetails;
