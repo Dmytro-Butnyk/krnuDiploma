@@ -9,14 +9,22 @@ import type {
   UpdateDiplomaExaminationCommissionRequest,
 } from './types'
 
+function withoutSecretaryEmail<T extends { secretaryEmail?: string }>(request: T): Omit<T, 'secretaryEmail'> {
+  const payload = { ...request }
+  delete payload.secretaryEmail
+
+  return payload
+}
+
 export function getDiplomaExaminationCommissions(
-  secretaryEmail: string,
+  _secretaryEmail: string,
   educationLevel: EducationLevel,
   defenseYear: string,
 ) {
+  void _secretaryEmail
+
   return apiRequest<DiplomaExaminationCommissionResponse>('/api/diploma-examination-commissions', {
     query: {
-      SecretaryEmail: secretaryEmail,
       EducationLevel: educationLevel,
       DefenseYear: defenseYear,
     },
@@ -24,31 +32,28 @@ export function getDiplomaExaminationCommissions(
 }
 
 export function getDiplomaExaminationCommissionOptions(
-  secretaryEmail: string,
-  commissionId?: EntityId,
+  _secretaryEmail: string,
+  _commissionId?: EntityId,
 ) {
+  void _secretaryEmail
+  void _commissionId
+
   return apiRequest<GetDiplomaExaminationCommissionOptionsResponse>(
     '/api/diploma-examination-commissions/options',
-    {
-      query: {
-        SecretaryEmail: secretaryEmail,
-        CommissionId: commissionId,
-      },
-    },
   )
 }
 
 export function createCommissionHead(request: CreateCommissionHeadRequest) {
   return apiRequest<CommissionHeadDto>('/api/commission-heads', {
     method: 'POST',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
 export function createDiplomaExaminationCommission(request: CreateDiplomaExaminationCommissionRequest) {
   return apiRequest<DiplomaExaminationCommissionResponse>('/api/diploma-examination-commissions', {
     method: 'POST',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
@@ -60,14 +65,15 @@ export function updateDiplomaExaminationCommission(
     `/api/diploma-examination-commissions/${commissionId}`,
     {
       method: 'PUT',
-      body: request,
+      body: withoutSecretaryEmail(request),
     },
   )
 }
 
-export function deleteDiplomaExaminationCommission(commissionId: EntityId, secretaryEmail: string) {
+export function deleteDiplomaExaminationCommission(commissionId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
   return apiRequest<void>(`/api/diploma-examination-commissions/${commissionId}`, {
     method: 'DELETE',
-    query: { secretaryEmail },
   })
 }

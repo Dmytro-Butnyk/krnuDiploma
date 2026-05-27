@@ -24,30 +24,37 @@ import type {
   UpdateStudentQualificationWorkRequest,
 } from './types'
 
-export function getAcademicYears(secretaryEmail: string, educationLevel: EducationLevel) {
+function withoutSecretaryEmail<T extends { secretaryEmail?: string }>(request: T): Omit<T, 'secretaryEmail'> {
+  const payload = { ...request }
+  delete payload.secretaryEmail
+
+  return payload
+}
+
+export function getAcademicYears(_secretaryEmail: string, educationLevel: EducationLevel) {
+  void _secretaryEmail
+
   return apiRequest<AcademicYearOverviewResponse[]>('/api/groups/academic-years', {
     query: {
-      SecretaryEmail: secretaryEmail,
       EducationLevel: educationLevel,
     },
   })
 }
 
-export function getGroupStudents(groupId: EntityId, secretaryEmail: string) {
-  return apiRequest<GroupStudentResponse[]>(`/api/groups/${groupId}/students`, {
-    query: { secretaryEmail },
-  })
+export function getGroupStudents(groupId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<GroupStudentResponse[]>(`/api/groups/${groupId}/students`)
 }
 
-export function getGroupStatistics(groupId: EntityId, secretaryEmail: string) {
-  return apiRequest<GroupStatisticsResponse>(`/api/groups/${groupId}/statistics`, {
-    query: { secretaryEmail },
-  })
+export function getGroupStatistics(groupId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<GroupStatisticsResponse>(`/api/groups/${groupId}/statistics`)
 }
 
 export function createGroup(request: CreateGroupRequest) {
   const formData = new FormData()
-  formData.set('secretaryEmail', request.secretaryEmail)
   formData.set('name', request.name)
   formData.set('year', request.year)
   formData.set('educationLevel', request.educationLevel)
@@ -69,7 +76,6 @@ export function createGroup(request: CreateGroupRequest) {
 
 export function importGroupDefenceResults(groupId: EntityId, request: ImportGroupDefenceResultsRequest) {
   const formData = new FormData()
-  formData.set('secretaryEmail', request.secretaryEmail)
 
   if (request.resultsFile) {
     formData.append('resultsFile', request.resultsFile, request.resultsFile.name)
@@ -88,50 +94,51 @@ export function importGroupDefenceResults(groupId: EntityId, request: ImportGrou
 export function updateGroup(groupId: EntityId, request: UpdateGroupRequest) {
   return apiRequest<UpdateGroupResponse>(`/api/groups/${groupId}`, {
     method: 'PATCH',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
-export function deleteGroup(groupId: EntityId, secretaryEmail: string) {
+export function deleteGroup(groupId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
   return apiRequest<void>(`/api/groups/${groupId}`, {
     method: 'DELETE',
-    query: { secretaryEmail },
   })
 }
 
 export function addStudent(groupId: EntityId, request: AddStudentRequest) {
   return apiRequest<AddStudentResponse>(`/api/groups/${groupId}/students`, {
     method: 'POST',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
-export function deleteStudent(studentId: EntityId, secretaryEmail: string) {
+export function deleteStudent(studentId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
   return apiRequest<void>(`/api/students/${studentId}`, {
     method: 'DELETE',
-    query: { secretaryEmail },
   })
 }
 
-export function getStudentDetails(studentId: EntityId, secretaryEmail: string) {
-  return apiRequest<StudentDetailsResponse>(`/api/students/${studentId}/details`, {
-    query: { secretaryEmail },
-  })
+export function getStudentDetails(studentId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<StudentDetailsResponse>(`/api/students/${studentId}/details`)
 }
 
-export function getQualificationWorkOptions(studentId: EntityId, secretaryEmail: string) {
+export function getQualificationWorkOptions(studentId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
   return apiRequest<QualificationWorkOptionsResponse>(
     `/api/students/${studentId}/qualification-work-options`,
-    {
-      query: { secretaryEmail },
-    },
   )
 }
 
 export function updateStudentName(studentId: EntityId, request: UpdateStudentNameRequest) {
   return apiRequest(`/api/students/${studentId}/name`, {
     method: 'PATCH',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
@@ -141,35 +148,35 @@ export function updateStudentQualificationWork(
 ) {
   return apiRequest(`/api/students/${studentId}/qualification-work`, {
     method: 'PATCH',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
 export function updatePhysicalChecklist(studentId: EntityId, request: UpdatePhysicalChecklistRequest) {
   return apiRequest(`/api/students/${studentId}/physical-checklist`, {
     method: 'PATCH',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
 export function updateElectronicChecklist(studentId: EntityId, request: UpdateElectronicChecklistRequest) {
   return apiRequest(`/api/students/${studentId}/electronic-checklist`, {
     method: 'PATCH',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
 export function updateStudentDefence(studentId: EntityId, request: UpdateStudentDefenceRequest) {
   return apiRequest(`/api/students/${studentId}/defence`, {
     method: 'PATCH',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
 export function updateDefenceResults(studentId: EntityId, request: UpdateDefenceResultsRequest) {
   return apiRequest(`/api/students/${studentId}/defence-results`, {
     method: 'PATCH',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }
 
@@ -179,6 +186,6 @@ export function updateQualificationWorkCharacteristics(
 ) {
   return apiRequest(`/api/students/${studentId}/qualification-work-characteristics`, {
     method: 'PATCH',
-    body: request,
+    body: withoutSecretaryEmail(request),
   })
 }

@@ -1,3 +1,5 @@
+import { getStoredAccessToken } from '../../features/auth/model/authSession'
+
 export interface ProblemDetails {
   type?: string
   title?: string
@@ -24,6 +26,7 @@ type QueryValue = string | number | boolean | null | undefined
 interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   query?: Record<string, QueryValue>
   body?: unknown
+  skipAuth?: boolean
 }
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'https://localhost:7007'
@@ -56,7 +59,7 @@ async function readResponse<T>(response: Response): Promise<T> {
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { body, headers, query, ...init } = options
+  const { body, headers, query, skipAuth, ...init } = options
   const requestHeaders = new Headers(headers)
   let requestBody: BodyInit | undefined
 
@@ -65,6 +68,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   } else if (body !== undefined) {
     requestHeaders.set('content-type', 'application/json')
     requestBody = JSON.stringify(body)
+  }
+
+  const accessToken = skipAuth ? '' : getStoredAccessToken()
+
+  if (accessToken && !requestHeaders.has('authorization')) {
+    requestHeaders.set('authorization', `Bearer ${accessToken}`)
   }
 
   const response = await fetch(buildUrl(path, query), {

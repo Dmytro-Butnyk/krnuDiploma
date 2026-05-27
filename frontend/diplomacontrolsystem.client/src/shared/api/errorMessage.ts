@@ -3,8 +3,8 @@ import { ApiError } from './client'
 const fallbackMessage = 'Виникла помилка, спробуйте ще раз'
 
 const errorTranslations = new Map<string, string>([
-  ['Commission head specialty must match secretary specialty.', 'Спеціальність голови комісії може відрізнятися від спеціальності секретаря. Зверніться до адміністратора API, якщо помилка повторюється.'],
-  ['Commission head specialty must match secretary specialty', 'Спеціальність голови комісії може відрізнятися від спеціальності секретаря. Зверніться до адміністратора API, якщо помилка повторюється.'],
+  ['Commission head specialty must match secretary specialty.', 'Спеціальність голови комісії має збігатися зі спеціальністю секретаря.'],
+  ['Commission head specialty must match secretary specialty', 'Спеціальність голови комісії має збігатися зі спеціальністю секретаря.'],
   ['Bad Request', 'Некоректний запит'],
   ['Forbidden', 'Доступ заборонено'],
   ['Not Found', 'Не знайдено'],

@@ -5,6 +5,7 @@ import { CommissionsPage } from '../../pages/commissions/CommissionsPage'
 import { GeneratorRedirectPage } from '../../pages/generator/GeneratorRedirectPage'
 import { GroupsPage } from '../../pages/groups/GroupsPage'
 import { LoginPage } from '../../pages/login/LoginPage'
+import { ManagementPage } from '../../pages/management/ManagementPage'
 
 function ProtectedShell() {
   const { isAuthenticated } = useAuth()
@@ -37,6 +38,7 @@ export function AppRouter() {
         <Route path="/commissions" element={<CommissionsPage />} />
         <Route path="/commissions/:defenseYear" element={<CommissionsPage />} />
         <Route path="/commissions/:defenseYear/:commissionId" element={<CommissionsPage />} />
+        <Route path="/management" element={<ManagementPage />} />
         <Route path="/generator" element={<GeneratorRedirectPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
