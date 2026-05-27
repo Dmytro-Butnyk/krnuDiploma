@@ -27,6 +27,7 @@ public static class WebApplicationExtension
         GetAcademicYearsOverview.Endpoint.MapEndpoint(apiGroup);
         GetGroupStatistics.Endpoint.MapEndpoint(apiGroup);
         GetGroupStudents.Endpoint.MapEndpoint(apiGroup);
+        ImportGroupDefenceResults.Endpoint.MapEndpoint(apiGroup);
         UpdateGroup.Endpoint.MapEndpoint(apiGroup);
 
         AddStudent.Endpoint.MapEndpoint(apiGroup);
