@@ -68,7 +68,6 @@ body {
     linear-gradient(135deg, #eef3ff 0%, #edf1ff 45%, #e6f5ff 100%);
 }
 
-button,
 input,
 select,
 textarea {
@@ -77,6 +76,7 @@ textarea {
 
 button {
   cursor: pointer;
+  font-family: inherit;
 }
 
 button:disabled,

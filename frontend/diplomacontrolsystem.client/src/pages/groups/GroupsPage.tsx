@@ -674,6 +674,11 @@ function GroupOverview({
   onAddStudent: () => void
   onImportDefenceResults: () => void
 }) {
+  const leftActionClass =
+    'inline-flex h-14 min-w-[251px] items-center justify-center rounded-full border-2 border-blue-600 px-6 text-center text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white'
+  const rightActionClass =
+    'inline-flex h-14 w-[300px] items-center justify-center rounded-full border-2 border-orange-500 px-6 text-center text-[15.75px] font-bold text-orange-600 transition hover:bg-orange-500 hover:text-white'
+
   return (
     <article className="min-h-[520px] rounded-[22px] bg-white/65 p-9 shadow-sm">
       <div className="flex items-start justify-between gap-8">
@@ -763,32 +768,32 @@ function GroupOverview({
         {students.length === 0 && <SectionMessage>У цій групі ще немає студентів.</SectionMessage>}
       </div>
 
-      <div className="mt-16 grid grid-cols-2 items-center gap-8">
-        <div className="w-[340px] space-y-3 justify-self-start">
+      <div className="mt-16 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col items-start gap-3">
           <Link
             to={makePath(`/groups/${defenseYear}/${group.id}/material-components`, educationLevel)}
-            className="inline-flex h-14 w-full items-center justify-center rounded-full border-2 border-blue-600 px-6 text-center text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
+            className={leftActionClass}
           >
             Не допущено: Матеріальні
           </Link>
           <Link
             to={makePath(`/groups/${defenseYear}/${group.id}/electronic-components`, educationLevel)}
-            className="inline-flex h-14 w-full items-center justify-center rounded-full border-2 border-blue-600 px-6 text-center text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
+            className={leftActionClass}
           >
             Не допущено: Електронні
           </Link>
         </div>
-        <div className="w-[340px] space-y-3 justify-self-end">
+        <div className="flex flex-col items-end gap-3">
           <button
             type="button"
             onClick={onImportDefenceResults}
-            className="inline-flex h-14 w-full items-center justify-center rounded-full border-2 border-orange-500 px-6 text-center text-lg font-bold text-orange-600 transition hover:bg-orange-500 hover:text-white"
+            className={rightActionClass}
           >
             Завантажити результати захисту
           </button>
           <Link
             to={makePath(`/groups/${defenseYear}/${group.id}/results`, educationLevel)}
-            className="inline-flex h-14 w-full items-center justify-center rounded-full border-2 border-orange-500 px-6 text-center text-lg font-bold text-orange-600 transition hover:bg-orange-500 hover:text-white"
+            className={rightActionClass}
           >
             Сформувати результати захисту
           </Link>
@@ -1296,29 +1301,25 @@ function scoreNumber(value: string) {
   return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : 0
 }
 
-function calculateDefenceGrades({
-  supervisorScore,
-  reviewerScore,
-  commissionScore,
-}: Pick<StudentFormState, 'supervisorScore' | 'reviewerScore' | 'commissionScore'>): {
+function calculateDefenceGrades(commissionScore: string): {
   ectsGrade: EctsGrade
   nationalGrade: NationalGrade
 } {
-  const average = (scoreNumber(supervisorScore) + scoreNumber(reviewerScore) + scoreNumber(commissionScore)) / 3
+  const score = scoreNumber(commissionScore)
 
-  if (average >= 90) {
+  if (score >= 90) {
     return { ectsGrade: 'A', nationalGrade: 'Excellent' }
   }
-  if (average >= 82) {
+  if (score >= 82) {
     return { ectsGrade: 'B', nationalGrade: 'Good' }
   }
-  if (average >= 74) {
+  if (score >= 74) {
     return { ectsGrade: 'C', nationalGrade: 'Good' }
   }
-  if (average >= 64) {
+  if (score >= 64) {
     return { ectsGrade: 'D', nationalGrade: 'Satisfactory' }
   }
-  if (average >= 60) {
+  if (score >= 60) {
     return { ectsGrade: 'E', nationalGrade: 'Satisfactory' }
   }
 
@@ -1448,7 +1449,6 @@ function StudentDetailsPanel({
   const saveMutation = useMutation({
     mutationFn: async ({ details, current }: { details: StudentDetailsResponse; current: StudentFormState }) => {
       const original = studentFormFromDetails(details)
-      const currentGrades = calculateDefenceGrades(current)
       const requests: Array<Promise<unknown>> = []
 
       if (
@@ -1524,8 +1524,8 @@ function StudentDetailsPanel({
             supervisorScore: current.supervisorScore,
             reviewerScore: current.reviewerScore,
             commissionScore: current.commissionScore,
-            ectsGrade: currentGrades.ectsGrade,
-            nationalGrade: currentGrades.nationalGrade,
+            ectsGrade: current.ectsGrade,
+            nationalGrade: current.nationalGrade,
             hasDiplomaWithHonors: current.hasDiplomaWithHonors,
           },
         )
@@ -1538,8 +1538,8 @@ function StudentDetailsPanel({
             supervisorScore: withDefaultScore(current.supervisorScore),
             reviewerScore: withDefaultScore(current.reviewerScore),
             commissionScore: withDefaultScore(current.commissionScore),
-            ectsGrade: currentGrades.ectsGrade,
-            nationalGrade: currentGrades.nationalGrade,
+            ectsGrade: current.ectsGrade,
+            nationalGrade: current.nationalGrade,
             hasDiplomaWithHonors: current.hasDiplomaWithHonors,
           }),
         )
@@ -1575,10 +1575,14 @@ function StudentDetailsPanel({
   }
 
   const details = detailsQuery.data
-  const calculatedGrades = calculateDefenceGrades(form)
   const selectedGroupStudentsPath = makePath(`/groups/${defenseYear}/${group.id}`, educationLevel)
   const updateForm = (patch: Partial<StudentFormState>) =>
     setDraftForm((current) => (current ? { ...current, ...patch } : { ...form, ...patch }))
+  const updateScoreForm = (patch: Partial<Pick<StudentFormState, 'supervisorScore' | 'reviewerScore' | 'commissionScore'>>) => {
+    const nextCommissionScore = patch.commissionScore ?? form.commissionScore
+
+    updateForm({ ...patch, ...calculateDefenceGrades(nextCommissionScore) })
+  }
   const togglePhysical = (key: keyof PhysicalChecklistDto) =>
     updateForm({ physical: { ...form.physical, [key]: !form.physical[key] } })
   const toggleElectronic = (key: keyof ElectronicChecklistDto) => {
@@ -1758,11 +1762,11 @@ function StudentDetailsPanel({
             <h2 className="text-sm font-bold uppercase text-slate-500">Результати захисту</h2>
             <InputField label="Відсоток запозичення" value={form.plagiarismPercent} disabled={!isEditing} onChange={(plagiarismPercent) => updateForm({ plagiarismPercent: normalizeDecimalPercent(plagiarismPercent) })} />
             <InputField label="Унікальність роботи" value={form.uniquePercent} disabled={!isEditing} onChange={(uniquePercent) => updateForm({ uniquePercent: normalizeDecimalPercent(uniquePercent) })} />
-            <InputField label="Оцінка керівника" value={form.supervisorScore} disabled={!isEditing} onChange={(supervisorScore) => updateForm({ supervisorScore: normalizeScore(supervisorScore) })} />
-            <InputField label="Оцінка рецензента" value={form.reviewerScore} disabled={!isEditing} onChange={(reviewerScore) => updateForm({ reviewerScore: normalizeScore(reviewerScore) })} />
-            <InputField label="Оцінка ДЕК" value={form.commissionScore} disabled={!isEditing} onChange={(commissionScore) => updateForm({ commissionScore: normalizeScore(commissionScore) })} />
-            <InputField label="Оцінка ECTS" value={displayEctsGrade(calculatedGrades.ectsGrade)} disabled onChange={() => undefined} />
-            <InputField label="Національна шкала" value={displayNationalGrade(calculatedGrades.nationalGrade)} disabled onChange={() => undefined} />
+            <InputField label="Оцінка керівника" value={form.supervisorScore} disabled={!isEditing} onChange={(supervisorScore) => updateScoreForm({ supervisorScore: normalizeScore(supervisorScore) })} />
+            <InputField label="Оцінка рецензента" value={form.reviewerScore} disabled={!isEditing} onChange={(reviewerScore) => updateScoreForm({ reviewerScore: normalizeScore(reviewerScore) })} />
+            <InputField label="Оцінка ДЕК" value={form.commissionScore} disabled={!isEditing} onChange={(commissionScore) => updateScoreForm({ commissionScore: normalizeScore(commissionScore) })} />
+            <InputField label="Оцінка ECTS" value={displayEctsGrade(form.ectsGrade)} disabled onChange={() => undefined} />
+            <InputField label="Національна шкала" value={displayNationalGrade(form.nationalGrade)} disabled onChange={() => undefined} />
             <CheckboxLine
               label="Диплом з відзнакою"
               checked={form.hasDiplomaWithHonors}
@@ -1850,7 +1854,6 @@ function CheckboxLine({
 }
 
 function StudentCollapsedSections({ details, form }: { details: StudentDetailsResponse; form: StudentFormState }) {
-  const calculatedGrades = calculateDefenceGrades(form)
   const sections = [
     {
       key: 'general',
@@ -1908,8 +1911,8 @@ function StudentCollapsedSections({ details, form }: { details: StudentDetailsRe
             <ReadOnlyRow label="Оцінка керівника" value={form.supervisorScore} />
             <ReadOnlyRow label="Оцінка рецензента" value={form.reviewerScore} />
             <ReadOnlyRow label="Оцінка ДЕК" value={form.commissionScore} />
-            <ReadOnlyRow label="Оцінка ECTS" value={displayEctsGrade(calculatedGrades.ectsGrade)} />
-            <ReadOnlyRow label="Національна шкала" value={displayNationalGrade(calculatedGrades.nationalGrade)} />
+            <ReadOnlyRow label="Оцінка ECTS" value={displayEctsGrade(form.ectsGrade)} />
+            <ReadOnlyRow label="Національна шкала" value={displayNationalGrade(form.nationalGrade)} />
             <ReadOnlyBoolean label="Диплом з відзнакою" checked={form.hasDiplomaWithHonors} />
         </div>
       ),
@@ -3200,7 +3203,8 @@ export function GroupsPage() {
   const selectedGroupId = selectedGroup?.id
   const studentsQuery = useQuery(groupStudentsQuery(selectedGroupId, secretaryEmail))
   const commissionQuery = useQuery(commissionsQuery(secretaryEmail, educationLevel, selectedYear?.defenseYear ?? ''))
-  const commission = commissionQuery.data
+  const isCommissionNotFound = isApiNotFound(commissionQuery.error)
+  const commission = isCommissionNotFound ? undefined : commissionQuery.data
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false)
@@ -3214,6 +3218,7 @@ export function GroupsPage() {
     mutationFn: (group: GroupDto) => deleteGroup(group.id, secretaryEmail),
     onSuccess: async () => {
       setGroupToDelete(null)
+      queryClient.removeQueries({ queryKey: commissionQueryKeys.details() })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: groupsQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: commissionQueryKeys.all }),
@@ -3353,7 +3358,7 @@ export function GroupsPage() {
             </div>
 
             {isCommissionView && commissionQuery.isLoading && <SectionMessage>Завантажуємо комісію...</SectionMessage>}
-            {isCommissionView && commissionQuery.error && !isApiNotFound(commissionQuery.error) && (
+            {isCommissionView && commissionQuery.error && !isCommissionNotFound && (
               <ErrorMessage error={commissionQuery.error} />
             )}
             {isCommissionView && commission && (
@@ -3366,7 +3371,7 @@ export function GroupsPage() {
             {isCommissionView && !commissionQuery.isLoading && !commissionQuery.error && !commission && (
               <SectionMessage>Для цього року ще не створено екзаменаційну комісію.</SectionMessage>
             )}
-            {isCommissionView && isApiNotFound(commissionQuery.error) && (
+            {isCommissionView && isCommissionNotFound && (
               <SectionMessage>Для цього року ще не створено екзаменаційну комісію.</SectionMessage>
             )}
 
