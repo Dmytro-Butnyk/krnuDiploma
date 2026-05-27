@@ -26,6 +26,14 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
         "PLAGIARISM PERCENT"
     };
 
+    private static readonly HashSet<string> SupervisorHeaderNames = new(StringComparer.Ordinal)
+    {
+        "\u041f\u0406\u0411 \u041a\u0415\u0420\u0406\u0412\u041d\u0418\u041a\u0410",
+        "\u041a\u0415\u0420\u0406\u0412\u041d\u0418\u041a",
+        "SUPERVISOR",
+        "SUPERVISOR NAME"
+    };
+
     private static readonly HashSet<string> CommissionScoreHeaderNames = new(StringComparer.Ordinal)
     {
         "\u0417\u0410\u0413\u0410\u041b\u042c\u041d\u0410 \u041e\u0426\u0406\u041d\u041a\u0410",
@@ -205,6 +213,7 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
 
         return new DefenceResultImportRow(
             fullName,
+            GetOptionalCellValue(reader, columns.SupervisorColumnIndex),
             plagiarismResult.Value,
             commissionScoreResult.Value,
             supervisorScoreResult.Value,
@@ -266,6 +275,7 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
     private static DefenceResultImportColumns? TryDetectColumns(IExcelDataReader reader)
     {
         int? studentFullNameColumnIndex = null;
+        int? supervisorColumnIndex = null;
         int? plagiarismColumnIndex = null;
         int? commissionScoreColumnIndex = null;
         int? supervisorScoreColumnIndex = null;
@@ -278,6 +288,10 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
             if (StudentFullNameHeaderNames.Contains(value))
             {
                 studentFullNameColumnIndex = i;
+            }
+            else if (IsSupervisorNameHeader(value))
+            {
+                supervisorColumnIndex = i;
             }
             else if (PlagiarismHeaderNames.Contains(value))
             {
@@ -305,6 +319,7 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
             ? null
             : new DefenceResultImportColumns(
                 studentFullNameColumnIndex.Value,
+                supervisorColumnIndex,
                 plagiarismColumnIndex,
                 commissionScoreColumnIndex,
                 supervisorScoreColumnIndex,
@@ -327,7 +342,8 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
 
     private static string NormalizeCellValue(object? value)
     {
-        return Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
+        var text = Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
+        return WhitespaceRegex().Replace(text, " ");
     }
 
     private static string NormalizeHeaderValue(object? value)
@@ -337,6 +353,17 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
             .ToUpperInvariant();
 
         return WhitespaceRegex().Replace(normalized, " ");
+    }
+
+    private static bool IsSupervisorNameHeader(string value)
+    {
+        if (SupervisorHeaderNames.Contains(value))
+        {
+            return true;
+        }
+
+        return value.Contains("\u041a\u0415\u0420\u0406\u0412\u041d", StringComparison.Ordinal)
+               && !value.Contains("\u041e\u0426\u0406\u041d", StringComparison.Ordinal);
     }
 
     private static List<string> FindDuplicates(IEnumerable<string> names)
@@ -419,6 +446,7 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
 
     private sealed record DefenceResultImportColumns(
         int StudentFullNameColumnIndex,
+        int? SupervisorColumnIndex,
         int? PlagiarismColumnIndex,
         int? CommissionScoreColumnIndex,
         int? SupervisorScoreColumnIndex,

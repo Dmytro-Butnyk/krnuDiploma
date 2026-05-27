@@ -248,7 +248,7 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
             {
                 studentFullNameColumnIndex = i;
             }
-            else if (SupervisorHeaderNames.Contains(value))
+            else if (IsSupervisorNameHeader(value))
             {
                 supervisorColumnIndex = i;
             }
@@ -278,7 +278,8 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
 
     private static string NormalizeCellValue(object? value)
     {
-        return Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
+        var text = Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
+        return WhitespaceRegex().Replace(text, " ");
     }
 
     private static string NormalizeHeaderValue(object? value)
@@ -288,6 +289,17 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
             .ToUpperInvariant();
 
         return WhitespaceRegex().Replace(normalized, " ");
+    }
+
+    private static bool IsSupervisorNameHeader(string value)
+    {
+        if (SupervisorHeaderNames.Contains(value))
+        {
+            return true;
+        }
+
+        return value.Contains("\u041a\u0415\u0420\u0406\u0412\u041d", StringComparison.Ordinal)
+               && !value.Contains("\u041e\u0426\u0406\u041d", StringComparison.Ordinal);
     }
 
     private static List<string> FindDuplicates(IEnumerable<string> names)

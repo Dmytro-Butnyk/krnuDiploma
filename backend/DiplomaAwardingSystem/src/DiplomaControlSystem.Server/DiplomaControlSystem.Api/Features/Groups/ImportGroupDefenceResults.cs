@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
@@ -14,7 +15,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DiplomaControlSystem.Api.Features.Groups;
 
-public static class ImportGroupDefenceResults
+public static partial class ImportGroupDefenceResults
 {
     public sealed class ImportGroupDefenceResultsRequest
     {
@@ -108,7 +109,7 @@ public static class ImportGroupDefenceResults
         }
     }
 
-    private sealed class Handler(
+    private sealed partial class Handler(
         DbDocGenContext context,
         SecretaryAccessService secretaryAccessService,
         DefenceResultImportReader defenceResultImportReader) : IScopedService
@@ -199,6 +200,7 @@ public static class ImportGroupDefenceResults
             }
 
             var parsedDatesByName = parsedDatesResult.Value!;
+            var supervisorIdsByName = await GetImportTeacherIdsByNameAsync(group.SpecialtyId, ct);
             var plagiarismImported = 0;
             var scoresImported = 0;
             var defenceDatesImported = 0;
@@ -220,6 +222,12 @@ public static class ImportGroupDefenceResults
                 qualificationWork.EctsGrade = DefenceGradeCalculator.CalculateEctsGrade(qualificationWork.CommissionScore);
                 qualificationWork.NationalGrade = DefenceGradeCalculator.CalculateNationalGrade(qualificationWork.CommissionScore);
                 qualificationWork.DefenceDate = parsedDatesByName[NormalizeFullName(student.FullName)];
+
+                if (!string.IsNullOrWhiteSpace(importedRow.SupervisorShortName)
+                    && TryGetTeacherIdByName(supervisorIdsByName, importedRow.SupervisorShortName, out var supervisorId))
+                {
+                    qualificationWork.TeacherId = supervisorId;
+                }
 
                 if (importedRow.PlagiarismPercent is not null)
                 {
@@ -250,6 +258,72 @@ public static class ImportGroupDefenceResults
                 plagiarismImported,
                 scoresImported,
                 defenceDatesImported);
+        }
+
+        private async Task<Dictionary<string, int>> GetImportTeacherIdsByNameAsync(int groupSpecialtyId, CancellationToken ct)
+        {
+            var teachers = await context.Teachers
+                .AsNoTracking()
+                .Where(teacher => teacher.IsActive)
+                .Select(teacher => new { teacher.Id, teacher.FullName, teacher.ShortName, teacher.SpecialtyId })
+                .ToListAsync(ct);
+
+            var teacherNames = teachers
+                .SelectMany(teacher => new[]
+                {
+                    new { teacher.Id, teacher.SpecialtyId, Name = teacher.ShortName },
+                    new { teacher.Id, teacher.SpecialtyId, Name = teacher.FullName }
+                })
+                .SelectMany(teacher => GetTeacherLookupKeys(teacher.Name).Select(key => new
+                {
+                    teacher.Id,
+                    teacher.SpecialtyId,
+                    Name = key
+                }))
+                .Where(teacher => !string.IsNullOrWhiteSpace(teacher.Name));
+
+            var teacherIdsByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var nameGroup in teacherNames.GroupBy(teacher => teacher.Name))
+            {
+                var distinctTeachers = nameGroup
+                    .GroupBy(teacher => teacher.Id)
+                    .Select(group => group.First())
+                    .ToList();
+
+                if (distinctTeachers.Count == 1)
+                {
+                    teacherIdsByName[nameGroup.Key] = distinctTeachers[0].Id;
+                    continue;
+                }
+
+                var otherSpecialtyTeachers = distinctTeachers
+                    .Where(teacher => teacher.SpecialtyId != groupSpecialtyId)
+                    .ToList();
+
+                if (otherSpecialtyTeachers.Count == 1)
+                {
+                    teacherIdsByName[nameGroup.Key] = otherSpecialtyTeachers[0].Id;
+                }
+            }
+
+            return teacherIdsByName;
+        }
+
+        private static bool TryGetTeacherIdByName(
+            Dictionary<string, int> teacherIdsByName,
+            string value,
+            out int teacherId)
+        {
+            foreach (var key in GetTeacherLookupKeys(value))
+            {
+                if (teacherIdsByName.TryGetValue(key, out teacherId))
+                {
+                    return true;
+                }
+            }
+
+            teacherId = 0;
+            return false;
         }
 
         private static Result ValidateStudentSet(
@@ -358,6 +432,62 @@ public static class ImportGroupDefenceResults
                 .ToUpperInvariant();
         }
 
+        private static string NormalizeTeacherName(string value)
+        {
+            var normalized = WhitespaceRegex().Replace(value.Trim(), " ").ToUpperInvariant();
+            normalized = InitialDotSpacingRegex().Replace(normalized, ".");
+            normalized = InitialsSpacingRegex().Replace(normalized, "$1$2");
+            return normalized.Replace(".", string.Empty, StringComparison.Ordinal);
+        }
+
+        private static IReadOnlyCollection<string> GetTeacherLookupKeys(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return Array.Empty<string>();
+            }
+
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                NormalizeTeacherName(value)
+            };
+
+            var surnameInitialsKey = TryBuildSurnameInitialsKey(value);
+            if (!string.IsNullOrWhiteSpace(surnameInitialsKey))
+            {
+                keys.Add(surnameInitialsKey);
+            }
+
+            return keys;
+        }
+
+        private static string? TryBuildSurnameInitialsKey(string value)
+        {
+            var normalized = NormalizeTeacherName(value);
+            var parts = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2)
+            {
+                return null;
+            }
+
+            var surname = parts[0];
+            var initials = new List<char>();
+
+            foreach (var part in parts.Skip(1))
+            {
+                if (part.Length <= 3 && part.All(char.IsLetter))
+                {
+                    initials.AddRange(part);
+                }
+                else if (char.IsLetter(part[0]))
+                {
+                    initials.Add(part[0]);
+                }
+            }
+
+            return initials.Count == 0 ? null : surname + string.Concat(initials);
+        }
+
         private static List<string> FindNormalizedDuplicates(IEnumerable<string> names)
         {
             var uniqueNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -374,5 +504,14 @@ public static class ImportGroupDefenceResults
 
             return duplicates;
         }
+
+        [GeneratedRegex(@"\s+")]
+        private static partial Regex WhitespaceRegex();
+
+        [GeneratedRegex(@"\s*\.\s*")]
+        private static partial Regex InitialDotSpacingRegex();
+
+        [GeneratedRegex(@"(\p{Lu})\s+(\p{Lu})(?=$|\s)")]
+        private static partial Regex InitialsSpacingRegex();
     }
 }
