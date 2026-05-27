@@ -47,6 +47,12 @@ export interface CreateGroupRequest {
   googleDriveUrl?: string | null
 }
 
+export interface ImportGroupDefenceResultsRequest {
+  secretaryEmail: string
+  resultsFile?: File | null
+  googleDriveLink?: string | null
+}
+
 export interface CreateGroupResponse {
   groupId: EntityId
   name: string
@@ -54,6 +60,25 @@ export interface CreateGroupResponse {
   defenseYear: string
   educationLevel: string
   studentsCreated: EntityId
+  importStatistics: StudentImportStatisticsDto
+}
+
+export interface StudentImportStatisticsDto {
+  supervisorsMatched: EntityId
+  supervisorsMissing: EntityId
+  supervisorsUnspecified: EntityId
+  topicsImported: EntityId
+  practiceBasesImported: EntityId
+}
+
+export interface ImportGroupDefenceResultsResponse {
+  groupId: EntityId
+  groupName: string
+  rowsRead: EntityId
+  studentsUpdated: EntityId
+  plagiarismImported: EntityId
+  scoresImported: EntityId
+  defenceDatesImported: EntityId
 }
 
 export interface UpdateGroupRequest {
@@ -97,11 +122,19 @@ export interface StatisticSectionDto {
   items: StatisticItemDto[]
 }
 
+export interface PreviousYearStatisticsDto {
+  defenseYear: string
+  groupsCount: EntityId
+  totalStudents: EntityId
+  sections: StatisticSectionDto[]
+}
+
 export interface GroupStatisticsResponse {
   groupId: EntityId
   groupName: string
   totalStudents: EntityId
   sections: StatisticSectionDto[]
+  previousYearStatistics: PreviousYearStatisticsDto | null
 }
 
 export interface StudentNameDto {
@@ -123,14 +156,17 @@ export interface DefenceInfoDto {
   defenceDate: string | null
 }
 
+export type EctsGrade = 'None' | 'A' | 'B' | 'C' | 'D' | 'E'
+export type NationalGrade = 'None' | 'Excellent' | 'Good' | 'Satisfactory'
+
 export interface DefenceResultsDto {
   plagiarismPercent: number | string
   uniquePercent: number | string
   supervisorScore: EntityId
   reviewerScore: EntityId
   commissionScore: EntityId
-  ectsGrade: string
-  nationalGrade: string
+  ectsGrade: EctsGrade
+  nationalGrade: NationalGrade
   hasDiplomaWithHonors: boolean
 }
 

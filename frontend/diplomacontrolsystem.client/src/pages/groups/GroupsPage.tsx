@@ -23,6 +23,7 @@ import {
   createGroup,
   deleteGroup,
   deleteStudent,
+  importGroupDefenceResults,
   updateDefenceResults,
   updateElectronicChecklist,
   updateGroup,
@@ -38,10 +39,15 @@ import type {
   EducationLevel,
   ElectronicChecklistDto,
   EntityId,
+  EctsGrade,
   GroupDto,
   GroupStudentResponse,
+  NationalGrade,
   PhysicalChecklistDto,
   CreateGroupResponse,
+  PreviousYearStatisticsDto,
+  StatisticItemDto,
+  StatisticSectionDto,
   StudentDetailsResponse,
   UpdateGroupResponse,
 } from '../../features/groups/api/types'
@@ -192,6 +198,136 @@ function isElectronicChecklistComplete(checklist: ElectronicChecklistDto | null)
 
 function isStudentAdmitted(student: GroupStudentResponse) {
   return isPhysicalChecklistComplete(student.physicalChecklist) && isElectronicChecklistComplete(student.electronicChecklist)
+}
+
+interface StatisticAccent {
+  text: string
+  bar: string
+}
+
+function statisticAccent(sectionIndex: number, itemIndex: number, item: StatisticItemDto): StatisticAccent {
+  const label = item.label.toLowerCase()
+
+  if (label.includes('якість') || label.includes('відмінно') || itemIndex === 0) {
+    return { text: 'text-green-500', bar: 'bg-green-500' }
+  }
+  if (label.includes('успішність') || label.includes('магістрат') || sectionIndex > 2) {
+    return { text: 'text-purple-600', bar: 'bg-purple-600' }
+  }
+  if (label.includes('добре') || itemIndex === 1) {
+    return { text: 'text-blue-600', bar: 'bg-blue-600' }
+  }
+  if (label.includes('задовіль') || itemIndex === 2) {
+    return { text: 'text-orange-600', bar: 'bg-orange-500' }
+  }
+
+  return { text: 'text-red-500', bar: 'bg-red-500' }
+}
+
+function statisticPercent(item: StatisticItemDto) {
+  const percent = Number(item.percentage)
+
+  if (!Number.isFinite(percent)) {
+    return 0
+  }
+
+  return Math.min(Math.max(percent, 0), 100)
+}
+
+function formatStatisticPercent(value: number) {
+  return Number.isInteger(value) ? `${value}%` : `${value.toFixed(1)}%`
+}
+
+function isGraduationRecommendationItem(item: StatisticItemDto | undefined) {
+  return Boolean(item?.label.toLowerCase().includes('магістрат'))
+}
+
+function isGradeStatisticSection(section: StatisticSectionDto) {
+  const value = `${section.key} ${section.title}`.toLowerCase()
+  return value.includes('оцін') || value.includes('grade') || value.includes('recommend')
+}
+
+function isQualityStatisticSection(section: StatisticSectionDto) {
+  const value = `${section.key} ${section.title}`.toLowerCase()
+  return value.includes('якіст') || value.includes('успіш') || value.includes('quality') || value.includes('success')
+}
+
+function orderStatisticSections(sections: StatisticSectionDto[]) {
+  return [
+    ...sections.filter((section) => !isQualityStatisticSection(section)),
+    ...sections.filter(isQualityStatisticSection),
+  ]
+}
+
+function displayStatisticTitle(section: StatisticSectionDto) {
+  const title = section.title
+
+  if (isQualityStatisticSection(section)) {
+    return 'ПОКАЗНИКИ ЯКОСТІ ТА УСПІШНОСТІ'
+  }
+  if (title.toLowerCase().includes('комплексне дипломне проектування')) {
+    return 'Комплексне дипломне проєктування'
+  }
+
+  return title
+}
+
+function displayStatisticLabel(item: StatisticItemDto) {
+  const label = item.label
+  const lower = label.toLowerCase()
+
+  if (lower.includes('раціонального природовикористання')) {
+    return 'З раціонального природовикористання, ресурсозбереження та ох. навк. серед.'
+  }
+  if (lower.includes('студенти, які брали участь у комплексному проекті')) {
+    return 'Студ., які брали участь у комплексному проєкті'
+  }
+
+  return label
+}
+
+function isGradeComparisonItem(item: StatisticItemDto) {
+  const label = item.label.toLowerCase()
+  return label.includes('відмінно') || label.includes('добре') || label.includes('задовіль')
+}
+
+function comparisonItemLabel(item: StatisticItemDto) {
+  const label = item.label
+  const lower = label.toLowerCase()
+
+  if (lower.includes('реальними проектами')) {
+    return 'Реальні проєкти'
+  }
+  if (lower.includes('раціонального')) {
+    return 'Раціональне природовикористання'
+  }
+  if (lower.includes('замовленням')) {
+    return 'За замовленням підприємства'
+  }
+
+  return displayStatisticLabel(item)
+}
+
+function findPreviousStatisticSection(section: StatisticSectionDto, previousSections: StatisticSectionDto[]) {
+  return (
+    previousSections.find((previousSection) => previousSection.key === section.key) ??
+    previousSections.find((previousSection) => previousSection.title === section.title)
+  )
+}
+
+function findPreviousStatisticItem(item: StatisticItemDto, previousItems: StatisticItemDto[]) {
+  return (
+    previousItems.find((previousItem) => previousItem.key === item.key) ??
+    previousItems.find((previousItem) => previousItem.label === item.label)
+  )
+}
+
+function comparisonItemsForSection(section: StatisticSectionDto) {
+  if (isGradeStatisticSection(section)) {
+    return section.items.filter(isGradeComparisonItem).slice(0, 3)
+  }
+
+  return section.items.slice(0, 4)
 }
 
 function getStatusClass(isAdmitted: boolean) {
@@ -527,6 +663,7 @@ function GroupOverview({
   onEditGroup,
   onDeleteGroup,
   onAddStudent,
+  onImportDefenceResults,
 }: {
   group: GroupDto
   students: GroupStudentResponse[]
@@ -535,6 +672,7 @@ function GroupOverview({
   onEditGroup: () => void
   onDeleteGroup: () => void
   onAddStudent: () => void
+  onImportDefenceResults: () => void
 }) {
   return (
     <article className="min-h-[520px] rounded-[22px] bg-white/65 p-9 shadow-sm">
@@ -625,27 +763,36 @@ function GroupOverview({
         {students.length === 0 && <SectionMessage>У цій групі ще немає студентів.</SectionMessage>}
       </div>
 
-      <div className="mt-16 flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-3">
+      <div className="mt-16 grid grid-cols-2 items-center gap-8">
+        <div className="w-[340px] space-y-3 justify-self-start">
           <Link
             to={makePath(`/groups/${defenseYear}/${group.id}/material-components`, educationLevel)}
-            className="block rounded-full border-2 border-blue-600 px-5 py-2 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
+            className="inline-flex h-14 w-full items-center justify-center rounded-full border-2 border-blue-600 px-6 text-center text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
           >
             Не допущено: Матеріальні
           </Link>
           <Link
             to={makePath(`/groups/${defenseYear}/${group.id}/electronic-components`, educationLevel)}
-            className="block rounded-full border-2 border-blue-600 px-5 py-2 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
+            className="inline-flex h-14 w-full items-center justify-center rounded-full border-2 border-blue-600 px-6 text-center text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
           >
             Не допущено: Електронні
           </Link>
         </div>
-        <Link
-          to={makePath(`/groups/${defenseYear}/${group.id}/results`, educationLevel)}
-          className="rounded-full border-2 border-orange-500 px-6 py-3 text-lg font-bold text-orange-600 transition hover:bg-orange-500 hover:text-white"
-        >
-          Сформувати результати захисту
-        </Link>
+        <div className="w-[340px] space-y-3 justify-self-end">
+          <button
+            type="button"
+            onClick={onImportDefenceResults}
+            className="inline-flex h-14 w-full items-center justify-center rounded-full border-2 border-orange-500 px-6 text-center text-lg font-bold text-orange-600 transition hover:bg-orange-500 hover:text-white"
+          >
+            Завантажити результати захисту
+          </button>
+          <Link
+            to={makePath(`/groups/${defenseYear}/${group.id}/results`, educationLevel)}
+            className="inline-flex h-14 w-full items-center justify-center rounded-full border-2 border-orange-500 px-6 text-center text-lg font-bold text-orange-600 transition hover:bg-orange-500 hover:text-white"
+          >
+            Сформувати результати захисту
+          </Link>
+        </div>
       </div>
     </article>
   )
@@ -855,66 +1002,261 @@ function ResultsScreen({
   secretaryEmail: string
 }) {
   const statisticsQuery = useQuery(groupStatisticsQuery(group.id, secretaryEmail))
+  const orderedSections = statisticsQuery.data ? orderStatisticSections(statisticsQuery.data.sections) : []
 
   return (
     <div className="overflow-x-auto pb-2">
       <article className="min-w-[1120px] rounded-[22px] bg-white/65 p-9 shadow-sm">
-      <div className="flex items-center gap-5">
-        <Link to={makePath(`/groups/${defenseYear}/${group.id}`, educationLevel)} className="text-slate-500">
-          <ArrowLeft size={38} />
-        </Link>
-        <h1 className="text-4xl font-bold uppercase text-blue-600">Результати захисту {group.name}</h1>
-      </div>
-      <div className="mt-10">
-        {statisticsQuery.isLoading && <SectionMessage>Завантажуємо статистику...</SectionMessage>}
-        {statisticsQuery.error && <ErrorMessage error={statisticsQuery.error} />}
-        {statisticsQuery.data && (
-          <div className="grid grid-cols-[1.3fr_0.7fr] gap-8">
-            <div className="space-y-6">
-              {statisticsQuery.data.sections.map((section) => (
-                <div key={section.key} className="rounded-[16px] border border-slate-300 bg-white p-6">
-                  <h2 className="text-sm font-bold uppercase text-slate-500">{section.title}</h2>
-                  <div className="mt-6 space-y-5">
-                    {section.items.map((item, index) => (
-                      <div key={item.key} className="grid grid-cols-[1fr_280px] items-center gap-6">
-                        <span className="text-lg font-bold text-slate-600">{item.label}</span>
-                        <div className="flex items-center gap-3">
-                          <div className="h-2 flex-1 bg-slate-200">
-                            <div
-                              className={[
-                                'h-full',
-                                index % 4 === 0
-                                  ? 'bg-green-500'
-                                  : index % 4 === 1
-                                    ? 'bg-blue-600'
-                                    : index % 4 === 2
-                                      ? 'bg-orange-500'
-                                      : 'bg-red-500',
-                              ].join(' ')}
-                              style={{ width: `${Number(item.percentage)}%` }}
-                            />
-                          </div>
-                          <span className="grid w-28 grid-cols-[32px_1px_1fr] items-center gap-2 text-right font-bold text-slate-500">
-                            <span>{item.count}</span>
-                            <span className="h-5 w-px bg-slate-300" aria-hidden="true" />
-                            <span>{Number(item.percentage).toFixed(1)}%</span>
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+        <div className="flex items-center gap-5">
+          <Link to={makePath(`/groups/${defenseYear}/${group.id}`, educationLevel)} className="text-slate-500">
+            <ArrowLeft size={38} />
+          </Link>
+          <h1 className="text-4xl font-bold uppercase text-blue-600">Результати захисту {group.name}</h1>
+        </div>
+        <div className="mt-10">
+          {statisticsQuery.isLoading && <SectionMessage>Завантажуємо статистику...</SectionMessage>}
+          {statisticsQuery.error && <ErrorMessage error={statisticsQuery.error} />}
+          {statisticsQuery.data && (
+            <div
+              className={[
+                'grid',
+                statisticsQuery.data.previousYearStatistics ? 'grid-cols-[0.92fr_0.72fr] gap-3' : 'grid-cols-1 gap-8',
+              ].join(' ')}
+            >
+              <div className="rounded-[18px] bg-white/60 p-5">
+                <div className="space-y-6">
+                  {orderedSections.map((section, sectionIndex) => (
+                    <ResultStatisticCard key={section.key} section={section} sectionIndex={sectionIndex} />
+                  ))}
                 </div>
-              ))}
+              </div>
+              {statisticsQuery.data.previousYearStatistics && (
+                <ComparisonColumn
+                  sections={orderedSections}
+                  previousYearStatistics={statisticsQuery.data.previousYearStatistics}
+                />
+              )}
             </div>
-            <div className="rounded-[16px] bg-white p-8">
-              <h2 className="text-sm font-bold uppercase text-slate-500">Підсумок</h2>
-              <p className="mt-8 text-6xl font-bold text-blue-600">{statisticsQuery.data.totalStudents}</p>
-              <p className="mt-2 text-xl font-bold text-slate-500">студентів у статистиці</p>
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
       </article>
+    </div>
+  )
+}
+
+function ResultStatisticCard({
+  section,
+  sectionIndex,
+}: {
+  section: StatisticSectionDto
+  sectionIndex: number
+}) {
+  const highlightedLastItem = isGraduationRecommendationItem(section.items.at(-1))
+  const regularItems = highlightedLastItem ? section.items.slice(0, -1) : section.items
+  const highlightedItem = highlightedLastItem ? section.items.at(-1) : null
+  const colorLabels = isGradeStatisticSection(section) || isQualityStatisticSection(section)
+
+  return (
+    <section className="rounded-[18px] border border-slate-300 bg-white p-6">
+      <h2 className="text-sm font-bold uppercase text-slate-500">{displayStatisticTitle(section)}</h2>
+      <div className="mt-6 space-y-5">
+        {regularItems.map((item, itemIndex) => (
+          <ResultStatisticRow
+            key={item.key}
+            item={item}
+            accent={statisticAccent(sectionIndex, itemIndex, item)}
+            colorLabel={colorLabels}
+          />
+        ))}
+      </div>
+      {highlightedItem && (
+        <div className="mt-6 border-t border-slate-300 pt-5">
+          <RecommendationStatisticRow item={highlightedItem} />
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ResultStatisticRow({
+  item,
+  accent,
+  colorLabel,
+  large = false,
+}: {
+  item: StatisticItemDto
+  accent: StatisticAccent
+  colorLabel: boolean
+  large?: boolean
+}) {
+  const percent = statisticPercent(item)
+  const labelColor = colorLabel ? accent.text : 'text-slate-800'
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_390px] items-center gap-6">
+      <span className={[large ? 'text-2xl' : 'text-lg', 'font-bold leading-snug', labelColor].join(' ')}>
+        {displayStatisticLabel(item)}
+      </span>
+      <div className="flex items-center gap-4">
+        <div className="h-2 flex-1 bg-slate-200">
+          <div className={['h-full', accent.bar].join(' ')} style={{ width: `${percent}%` }} />
+        </div>
+        <span className={['grid w-28 grid-cols-[32px_1px_1fr] items-center gap-2 text-right font-bold', accent.text].join(' ')}>
+          <span>{item.count}</span>
+          <span className="h-5 w-px bg-slate-300" aria-hidden="true" />
+          <span>{formatStatisticPercent(percent)}</span>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function RecommendationStatisticRow({ item }: { item: StatisticItemDto }) {
+  const percent = statisticPercent(item)
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_240px] items-center gap-8">
+      <span className="text-2xl font-bold text-purple-600">{displayStatisticLabel(item)}</span>
+      <span className="flex items-baseline justify-end gap-4 font-bold">
+        <span className="text-2xl text-purple-600">{item.count} студентів</span>
+        <span className="text-sm text-slate-500">{formatStatisticPercent(percent)}</span>
+      </span>
+    </div>
+  )
+}
+
+function ComparisonColumn({
+  sections,
+  previousYearStatistics,
+}: {
+  sections: StatisticSectionDto[]
+  previousYearStatistics: PreviousYearStatisticsDto
+}) {
+  const previousSections = previousYearStatistics.sections
+  const comparableSections = sections
+    .map((section, sectionIndex) => ({
+      current: section,
+      previous: findPreviousStatisticSection(section, previousSections),
+      sectionIndex,
+    }))
+    .filter((entry) => entry.previous)
+    .slice(0, 3)
+
+  if (comparableSections.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="rounded-[18px] bg-white/60 p-5">
+      <div className="space-y-6">
+        {comparableSections.map((entry, index) => (
+          <ComparisonChartCard
+            key={entry.current.key}
+            currentSection={entry.current}
+            previousSection={entry.previous as StatisticSectionDto}
+            sectionIndex={entry.sectionIndex}
+            showTitle={index === 0}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ComparisonChartCard({
+  currentSection,
+  previousSection,
+  sectionIndex,
+  showTitle,
+}: {
+  currentSection: StatisticSectionDto
+  previousSection: StatisticSectionDto
+  sectionIndex: number
+  showTitle: boolean
+}) {
+  const items = comparisonItemsForSection(currentSection)
+    .map((item) => ({ current: item, previous: findPreviousStatisticItem(item, previousSection.items) }))
+    .filter((item) => item.previous)
+
+  if (items.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="rounded-[18px] border border-slate-300 bg-white p-6">
+      {showTitle && <h2 className="text-xl font-bold uppercase text-slate-500">Порівняння з минулим роком</h2>}
+      <div
+        className={[
+          'grid items-start',
+          items.length > 3 ? 'min-h-[250px] gap-3' : 'min-h-[270px] gap-7',
+          showTitle ? 'mt-8' : 'mt-2',
+        ].join(' ')}
+        style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+      >
+        {items.map(({ current, previous }, itemIndex) => {
+          const currentPercent = statisticPercent(current)
+          const previousPercent = statisticPercent(previous as StatisticItemDto)
+          const accent = statisticAccent(sectionIndex, itemIndex, current)
+          const labelColor = isGradeStatisticSection(currentSection) ? accent.text : 'text-slate-700'
+          const compact = items.length > 3
+
+          return (
+            <div key={current.key} className="grid min-w-0 grid-rows-[12rem_auto] justify-items-center">
+              <div className={['flex h-48 w-full items-end justify-center', compact ? 'gap-2' : 'gap-3'].join(' ')}>
+                <ComparisonBar percent={currentPercent} colorClass="bg-purple-600" compact={compact} />
+                <ComparisonBar percent={previousPercent} colorClass="bg-indigo-300" compact={compact} />
+              </div>
+              <p
+                className={[
+                  compact ? 'mt-2 min-h-16 text-[13px]' : 'mt-3 min-h-14 text-lg',
+                  compact ? 'w-[88px] max-w-[88px]' : 'w-[108px] max-w-[108px]',
+                  'text-center font-bold leading-tight break-words [overflow-wrap:anywhere]',
+                  labelColor,
+                ].join(' ')}
+              >
+                {comparisonItemLabel(current)}
+              </p>
+            </div>
+          )
+        })}
+      </div>
+      <ComparisonLegend />
+    </section>
+  )
+}
+
+function ComparisonBar({ percent, colorClass, compact }: { percent: number; colorClass: string; compact: boolean }) {
+  const height = percent > 0 ? Math.max(percent, 8) : 0
+  const label = percent > 0 ? formatStatisticPercent(percent) : ''
+  const narrowLabel = label.length > 4
+  const isShortBar = percent > 0 && percent < 16
+
+  return (
+    <div
+      className={[
+        'flex items-end justify-center px-0.5 pb-1 font-bold leading-none',
+        isShortBar ? 'overflow-visible text-slate-900' : 'overflow-hidden text-white',
+        compact ? 'w-10 text-base' : 'w-12 text-xl',
+        colorClass,
+      ].join(' ')}
+      style={{ height: `${height}%` }}
+    >
+      <span className={narrowLabel ? 'scale-75 whitespace-nowrap' : 'whitespace-nowrap'}>{label}</span>
+    </div>
+  )
+}
+
+function ComparisonLegend() {
+  return (
+    <div className="mt-5 space-y-1 pl-1 text-xs font-bold text-slate-500">
+      <div className="flex items-center gap-2">
+        <span className="h-3 w-3 bg-purple-600" aria-hidden="true" />
+        <span>Поточна група</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="h-3 w-3 bg-indigo-300" aria-hidden="true" />
+        <span>Минулорічна група</span>
+      </div>
     </div>
   )
 }
@@ -935,13 +1277,70 @@ interface StudentFormState {
   supervisorScore: string
   reviewerScore: string
   commissionScore: string
-  ectsGrade: string
-  nationalGrade: string
+  ectsGrade: EctsGrade
+  nationalGrade: NationalGrade
   hasDiplomaWithHonors: boolean
   characteristics: CharacteristicsDto
 }
 
-function studentFormFromDetails(details: StudentDetailsResponse): StudentFormState {
+function normalizeEctsGrade(value: string | null | undefined): EctsGrade {
+  return value === 'A' || value === 'B' || value === 'C' || value === 'D' || value === 'E' ? value : 'None'
+}
+
+function normalizeNationalGrade(value: string | null | undefined): NationalGrade {
+  return value === 'Excellent' || value === 'Good' || value === 'Satisfactory' ? value : 'None'
+}
+
+function scoreNumber(value: string) {
+  const parsed = Number(value.trim() || '0')
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : 0
+}
+
+function calculateDefenceGrades({
+  supervisorScore,
+  reviewerScore,
+  commissionScore,
+}: Pick<StudentFormState, 'supervisorScore' | 'reviewerScore' | 'commissionScore'>): {
+  ectsGrade: EctsGrade
+  nationalGrade: NationalGrade
+} {
+  const average = (scoreNumber(supervisorScore) + scoreNumber(reviewerScore) + scoreNumber(commissionScore)) / 3
+
+  if (average >= 90) {
+    return { ectsGrade: 'A', nationalGrade: 'Excellent' }
+  }
+  if (average >= 82) {
+    return { ectsGrade: 'B', nationalGrade: 'Good' }
+  }
+  if (average >= 74) {
+    return { ectsGrade: 'C', nationalGrade: 'Good' }
+  }
+  if (average >= 64) {
+    return { ectsGrade: 'D', nationalGrade: 'Satisfactory' }
+  }
+  if (average >= 60) {
+    return { ectsGrade: 'E', nationalGrade: 'Satisfactory' }
+  }
+
+  return { ectsGrade: 'None', nationalGrade: 'None' }
+}
+
+function displayEctsGrade(value: EctsGrade) {
+  return value === 'None' ? 'Не визначено' : value
+}
+
+function displayNationalGrade(value: NationalGrade) {
+  const labels: Record<NationalGrade, string> = {
+    None: 'Не визначено',
+    Excellent: 'Відмінно',
+    Good: 'Добре',
+    Satisfactory: 'Задовільно',
+  }
+
+  return labels[value]
+}
+
+  function studentFormFromDetails(details: StudentDetailsResponse): StudentFormState {
   return {
     lastName: details.name.lastName,
     firstName: details.name.firstName,
@@ -953,13 +1352,13 @@ function studentFormFromDetails(details: StudentDetailsResponse): StudentFormSta
     physical: details.physicalChecklist ?? emptyPhysicalChecklist,
     electronic: details.electronicChecklist ?? emptyElectronicChecklist,
     defenceDate: details.defenceInfo?.defenceDate ?? '',
-    plagiarismPercent: asString(details.defenceResults?.plagiarismPercent ?? undefined),
-    uniquePercent: asString(details.defenceResults?.uniquePercent ?? undefined),
-    supervisorScore: asString(details.defenceResults?.supervisorScore ?? undefined),
-    reviewerScore: asString(details.defenceResults?.reviewerScore ?? undefined),
-    commissionScore: asString(details.defenceResults?.commissionScore ?? undefined),
-    ectsGrade: details.defenceResults?.ectsGrade ?? '',
-    nationalGrade: details.defenceResults?.nationalGrade ?? '',
+    plagiarismPercent: asString(details.defenceResults?.plagiarismPercent ?? 0),
+    uniquePercent: asString(details.defenceResults?.uniquePercent ?? 0),
+    supervisorScore: asString(details.defenceResults?.supervisorScore ?? 0),
+    reviewerScore: asString(details.defenceResults?.reviewerScore ?? 0),
+    commissionScore: asString(details.defenceResults?.commissionScore ?? 0),
+      ectsGrade: normalizeEctsGrade(details.defenceResults?.ectsGrade),
+      nationalGrade: normalizeNationalGrade(details.defenceResults?.nationalGrade),
     hasDiplomaWithHonors: details.defenceResults?.hasDiplomaWithHonors ?? false,
     characteristics: details.characteristics ?? emptyCharacteristics,
   }
@@ -996,6 +1395,31 @@ function InputField({
   )
 }
 
+function TextAreaField({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  disabled: boolean
+}) {
+  return (
+    <label className="grid grid-cols-[170px_1fr] items-start gap-5 text-sm font-bold text-slate-600">
+      <span className="pt-2">{label}</span>
+      <textarea
+        value={value}
+        disabled={disabled}
+        rows={2}
+        onChange={(event) => onChange(event.target.value)}
+        className="min-h-16 resize-y rounded-lg border border-slate-300 bg-transparent px-3 py-2 outline-none transition focus:border-blue-500 disabled:text-slate-500"
+      />
+    </label>
+  )
+}
+
 function StudentDetailsPanel({
   studentId,
   group,
@@ -1024,6 +1448,7 @@ function StudentDetailsPanel({
   const saveMutation = useMutation({
     mutationFn: async ({ details, current }: { details: StudentDetailsResponse; current: StudentFormState }) => {
       const original = studentFormFromDetails(details)
+      const currentGrades = calculateDefenceGrades(current)
       const requests: Array<Promise<unknown>> = []
 
       if (
@@ -1099,8 +1524,8 @@ function StudentDetailsPanel({
             supervisorScore: current.supervisorScore,
             reviewerScore: current.reviewerScore,
             commissionScore: current.commissionScore,
-            ectsGrade: current.ectsGrade,
-            nationalGrade: current.nationalGrade,
+            ectsGrade: currentGrades.ectsGrade,
+            nationalGrade: currentGrades.nationalGrade,
             hasDiplomaWithHonors: current.hasDiplomaWithHonors,
           },
         )
@@ -1108,13 +1533,13 @@ function StudentDetailsPanel({
         requests.push(
           updateDefenceResults(studentId, {
             secretaryEmail,
-            plagiarismPercent: current.plagiarismPercent,
-            uniquePercent: current.uniquePercent,
-            supervisorScore: current.supervisorScore,
-            reviewerScore: current.reviewerScore,
-            commissionScore: current.commissionScore,
-            ectsGrade: current.ectsGrade,
-            nationalGrade: current.nationalGrade,
+            plagiarismPercent: withDefaultScore(current.plagiarismPercent),
+            uniquePercent: withDefaultScore(current.uniquePercent),
+            supervisorScore: withDefaultScore(current.supervisorScore),
+            reviewerScore: withDefaultScore(current.reviewerScore),
+            commissionScore: withDefaultScore(current.commissionScore),
+            ectsGrade: currentGrades.ectsGrade,
+            nationalGrade: currentGrades.nationalGrade,
             hasDiplomaWithHonors: current.hasDiplomaWithHonors,
           }),
         )
@@ -1150,18 +1575,39 @@ function StudentDetailsPanel({
   }
 
   const details = detailsQuery.data
+  const calculatedGrades = calculateDefenceGrades(form)
   const selectedGroupStudentsPath = makePath(`/groups/${defenseYear}/${group.id}`, educationLevel)
   const updateForm = (patch: Partial<StudentFormState>) =>
     setDraftForm((current) => (current ? { ...current, ...patch } : { ...form, ...patch }))
   const togglePhysical = (key: keyof PhysicalChecklistDto) =>
     updateForm({ physical: { ...form.physical, [key]: !form.physical[key] } })
-  const toggleElectronic = (key: keyof ElectronicChecklistDto) =>
+  const toggleElectronic = (key: keyof ElectronicChecklistDto) => {
+    if (key === 'hasRegulatoryControl' && form.electronic.hasRegulatoryControl) {
+      updateForm({ electronic: emptyElectronicChecklist })
+      return
+    }
+
+    if (key !== 'hasRegulatoryControl' && !form.electronic.hasRegulatoryControl) {
+      return
+    }
+
     updateForm({ electronic: { ...form.electronic, [key]: !form.electronic[key] } })
+  }
   const toggleCharacteristic = (key: keyof CharacteristicsDto) =>
     updateForm({ characteristics: { ...form.characteristics, [key]: !form.characteristics[key] } })
   const cancelEdit = () => {
     setIsEditing(false)
     setDraftForm(null)
+  }
+  const submitEdit = () => {
+    const nameParts = [form.lastName, form.firstName, form.middleName]
+
+    if (!nameParts.every(isValidStudentNamePart)) {
+      showError('ПІБ студента має містити кирилицю без пробілів у кожному полі, з великої літери.')
+      return
+    }
+
+    saveMutation.mutate({ details, current: form })
   }
 
   return (
@@ -1233,10 +1679,10 @@ function StudentDetailsPanel({
           <div className="mt-8 space-y-9">
           <section className="space-y-3">
             <h2 className="text-sm font-bold uppercase text-slate-500">Загальна інформація</h2>
-            <InputField label="Прізвище" value={form.lastName} disabled={!isEditing} onChange={(lastName) => updateForm({ lastName })} />
-            <InputField label="Ім’я" value={form.firstName} disabled={!isEditing} onChange={(firstName) => updateForm({ firstName })} />
-            <InputField label="По-батькові" value={form.middleName} disabled={!isEditing} onChange={(middleName) => updateForm({ middleName })} />
-            <InputField label="Тема роботи" value={form.topic} disabled={!isEditing} onChange={(topic) => updateForm({ topic })} />
+            <InputField label="Прізвище" value={form.lastName} disabled={!isEditing} onChange={(lastName) => updateForm({ lastName: normalizeStudentNamePart(lastName) })} />
+            <InputField label="Ім’я" value={form.firstName} disabled={!isEditing} onChange={(firstName) => updateForm({ firstName: normalizeStudentNamePart(firstName) })} />
+            <InputField label="По-батькові" value={form.middleName} disabled={!isEditing} onChange={(middleName) => updateForm({ middleName: normalizeStudentNamePart(middleName) })} />
+            <TextAreaField label="Тема роботи" value={form.topic} disabled={!isEditing} onChange={(topic) => updateForm({ topic })} />
             <label className="grid grid-cols-[170px_1fr] items-center gap-5 text-sm font-bold text-slate-600">
               <span>Керівник роботи</span>
               <select
@@ -1253,7 +1699,7 @@ function StudentDetailsPanel({
                 ))}
               </select>
             </label>
-            <InputField label="База практики" value={form.practiceBase} disabled={!isEditing} onChange={(practiceBase) => updateForm({ practiceBase })} />
+            <TextAreaField label="База практики" value={form.practiceBase} disabled={!isEditing} onChange={(practiceBase) => updateForm({ practiceBase })} />
             <label className="grid grid-cols-[170px_1fr] items-center gap-5 text-sm font-bold text-slate-600">
               <span>Рецензент роботи</span>
               <select
@@ -1292,6 +1738,7 @@ function StudentDetailsPanel({
                 items={electronicItems}
                 values={form.electronic}
                 onToggle={toggleElectronic}
+                isItemDisabled={(key) => key !== 'hasRegulatoryControl' && !form.electronic.hasRegulatoryControl}
               />
             </div>
           </section>
@@ -1309,13 +1756,13 @@ function StudentDetailsPanel({
 
           <section className="space-y-3">
             <h2 className="text-sm font-bold uppercase text-slate-500">Результати захисту</h2>
-            <InputField label="Відсоток запозичення" value={form.plagiarismPercent} disabled={!isEditing} onChange={(plagiarismPercent) => updateForm({ plagiarismPercent })} />
-            <InputField label="Унікальність роботи" value={form.uniquePercent} disabled={!isEditing} onChange={(uniquePercent) => updateForm({ uniquePercent })} />
-            <InputField label="Оцінка керівника" value={form.supervisorScore} disabled={!isEditing} onChange={(supervisorScore) => updateForm({ supervisorScore })} />
-            <InputField label="Оцінка рецензента" value={form.reviewerScore} disabled={!isEditing} onChange={(reviewerScore) => updateForm({ reviewerScore })} />
-            <InputField label="Оцінка ДЕК" value={form.commissionScore} disabled={!isEditing} onChange={(commissionScore) => updateForm({ commissionScore })} />
-            <InputField label="Оцінка ECTS" value={form.ectsGrade} disabled={!isEditing} onChange={(ectsGrade) => updateForm({ ectsGrade })} />
-            <InputField label="Національна шкала" value={form.nationalGrade} disabled={!isEditing} onChange={(nationalGrade) => updateForm({ nationalGrade })} />
+            <InputField label="Відсоток запозичення" value={form.plagiarismPercent} disabled={!isEditing} onChange={(plagiarismPercent) => updateForm({ plagiarismPercent: normalizeDecimalPercent(plagiarismPercent) })} />
+            <InputField label="Унікальність роботи" value={form.uniquePercent} disabled={!isEditing} onChange={(uniquePercent) => updateForm({ uniquePercent: normalizeDecimalPercent(uniquePercent) })} />
+            <InputField label="Оцінка керівника" value={form.supervisorScore} disabled={!isEditing} onChange={(supervisorScore) => updateForm({ supervisorScore: normalizeScore(supervisorScore) })} />
+            <InputField label="Оцінка рецензента" value={form.reviewerScore} disabled={!isEditing} onChange={(reviewerScore) => updateForm({ reviewerScore: normalizeScore(reviewerScore) })} />
+            <InputField label="Оцінка ДЕК" value={form.commissionScore} disabled={!isEditing} onChange={(commissionScore) => updateForm({ commissionScore: normalizeScore(commissionScore) })} />
+            <InputField label="Оцінка ECTS" value={displayEctsGrade(calculatedGrades.ectsGrade)} disabled onChange={() => undefined} />
+            <InputField label="Національна шкала" value={displayNationalGrade(calculatedGrades.nationalGrade)} disabled onChange={() => undefined} />
             <CheckboxLine
               label="Диплом з відзнакою"
               checked={form.hasDiplomaWithHonors}
@@ -1324,17 +1771,37 @@ function StudentDetailsPanel({
             />
           </section>
 
-          <section className="space-y-3">
-            <h2 className="text-sm font-bold uppercase text-slate-500">Характеристика кваліфікаційної роботи</h2>
-            {characteristicItems.map((item) => (
-              <CheckboxLine
-                key={item.key}
-                label={item.label}
-                checked={form.characteristics[item.key]}
+          <section>
+            <h2 className="text-sm font-bold uppercase text-slate-500">Характеристики роботи</h2>
+            <div className="mt-4 grid gap-8 lg:grid-cols-3">
+              <ChecklistEditor
+                title="Характеристика кваліфікаційної роботи"
+                checkedCount={countChecked(form.characteristics, characteristicItems.slice(0, 4).map((item) => item.key))}
+                total={4}
                 disabled={!isEditing}
-                onChange={() => toggleCharacteristic(item.key)}
+                items={characteristicItems.slice(0, 4)}
+                values={form.characteristics}
+                onToggle={toggleCharacteristic}
               />
-            ))}
+              <ChecklistEditor
+                title="Комплексне дипломне проектування"
+                checkedCount={countChecked(form.characteristics, characteristicItems.slice(4, 8).map((item) => item.key))}
+                total={4}
+                disabled={!isEditing}
+                items={characteristicItems.slice(4, 8)}
+                values={form.characteristics}
+                onToggle={toggleCharacteristic}
+              />
+              <ChecklistEditor
+                title="Рекомендовано та захищено"
+                checkedCount={countChecked(form.characteristics, characteristicItems.slice(8).map((item) => item.key))}
+                total={characteristicItems.slice(8).length}
+                disabled={!isEditing}
+                items={characteristicItems.slice(8)}
+                values={form.characteristics}
+                onToggle={toggleCharacteristic}
+              />
+            </div>
           </section>
           </div>
         )}
@@ -1351,7 +1818,7 @@ function StudentDetailsPanel({
             <button
               type="button"
               disabled={saveMutation.isPending}
-              onClick={() => saveMutation.mutate({ details, current: form })}
+              onClick={submitEdit}
               className="h-11 rounded-full border-2 border-green-500 px-8 font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-60 disabled:hover:bg-transparent disabled:hover:text-green-600"
             >
               Зберегти зміни
@@ -1383,7 +1850,7 @@ function CheckboxLine({
 }
 
 function StudentCollapsedSections({ details, form }: { details: StudentDetailsResponse; form: StudentFormState }) {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+  const calculatedGrades = calculateDefenceGrades(form)
   const sections = [
     {
       key: 'general',
@@ -1438,12 +1905,12 @@ function StudentCollapsedSections({ details, form }: { details: StudentDetailsRe
         <div className="grid gap-3">
           <ReadOnlyRow label="Відсоток запозичення" value={form.plagiarismPercent} />
           <ReadOnlyRow label="Унікальність роботи" value={form.uniquePercent} />
-          <ReadOnlyRow label="Оцінка керівника" value={form.supervisorScore} />
-          <ReadOnlyRow label="Оцінка рецензента" value={form.reviewerScore} />
-          <ReadOnlyRow label="Оцінка ДЕК" value={form.commissionScore} />
-          <ReadOnlyRow label="Оцінка ECTS" value={form.ectsGrade} />
-          <ReadOnlyRow label="Національна шкала" value={form.nationalGrade} />
-          <ReadOnlyBoolean label="Диплом з відзнакою" checked={form.hasDiplomaWithHonors} />
+            <ReadOnlyRow label="Оцінка керівника" value={form.supervisorScore} />
+            <ReadOnlyRow label="Оцінка рецензента" value={form.reviewerScore} />
+            <ReadOnlyRow label="Оцінка ДЕК" value={form.commissionScore} />
+            <ReadOnlyRow label="Оцінка ECTS" value={displayEctsGrade(calculatedGrades.ectsGrade)} />
+            <ReadOnlyRow label="Національна шкала" value={displayNationalGrade(calculatedGrades.nationalGrade)} />
+            <ReadOnlyBoolean label="Диплом з відзнакою" checked={form.hasDiplomaWithHonors} />
         </div>
       ),
     },
@@ -1463,6 +1930,9 @@ function StudentCollapsedSections({ details, form }: { details: StudentDetailsRe
       content: <ReadOnlyChecklist items={characteristicItems.slice(8)} values={form.characteristics} />,
     },
   ]
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(sections.map((section) => [section.key, true])),
+  )
 
   const toggleSection = (key: string) => {
     setOpenSections((current) => ({ ...current, [key]: !current[key] }))
@@ -1552,6 +2022,7 @@ function ChecklistEditor<T extends object>({
   items,
   values,
   onToggle,
+  isItemDisabled,
 }: {
   title: string
   checkedCount: number
@@ -1560,6 +2031,7 @@ function ChecklistEditor<T extends object>({
   items: Array<{ key: keyof T; label: string }>
   values: T
   onToggle: (key: keyof T) => void
+  isItemDisabled?: (key: keyof T) => boolean
 }) {
   return (
     <div>
@@ -1575,10 +2047,245 @@ function ChecklistEditor<T extends object>({
             key={String(item.key)}
             label={item.label}
             checked={Boolean(values[item.key])}
-            disabled={disabled}
+            disabled={disabled || Boolean(isItemDisabled?.(item.key))}
             onChange={() => onToggle(item.key)}
           />
         ))}
+      </div>
+    </div>
+  )
+}
+
+interface GroupNameParts {
+  index: string
+  startYear: string
+  number: string
+  letter: string
+  isDistance: boolean
+}
+
+const emptyGroupNameParts: GroupNameParts = {
+  index: '',
+  startYear: '',
+  number: '',
+  letter: '',
+  isDistance: false,
+}
+
+const allowedStudentFileExtensions = ['.xls', '.xlsx', '.xlsb', '.csv']
+
+function normalizeGroupIndex(value: string) {
+  return value
+    .replace(/[^А-ЯЄІЇҐа-яєіїґ]/g, '')
+    .toLocaleUpperCase('uk-UA')
+    .slice(0, 10)
+}
+
+function normalizeGroupYear(value: string) {
+  return value.replace(/\D/g, '').slice(0, 2)
+}
+
+function normalizeGroupNumber(value: string) {
+  return value.replace(/\D/g, '').slice(0, 3)
+}
+
+function normalizeGroupLetter(value: string) {
+  return value
+    .replace(/[^А-ЯЄІЇҐа-яєіїґ]/g, '')
+    .toLocaleLowerCase('uk-UA')
+    .slice(0, 1)
+}
+
+function makeGroupName(parts: GroupNameParts, educationLevel: EducationLevel) {
+  const base = `${parts.index}-${parts.startYear}-${parts.number}`
+  const letter = parts.letter ? `(${parts.letter})` : ''
+  const distance = parts.isDistance ? 'з' : ''
+  const master = educationLevel === 'Master' ? 'м' : ''
+
+  return `${base}${letter}${distance}${master}`
+}
+
+function parseGroupName(name: string, educationLevel: EducationLevel): GroupNameParts {
+  const value = educationLevel === 'Master' && name.endsWith('м') ? name.slice(0, -1) : name
+  const match = value.match(/^([А-ЯЄІЇҐ]{1,10})-(\d{2})-(\d{1,3})(?:\(([а-яєіїґ])\))?(з)?$/u)
+
+  if (!match) {
+    return emptyGroupNameParts
+  }
+
+  return {
+    index: match[1] ?? '',
+    startYear: match[2] ?? '',
+    number: match[3] ?? '',
+    letter: match[4] ?? '',
+    isDistance: Boolean(match[5]),
+  }
+}
+
+function getFileExtension(fileName: string) {
+  const dotIndex = fileName.lastIndexOf('.')
+
+  return dotIndex >= 0 ? fileName.slice(dotIndex).toLocaleLowerCase('uk-UA') : ''
+}
+
+function isAllowedStudentFile(file: File) {
+  return allowedStudentFileExtensions.includes(getFileExtension(file.name))
+}
+
+function normalizeDigitsOnly(value: string) {
+  return value.replace(/\D/g, '')
+}
+
+function normalizeCyrillicText(value: string) {
+  return value
+    .replace(/[^А-ЯЄІЇҐа-яєіїґ'’\-\s.]/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/-{2,}/g, '-')
+    .replace(/['’]{2,}/g, "'")
+    .replace(/\s*-\s*/g, '-')
+}
+
+function normalizeCyrillicName(value: string) {
+  return normalizeCyrillicText(value).replace(/\./g, '')
+}
+
+function tidyText(value: string) {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+function isCapitalizedNamePart(part: string) {
+  return part
+    .split('-')
+    .every((segment) => /^[А-ЯЄІЇҐ][а-яєіїґ]*(?:['’][а-яєіїґ]+)?$/u.test(segment))
+}
+
+function isValidFullName(value: string) {
+  const parts = tidyText(value).split(' ')
+
+  return parts.length === 3 && parts.every(isCapitalizedNamePart)
+}
+
+function hasCyrillicLetter(value: string) {
+  return /[А-ЯЄІЇҐа-яєіїґ]/u.test(value)
+}
+
+function isCyrillicText(value: string) {
+  const trimmed = tidyText(value)
+
+  return hasCyrillicLetter(trimmed) && /^[А-ЯЄІЇҐа-яєіїґ'’\-\s.]+$/u.test(trimmed)
+}
+
+function normalizeStudentNamePart(value: string) {
+  return normalizeCyrillicName(value).replace(/\s/g, '')
+}
+
+function isValidStudentNamePart(value: string) {
+  return isCapitalizedNamePart(value) && !/\s/.test(value)
+}
+
+function normalizeDecimalNumber(value: string) {
+  const normalized = value.replace(',', '.').replace(/[^\d.]/g, '')
+  const [integer = '', ...fractionParts] = normalized.split('.')
+  const fraction = fractionParts.join('')
+
+  return fractionParts.length > 0 ? `${integer}.${fraction}` : integer
+}
+
+function normalizeDecimalPercent(value: string) {
+  const normalized = normalizeDecimalNumber(value)
+  const numericValue = Number(normalized)
+
+  if (!normalized) {
+    return ''
+  }
+  if (Number.isFinite(numericValue) && numericValue > 100) {
+    return '100'
+  }
+
+  return normalized
+}
+
+function normalizeScore(value: string) {
+  const normalized = normalizeDigitsOnly(value)
+  const numericValue = Number(normalized)
+
+  if (!normalized) {
+    return ''
+  }
+  if (Number.isFinite(numericValue) && numericValue > 100) {
+    return '100'
+  }
+
+  return normalized
+}
+
+function withDefaultScore(value: string) {
+  return value.trim() || '0'
+}
+
+function GroupNameSegmentedInput({
+  value,
+  educationLevel,
+  onChange,
+}: {
+  value: GroupNameParts
+  educationLevel: EducationLevel
+  onChange: (value: GroupNameParts) => void
+}) {
+  const update = (patch: Partial<GroupNameParts>) => onChange({ ...value, ...patch })
+
+  return (
+    <div className="grid max-w-[760px] grid-cols-[220px_1fr] items-center gap-6 text-lg font-bold">
+      <span>Назва групи</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={value.index}
+          onChange={(event) => update({ index: normalizeGroupIndex(event.target.value) })}
+          placeholder="КН"
+          maxLength={10}
+          aria-label="Буквений індекс групи"
+          className="h-12 w-24 rounded-xl border border-slate-300 bg-transparent px-3 text-center outline-none focus:border-blue-500"
+        />
+        <span className="text-xl text-slate-500">-</span>
+        <input
+          value={value.startYear}
+          onChange={(event) => update({ startYear: normalizeGroupYear(event.target.value) })}
+          placeholder="22"
+          inputMode="numeric"
+          aria-label="Рік початку групи"
+          className="h-12 w-20 rounded-xl border border-slate-300 bg-transparent px-3 text-center outline-none focus:border-blue-500"
+        />
+        <span className="text-xl text-slate-500">-</span>
+        <input
+          value={value.number}
+          onChange={(event) => update({ number: normalizeGroupNumber(event.target.value) })}
+          placeholder="1"
+          inputMode="numeric"
+          aria-label="Номер групи"
+          className="h-12 w-20 rounded-xl border border-slate-300 bg-transparent px-3 text-center outline-none focus:border-blue-500"
+        />
+        <span className="text-xl text-slate-500">(</span>
+        <input
+          value={value.letter}
+          onChange={(event) => update({ letter: normalizeGroupLetter(event.target.value) })}
+          placeholder="а"
+          aria-label="Літера групи"
+          className="h-12 w-14 rounded-xl border border-slate-300 bg-transparent px-3 text-center outline-none focus:border-blue-500"
+        />
+        <span className="text-xl text-slate-500">)</span>
+        <label className="ml-2 inline-flex h-12 items-center gap-2 rounded-xl border border-slate-300 px-3 text-base text-slate-600">
+          <input
+            type="checkbox"
+            checked={value.isDistance}
+            onChange={(event) => update({ isDistance: event.target.checked })}
+          />
+          Заочна
+        </label>
+        {educationLevel === 'Master' && (
+          <span className="grid h-12 w-12 place-items-center rounded-xl border border-slate-300 text-xl text-slate-600">
+            м
+          </span>
+        )}
       </div>
     </div>
   )
@@ -1602,13 +2309,30 @@ function GroupDialog({
   onSuccess: (defenseYear?: string, groupId?: EntityId) => void
 }) {
   const { showError, showSuccess } = useToast()
-  const [name, setName] = useState(initialGroup?.name ?? '')
+  const [nameParts, setNameParts] = useState<GroupNameParts>(() =>
+    initialGroup?.name ? parseGroupName(initialGroup.name, educationLevel) : emptyGroupNameParts,
+  )
   const [year, setYear] = useState(initialYear ?? currentDefenseYears()[0])
   const [driveUrl, setDriveUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const name = makeGroupName(nameParts, educationLevel)
+  const handleSelectedFile = (selectedFile: File | null) => {
+    if (!selectedFile) {
+      setFile(null)
+      return
+    }
+
+    if (!isAllowedStudentFile(selectedFile)) {
+      showError('Файл зі студентами має бути у форматі .xls, .xlsx, .xlsb або .csv.')
+      setFile(null)
+      return
+    }
+
+    setFile(selectedFile)
+  }
   const handleFileDrop = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault()
-    setFile(event.dataTransfer.files?.[0] ?? null)
+    handleSelectedFile(event.dataTransfer.files?.[0] ?? null)
   }
   const mutation = useMutation({
     mutationFn: async (): Promise<CreateGroupResponse | UpdateGroupResponse> => {
@@ -1641,8 +2365,8 @@ function GroupDialog({
     onError: (apiError) => showError(getApiErrorMessages(apiError)),
   })
   const submit = () => {
-    if (!name.trim()) {
-      const message = 'Вкажіть назву групи.'
+    if (!nameParts.index || !nameParts.startYear || !nameParts.number) {
+      const message = 'Заповніть буквений індекс, рік початку та номер групи.'
       showError(message)
       return
     }
@@ -1669,10 +2393,7 @@ function GroupDialog({
         </div>
         <div className="mt-10 max-w-[1120px] space-y-8">
           <h3 className="text-sm font-bold uppercase text-slate-500">Загальна інформація</h3>
-          <label className="grid max-w-[580px] grid-cols-[220px_1fr] items-center gap-6 text-lg font-bold">
-            <span>Назва групи</span>
-            <input value={name} onChange={(event) => setName(event.target.value)} className="h-12 rounded-xl border border-slate-300 bg-transparent px-4 outline-none focus:border-blue-500" />
-          </label>
+          <GroupNameSegmentedInput value={nameParts} educationLevel={educationLevel} onChange={setNameParts} />
           <label className="grid max-w-[580px] grid-cols-[220px_1fr] items-center gap-6 text-lg font-bold">
             <span>Рік захисту</span>
             <select value={year} onChange={(event) => setYear(event.target.value)} className="h-12 rounded-xl border border-slate-300 bg-transparent px-4 outline-none focus:border-blue-500">
@@ -1704,7 +2425,15 @@ function GroupDialog({
                     <Upload className="mx-auto mb-6" size={58} />
                     {file ? file.name : 'Перетягніть файл сюди або натисніть'}
                   </span>
-                  <input type="file" className="hidden" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+                  <input
+                    type="file"
+                    accept=".xls,.xlsx,.xlsb,.csv"
+                    className="hidden"
+                    onChange={(event) => {
+                      handleSelectedFile(event.target.files?.[0] ?? null)
+                      event.currentTarget.value = ''
+                    }}
+                  />
                 </label>
                 <span className="text-center text-xl font-bold text-slate-500">або</span>
                 <textarea
@@ -1728,6 +2457,130 @@ function GroupDialog({
             className="h-12 rounded-full border-2 border-green-500 px-8 text-lg font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-green-600"
           >
             {mode === 'create' ? 'Створити' : 'Зберегти'}
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function ImportDefenceResultsDialog({
+  group,
+  secretaryEmail,
+  onClose,
+  onSuccess,
+}: {
+  group: GroupDto
+  secretaryEmail: string
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const { showError, showSuccess } = useToast()
+  const [driveUrl, setDriveUrl] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const handleSelectedFile = (selectedFile: File | null) => {
+    if (!selectedFile) {
+      setFile(null)
+      return
+    }
+
+    if (!isAllowedStudentFile(selectedFile)) {
+      showError('Файл з результатами захисту має бути у форматі .xls, .xlsx, .xlsb або .csv.')
+      setFile(null)
+      return
+    }
+
+    setFile(selectedFile)
+  }
+  const handleFileDrop = (event: DragEvent<HTMLLabelElement>) => {
+    event.preventDefault()
+    handleSelectedFile(event.dataTransfer.files?.[0] ?? null)
+  }
+  const mutation = useMutation({
+    mutationFn: () =>
+      importGroupDefenceResults(group.id, {
+        secretaryEmail,
+        resultsFile: file,
+        googleDriveLink: driveUrl.trim() || null,
+      }),
+    onSuccess: (response) => {
+      showSuccess([
+        `Імпортовано результати для групи ${response.groupName}.`,
+        `Оновлено студентів: ${response.studentsUpdated}. Прочитано рядків: ${response.rowsRead}.`,
+      ])
+      onSuccess()
+    },
+    onError: (apiError) => showError(getApiErrorMessages(apiError)),
+  })
+  const submit = () => {
+    if (!file && !driveUrl.trim()) {
+      showError('Завантажте таблицю з результатами захисту або вставте посилання Google Drive.')
+      return
+    }
+
+    mutation.mutate()
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-[#dcecff]/80 px-6 py-16 backdrop-blur-sm">
+      <section className="mx-auto min-h-[520px] max-w-[1040px] rounded-[28px] bg-white/80 p-10 shadow-xl">
+        <div className="flex items-start justify-between">
+          <h2 className="text-4xl font-bold uppercase text-blue-600">Завантаження результатів захисту</h2>
+          <button type="button" onClick={onClose} aria-label="Закрити" className="text-red-500">
+            <X size={42} />
+          </button>
+        </div>
+        <div className="mt-10 max-w-[920px] space-y-8">
+          <div>
+            <h3 className="text-sm font-bold uppercase text-slate-500">{group.name}</h3>
+            <p className="mt-2 text-xl font-bold text-slate-500">
+              Завантажте таблицю з результатами захисту або залиште посилання на Google Drive.
+            </p>
+          </div>
+          <div className="grid grid-cols-[1fr_80px_1fr] items-center gap-8">
+            <label
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={handleFileDrop}
+              className="grid min-h-56 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-blue-500 text-center text-xl font-bold text-slate-600"
+            >
+              <span>
+                <Upload className="mx-auto mb-6" size={58} />
+                {file ? file.name : 'Перетягніть файл сюди або натисніть'}
+              </span>
+              <input
+                type="file"
+                accept=".xls,.xlsx,.xlsb,.csv"
+                className="hidden"
+                onChange={(event) => {
+                  handleSelectedFile(event.target.files?.[0] ?? null)
+                  event.currentTarget.value = ''
+                }}
+              />
+            </label>
+            <span className="text-center text-xl font-bold text-slate-500">або</span>
+            <textarea
+              value={driveUrl}
+              onChange={(event) => setDriveUrl(event.target.value)}
+              placeholder="Приклад: посилання Google Drive"
+              className="min-h-56 rounded-xl border border-slate-300 bg-transparent p-5 text-xl font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
+            />
+          </div>
+        </div>
+        <div className="mt-12 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-12 rounded-full border-2 border-blue-600 px-8 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white"
+          >
+            Скасувати
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={mutation.isPending}
+            className="h-12 rounded-full border-2 border-green-500 px-8 text-lg font-bold text-green-600 transition hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-green-600"
+          >
+            Завантажити
           </button>
         </div>
       </section>
@@ -1759,9 +2612,15 @@ function AddStudentDialog({
     onError: (apiError) => showError(getApiErrorMessages(apiError)),
   })
   const submit = () => {
+    const nameParts = [lastName, firstName, middleName]
+
     if (!lastName.trim() || !firstName.trim() || !middleName.trim()) {
       const message = 'Заповніть ПІБ студента.'
       showError(message)
+      return
+    }
+    if (!nameParts.every(isValidStudentNamePart)) {
+      showError('ПІБ студента має містити кирилицю без пробілів у кожному полі, з великої літери.')
       return
     }
     mutation.mutate()
@@ -1778,9 +2637,9 @@ function AddStudentDialog({
         </div>
         <div className="mt-10 max-w-[820px] space-y-7">
           <h3 className="text-sm font-bold uppercase text-slate-500">Загальна інформація</h3>
-          <InputField label="Прізвище" value={lastName} disabled={false} onChange={setLastName} />
-          <InputField label="Ім’я" value={firstName} disabled={false} onChange={setFirstName} />
-          <InputField label="По-батькові" value={middleName} disabled={false} onChange={setMiddleName} />
+          <InputField label="Прізвище" value={lastName} disabled={false} onChange={(value) => setLastName(normalizeStudentNamePart(value))} />
+          <InputField label="Ім’я" value={firstName} disabled={false} onChange={(value) => setFirstName(normalizeStudentNamePart(value))} />
+          <InputField label="По-батькові" value={middleName} disabled={false} onChange={(value) => setMiddleName(normalizeStudentNamePart(value))} />
         </div>
         <div className="mt-16 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="h-12 rounded-full border-2 border-blue-600 px-8 text-lg font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white">
@@ -1847,12 +2706,14 @@ function CommissionTextField({
   value,
   onChange,
   placeholder,
+  inputMode,
   type = 'text',
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  inputMode?: 'numeric'
   type?: string
 }) {
   return (
@@ -1862,6 +2723,7 @@ function CommissionTextField({
         type={type}
         value={value}
         placeholder={placeholder}
+        inputMode={inputMode}
         onChange={(event) => onChange(event.target.value)}
         className="h-12 rounded-xl border border-slate-300 bg-transparent px-4 outline-none placeholder:text-slate-400 focus:border-blue-500"
       />
@@ -1912,10 +2774,10 @@ function AddCommissionHeadDialog({
     mutationFn: () =>
       createCommissionHead({
         secretaryEmail,
-        fullName: fullName.trim(),
-        position: position.trim(),
-        company: company.trim(),
-        specialty: specialty.trim(),
+        fullName: tidyText(fullName),
+        position: tidyText(position),
+        company: tidyText(company),
+        specialty: tidyText(specialty),
       }),
     onSuccess: (head) => {
       showSuccess()
@@ -1928,13 +2790,21 @@ function AddCommissionHeadDialog({
       showError('Заповніть дані голови комісії.')
       return
     }
+    if (!isValidFullName(fullName)) {
+      showError('ПІБ має містити прізвище, ім’я та по батькові кирилицею, кожне з великої літери.')
+      return
+    }
+    if (![position, specialty].every(isCyrillicText)) {
+      showError('Посада та спеціальність мають містити лише кириличний текст.')
+      return
+    }
 
     mutation.mutate()
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-blue-300/45 px-6 py-10 backdrop-blur-sm">
-      <section className="w-full max-w-[620px] rounded-[26px] bg-white/90 p-10 shadow-2xl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-blue-300/45 px-6 py-10 backdrop-blur-sm">
+      <section className="mx-auto min-h-fit w-full max-w-[620px] rounded-[26px] bg-white/90 p-10 shadow-2xl">
         <div className="flex justify-end">
           <button type="button" onClick={onClose} aria-label="Закрити" className="text-red-500">
             <X size={34} />
@@ -1946,7 +2816,8 @@ function AddCommissionHeadDialog({
             <span>Введіть повний ПІБ</span>
             <input
               value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
+              onChange={(event) => setFullName(normalizeCyrillicName(event.target.value))}
+              onBlur={() => setFullName((current) => tidyText(current))}
               placeholder="Прізвище Ім’я По-батькові"
               className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-lg font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
             />
@@ -1955,7 +2826,8 @@ function AddCommissionHeadDialog({
             <span>Введіть посаду</span>
             <input
               value={position}
-              onChange={(event) => setPosition(event.target.value)}
+              onChange={(event) => setPosition(normalizeCyrillicText(event.target.value))}
+              onBlur={() => setPosition((current) => tidyText(current))}
               placeholder="т.в.о. директора"
               className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-lg font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
             />
@@ -1964,7 +2836,8 @@ function AddCommissionHeadDialog({
             <span>Введіть підприємство</span>
             <input
               value={company}
-              onChange={(event) => setCompany(event.target.value)}
+              onChange={(event) => setCompany(event.target.value.replace(/\s+/g, ' '))}
+              onBlur={() => setCompany((current) => tidyText(current))}
               placeholder="Комунальне підприємство"
               className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-lg font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
             />
@@ -1973,7 +2846,8 @@ function AddCommissionHeadDialog({
             <span>Введіть спеціальність</span>
             <input
               value={specialty}
-              onChange={(event) => setSpecialty(event.target.value)}
+              onChange={(event) => setSpecialty(normalizeCyrillicText(event.target.value))}
+              onBlur={() => setSpecialty((current) => tidyText(current))}
               placeholder="Інформаційні технології"
               className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-lg font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
             />
@@ -2078,6 +2952,9 @@ function CommissionFormDialog({
     if (!form.orderNumber.trim()) {
       messages.push('Вкажіть № комісії.')
     }
+    if (!/^\d+$/.test(form.orderNumber)) {
+      messages.push('№ комісії має містити лише цифри.')
+    }
     if (!form.commissionHeadId) {
       messages.push('Оберіть голову комісії.')
     }
@@ -2141,7 +3018,8 @@ function CommissionFormDialog({
               <CommissionTextField
                 label="№ комісії"
                 value={form.orderNumber}
-                onChange={(orderNumber) => updateForm({ orderNumber })}
+                onChange={(orderNumber) => updateForm({ orderNumber: normalizeDigitsOnly(orderNumber) })}
+                inputMode="numeric"
               />
             </section>
 
@@ -2326,6 +3204,7 @@ export function GroupsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false)
+  const [isImportDefenceResultsOpen, setIsImportDefenceResultsOpen] = useState(false)
   const [isCreateCommissionOpen, setIsCreateCommissionOpen] = useState(false)
   const [isEditCommissionOpen, setIsEditCommissionOpen] = useState(false)
   const [groupToDelete, setGroupToDelete] = useState<GroupDto | null>(null)
@@ -2335,7 +3214,10 @@ export function GroupsPage() {
     mutationFn: (group: GroupDto) => deleteGroup(group.id, secretaryEmail),
     onSuccess: async () => {
       setGroupToDelete(null)
-      await queryClient.invalidateQueries({ queryKey: groupsQueryKeys.all })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: groupsQueryKeys.all }),
+        queryClient.invalidateQueries({ queryKey: commissionQueryKeys.all }),
+      ])
       navigate(makePath(defenseYear ? `/groups/${defenseYear}` : '/groups', educationLevel), { replace: true })
       showSuccess()
     },
@@ -2370,7 +3252,11 @@ export function GroupsPage() {
     setIsCreateOpen(false)
     setIsEditOpen(false)
     setIsAddStudentOpen(false)
-    await queryClient.invalidateQueries({ queryKey: groupsQueryKeys.all })
+    setIsImportDefenceResultsOpen(false)
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: groupsQueryKeys.all }),
+      queryClient.invalidateQueries({ queryKey: commissionQueryKeys.all }),
+    ])
 
     if (nextDefenseYear && nextGroupId) {
       navigate(makePath(`/groups/${nextDefenseYear}/${nextGroupId}`, educationLevel))
@@ -2496,6 +3382,7 @@ export function GroupsPage() {
                 onEditGroup={() => setIsEditOpen(true)}
                 onDeleteGroup={() => setGroupToDelete(selectedGroup)}
                 onAddStudent={() => setIsAddStudentOpen(true)}
+                onImportDefenceResults={() => setIsImportDefenceResultsOpen(true)}
               />
             )}
             {!isCommissionView && selectedGroup && studentsQuery.data && view === 'admission' && (
@@ -2577,6 +3464,14 @@ export function GroupsPage() {
           secretaryEmail={secretaryEmail}
           onClose={() => setIsAddStudentOpen(false)}
           onSuccess={() => handleMutationSuccess(defenseYear, selectedGroupId)}
+        />
+      )}
+      {isImportDefenceResultsOpen && selectedGroup && (
+        <ImportDefenceResultsDialog
+          group={selectedGroup}
+          secretaryEmail={secretaryEmail}
+          onClose={() => setIsImportDefenceResultsOpen(false)}
+          onSuccess={() => handleMutationSuccess(defenseYear, selectedGroup.id)}
         />
       )}
       {isCreateCommissionOpen && selectedYear && (

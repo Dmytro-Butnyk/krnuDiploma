@@ -9,6 +9,8 @@ import type {
   EntityId,
   GroupStatisticsResponse,
   GroupStudentResponse,
+  ImportGroupDefenceResultsRequest,
+  ImportGroupDefenceResultsResponse,
   QualificationWorkOptionsResponse,
   StudentDetailsResponse,
   UpdateGroupRequest,
@@ -60,6 +62,24 @@ export function createGroup(request: CreateGroupRequest) {
   }
 
   return apiRequest<CreateGroupResponse>('/api/groups', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+export function importGroupDefenceResults(groupId: EntityId, request: ImportGroupDefenceResultsRequest) {
+  const formData = new FormData()
+  formData.set('secretaryEmail', request.secretaryEmail)
+
+  if (request.resultsFile) {
+    formData.append('resultsFile', request.resultsFile, request.resultsFile.name)
+  }
+
+  if (request.googleDriveLink) {
+    formData.set('googleDriveLink', request.googleDriveLink)
+  }
+
+  return apiRequest<ImportGroupDefenceResultsResponse>(`/api/groups/${groupId}/defence-results/import`, {
     method: 'POST',
     body: formData,
   })
