@@ -3,12 +3,12 @@ using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Linq.Dynamic.Core;
 using System.Linq.Dynamic.Core.Exceptions;
-using System.Text.Json;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DocumentGenerationSubsystem.Api.Entities.DocumentGeneration;
 using DocumentGenerationSubsystem.Api.ErrorsAndLogs;
+using DocumentGenerationSubsystem.Api.Infrastructure.Configuration;
 using DocumentGenerationSubsystem.Api.Infrastructure.Security;
 using FastMember;
 using Microsoft.EntityFrameworkCore;
@@ -126,40 +126,35 @@ public sealed class DynamicDocumentEngine(
         IReadOnlyDictionary<string, string> parameters,
         CancellationToken cancellationToken)
     {
-        TemplateConfiguration? config;
-        try
+        var configResult = TemplateConfigurationReader.Parse(configurationJson);
+        if (configResult.IsFailure)
         {
-            config = JsonSerializer.Deserialize<TemplateConfiguration>(configurationJson);
-            if (config == null) return DynamicDocumentEngineErrors.InvalidConfiguration;
-            
-            logger.LogGenerationStarted(configurationJson.Length);
-        }
-        catch (JsonException ex)
-        {
-            logger.LogDeserializationError(ex);
-            return DynamicDocumentEngineErrors.InvalidConfiguration;
+            logger.LogMappingFailed(configResult.ErrorDetails.Code, configResult.ErrorDetails.Message);
+            return configResult.ErrorDetails;
         }
 
-        // Validate required parameters (Fail-Fast)
-        if (config.DataSources != null)
-        {
-            foreach (var source in config.DataSources)
-            {
-                if (source.FilterArgs == null || source.FilterArgs.Count == 0) 
-                    continue;
+        var config = configResult.Value!;
+        logger.LogGenerationStarted(configurationJson.Length);
 
-                foreach (var requiredArg in source.FilterArgs)
-                {
-                    if (parameters == null || !parameters.TryGetValue(requiredArg, out var val) || string.IsNullOrWhiteSpace(val))
-                    {
-                        logger.LogMissingParameter(requiredArg, source.Key);
-                        return DynamicDocumentEngineErrors.MissingParameter(requiredArg, source.Key);
-                    }
-                }
-            }
+        var inputContextResult = TemplateConfigurationReader.BuildInputContext(config, parameters);
+        if (inputContextResult.IsFailure)
+        {
+            return inputContextResult.ErrorDetails;
+        }
+
+        var entitySelectValidationResult = await ValidateEntitySelectInputsAsync(
+            config,
+            parameters,
+            cancellationToken);
+        if (entitySelectValidationResult.IsFailure)
+        {
+            return entitySelectValidationResult.ErrorDetails;
         }
         
-        var dataContext = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+        var dataContext = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Input"] = inputContextResult.Value!
+        };
 
         // Fetch data via Dynamic LINQ
         if (config.DataSources != null)
@@ -230,7 +225,10 @@ public sealed class DynamicDocumentEngine(
     /// <summary>
     /// Recursively traverses an object's properties using FastMember for high-performance reflection.
     /// </summary>
-    private static object? TraverseObjectGraph(object? obj, string path)
+    /// <param name="obj">The root object or dictionary to read from.</param>
+    /// <param name="path">The dot-notated property path.</param>
+    /// <returns>The resolved value, or null when the path cannot be resolved.</returns>
+    internal static object? TraverseObjectGraph(object? obj, string path)
     {
         if (obj == null || string.IsNullOrWhiteSpace(path)) return obj;
 
@@ -245,6 +243,24 @@ public sealed class DynamicDocumentEngine(
                 if (current == null) return null;
 
                 var propName = span[start..i].ToString();
+
+                if (current is IReadOnlyDictionary<string, object?> readOnlyDictionary)
+                {
+                    current = readOnlyDictionary.TryGetValue(propName, out var dictionaryValue)
+                        ? dictionaryValue
+                        : null;
+                    start = i + 1;
+                    continue;
+                }
+
+                if (current is IDictionary<string, object?> dictionary)
+                {
+                    current = dictionary.TryGetValue(propName, out var dictionaryValue)
+                        ? dictionaryValue
+                        : null;
+                    start = i + 1;
+                    continue;
+                }
 
                 var accessor = TypeAccessors.GetOrAdd(current.GetType(), TypeAccessor.Create);
 
@@ -373,12 +389,121 @@ public sealed class DynamicDocumentEngine(
     /// </summary>
     private Result<IQueryable> GetDynamicQueryable(DataSourceConfig source)
     {
-        if (DocumentGenerationAllowedEntities.Registry.TryGetValue(source.Entity, out var queryFactory))
+        if (DocumentGenerationAllowedEntities.Registry.TryGetValue(source.Entity, out var registration))
         {
-            return Result.Success(queryFactory(dbContext, source.Includes));
+            return Result.Success(registration.QueryFactory(dbContext, source.Includes));
         }
 
         logger.LogUnauthorizedEntity(source.Entity);
         return DynamicDocumentEngineErrors.UnauthorizedEntity;
+    }
+
+    private async Task<Result> ValidateEntitySelectInputsAsync(
+        TemplateConfiguration configuration,
+        IReadOnlyDictionary<string, string> parameters,
+        CancellationToken cancellationToken)
+    {
+        if (configuration.Inputs is null || configuration.Inputs.Count == 0)
+        {
+            return Result.Success();
+        }
+
+        foreach (var (key, input) in configuration.Inputs)
+        {
+            if (!string.Equals(input.Kind, InputKinds.EntitySelect, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (!parameters.TryGetValue(key, out var rawValue) || string.IsNullOrWhiteSpace(rawValue))
+            {
+                continue;
+            }
+
+            if (string.IsNullOrWhiteSpace(input.Entity)
+                || !DocumentGenerationAllowedEntities.Registry.TryGetValue(input.Entity, out var registration))
+            {
+                return DynamicDocumentEngineErrors.UnauthorizedEntity;
+            }
+
+            var parsedValueResult = TemplateConfigurationReader.ParseInputValue(key, input.ValueType, rawValue);
+            if (parsedValueResult.IsFailure)
+            {
+                return parsedValueResult.ErrorDetails;
+            }
+
+            IQueryable query = registration.QueryFactory(dbContext, null);
+            query = query.Where("Id == @0", parsedValueResult.Value);
+
+            var filtersResult = ApplyEntitySelectFilters(query, key, input, configuration.Inputs, parameters);
+            if (filtersResult.IsFailure)
+            {
+                return filtersResult.ErrorDetails;
+            }
+
+            query = filtersResult.Value!;
+
+            try
+            {
+                var matches = await query.Take(1).ToDynamicListAsync(cancellationToken);
+                if (matches.Count == 0)
+                {
+                    return ErrorDetails.Validation(
+                        "DocGen.InvalidEntitySelection",
+                        $"Selected value for input '{key}' was not found or does not match its filters.");
+                }
+            }
+            catch (ParseException ex)
+            {
+                logger.LogDynamicLinqError(ex, input.Entity);
+                return DynamicDocumentEngineErrors.DynamicLinqError;
+            }
+            catch (DbException ex)
+            {
+                logger.LogDatabaseError(ex, input.Entity);
+                return DynamicDocumentEngineErrors.DatabaseError;
+            }
+        }
+
+        return Result.Success();
+    }
+
+    internal static Result<IQueryable> ApplyEntitySelectFilters(
+        IQueryable query,
+        string key,
+        InputConfig input,
+        IReadOnlyDictionary<string, InputConfig> allInputs,
+        IReadOnlyDictionary<string, string> parameters)
+    {
+        if (input.Filters is null || input.Filters.Count == 0)
+        {
+            return Result.Success(query);
+        }
+
+        foreach (var filter in input.Filters)
+        {
+            if (!allInputs.TryGetValue(filter.Input, out var dependencyInput)
+                || !parameters.TryGetValue(filter.Input, out var dependencyRawValue)
+                || string.IsNullOrWhiteSpace(dependencyRawValue))
+            {
+                return ErrorDetails.Validation(
+                    "DocGen.MissingInputDependency",
+                    $"Input '{key}' requires selected dependency '{filter.Input}'.");
+            }
+
+            var dependencyValueResult = TemplateConfigurationReader.ParseInputValue(
+                filter.Input,
+                dependencyInput.ValueType,
+                dependencyRawValue);
+
+            if (dependencyValueResult.IsFailure)
+            {
+                return dependencyValueResult.ErrorDetails;
+            }
+
+            query = query.Where($"{filter.Property} == @0", dependencyValueResult.Value);
+        }
+
+        return Result.Success(query);
     }
 }

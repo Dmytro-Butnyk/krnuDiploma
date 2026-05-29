@@ -15,6 +15,14 @@ public sealed class GroupConfiguration : IEntityTypeConfiguration<Group>
         builder.Property(g => g.Year).IsRequired().HasMaxLength(20);
         builder.Property(g => g.EducationLevel).IsRequired().HasConversion<string>();
 
+        builder.HasIndex(g => new
+        {
+            g.SpecialtyId,
+            g.EducationLevel,
+            g.Year,
+            g.Name
+        });
+
         builder.HasMany(g => g.Students)
             .WithOne(s => s.Group)
             .HasForeignKey(s => s.GroupId)

@@ -1,9 +1,9 @@
-using System.Text.Json;
 using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DocumentGenerationSubsystem.Api.Entities;
+using DocumentGenerationSubsystem.Api.Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +12,7 @@ namespace DocumentGenerationSubsystem.Api.Features.Documents;
 
 public static class GetTemplateDetails
 {
-    public record GetTemplateDetailsResponse(int Id, string Name, string? ConfigurationJson, IReadOnlyCollection<string> RequiredArguments);
+    public record GetTemplateDetailsResponse(int Id, string Name, string? ConfigurationJson, GenerationFormDto GenerationForm);
 
     internal sealed class Endpoint
     {
@@ -57,56 +57,21 @@ public static class GetTemplateDetails
                 return ErrorDetails.NotFound("Template.NotFound", "Template not found.");
             }
 
-            var argsResult = ExtractFilterArgs(template.ConfigurationJson);
+            var configResult = TemplateConfigurationReader.Parse(template.ConfigurationJson);
             
-            if (argsResult.IsFailure)
+            if (configResult.IsFailure)
             {
                 logger.LogError("Corrupted ConfigurationJson in TemplateId: {TemplateId}", id);
-                return ErrorDetails.Conflict("Template.CorruptedData", "Template configuration is invalid or corrupted.");
+                return ErrorDetails.Conflict(
+                    "Template.CorruptedData",
+                    "Template configuration is invalid or corrupted.");
             }
 
             return new GetTemplateDetailsResponse(
                 template.Id,
                 template.Name,
                 template.ConfigurationJson,
-                argsResult.Value!);
-        }
-
-        private static Result<List<string>> ExtractFilterArgs(string? json)
-        {
-            var args = new List<string>();
-            
-            if (string.IsNullOrWhiteSpace(json)) 
-                return args;
-
-            try
-            {
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("DataSources", out var dataSources))
-                {
-                    foreach (var source in dataSources.EnumerateArray())
-                    {
-                        if (source.TryGetProperty("FilterArgs", out var filterArgs))
-                        {
-                            foreach (var arg in filterArgs.EnumerateArray())
-                            {
-                                var argName = arg.GetString();
-                                if (!string.IsNullOrEmpty(argName)) args.Add(argName);
-                            }
-                        }
-                    }
-                }
-                
-                return args.Distinct().ToList();
-            }
-            catch (JsonException)
-            {
-                return ErrorDetails.Validation("Json.ParseError", "Failed to parse template configuration.");
-            }
-            catch (Exception)
-            {
-                return ErrorDetails.Conflict("Json.UnknownError", "An unexpected error occurred while reading configuration.");
-            }
+                GenerationFormMapper.Map(template.Id, configResult.Value!));
         }
     }
 }
