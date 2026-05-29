@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DiplomaAwardingSystem.MigrationsHost.Migrations
 {
     [DbContext(typeof(DbDocGenContext))]
-    [Migration("20260529134517_InitialCurrentState")]
-    partial class InitialCurrentState
+    [Migration("20260529141425_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
