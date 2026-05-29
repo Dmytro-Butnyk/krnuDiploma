@@ -3,7 +3,7 @@ import { useEffect, useMemo } from 'react'
 import { useConstructorSchema } from '../../../entities/schema/api/schemaApi'
 import { cn } from '../../../shared/lib/cn'
 import { Button } from '../../../shared/ui/Button'
-import { useConstructorStore } from '../model/store'
+import { getTableRowTagName, useConstructorStore } from '../model/store'
 import type { TemplateConfiguration } from '../model/types'
 import { DataSourcesStep } from './steps/DataSourcesStep'
 import { MappingStep } from './steps/MappingStep'
@@ -15,6 +15,7 @@ type TemplateConstructorProps = {
   templateName: string
   tags: string[]
   initialConfiguration?: TemplateConfiguration
+  sessionKey: string
   isSaving?: boolean
   canBackFromFirstStep?: boolean
   onTemplateNameChange: (name: string) => void
@@ -30,6 +31,7 @@ export function TemplateConstructor({
   templateName,
   tags,
   initialConfiguration,
+  sessionKey,
   isSaving = false,
   canBackFromFirstStep = true,
   onTemplateNameChange,
@@ -56,7 +58,8 @@ export function TemplateConstructor({
     const totalTags = activeTags.length
     const scalarTags = Object.keys(config.Mapping.Scalars)
     const tableTags = Object.values(config.Mapping.Tables).flatMap((table) => Object.keys(table.RowMapping))
-    const assignedTags = new Set([...scalarTags, ...tableTags].filter((tag) => activeTags.includes(tag))).size
+    const mappedTableTags = activeTags.filter((tag) => tableTags.includes(getTableRowTagName(tag)))
+    const assignedTags = new Set([...scalarTags, ...mappedTableTags].filter((tag) => activeTags.includes(tag))).size
 
     return { assignedTags, totalTags, isComplete: assignedTags >= totalTags }
   }, [config.Mapping.Scalars, config.Mapping.Tables, tagTypes])
@@ -66,8 +69,9 @@ export function TemplateConstructor({
       tags,
       config: initialConfiguration,
       defaultEntity: schemaKeys[0] ?? '',
+      sessionKey,
     })
-  }, [initialize, initialConfiguration, schemaKeys, tags])
+  }, [initialize, initialConfiguration, schemaKeys, sessionKey, tags])
 
   const goToStep = (step: 1 | 2 | 3 | 4) => {
     if (step === 4 && !mappingProgress.isComplete) return
@@ -87,10 +91,10 @@ export function TemplateConstructor({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_282px]">
-      <section className="min-h-[615px] rounded-xl bg-white px-5 py-5 shadow-sm ring-1 ring-blue-100">
-        <div className="mb-7 grid grid-cols-[auto_1fr_auto] items-center gap-3">
-          <Button variant="ghost" className="min-h-8 rounded-full px-4 py-1 text-xs" onClick={onCancel}>
+    <div className="grid min-h-0 grid-cols-1 gap-[clamp(12px,1vw,18px)] lg:grid-cols-[minmax(0,1fr)_clamp(300px,24%,430px)]">
+      <section className="ui-surface flex min-h-0 flex-col px-5 py-[clamp(20px,1.8vw,30px)]">
+        <div className="mb-[clamp(20px,2.5vh,32px)] grid shrink-0 grid-cols-[auto_1fr_auto] items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onCancel}>
             <ArrowLeft size={14} />
             Скасувати
           </Button>
@@ -108,10 +112,12 @@ export function TemplateConstructor({
                   disabled={!canOpen}
                   onClick={() => goToStep(step)}
                   className={cn(
-                    'flex h-11 w-11 items-center justify-center rounded-full border-2 text-lg font-black transition disabled:cursor-not-allowed disabled:border-white disabled:bg-white disabled:text-orange-400/50',
-                    isActive
-                      ? 'border-orange-500 bg-orange-500 text-white hover:bg-orange-500 active:bg-orange-600'
-                      : 'border-orange-500 bg-white text-orange-500 hover:bg-blue-50 active:bg-blue-100',
+                    'flex h-[58px] w-[58px] items-center justify-center rounded-full border-2 text-3xl font-extrabold leading-none transition disabled:cursor-not-allowed',
+                    isActive && currentStep > step
+                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)] text-white shadow-[var(--shadow-ui)]'
+                      : isActive
+                        ? 'border-[var(--color-accent)] bg-[var(--color-surface)] text-[var(--color-accent)]'
+                        : 'border-transparent bg-slate-50 text-[var(--color-accent)] opacity-60',
                   )}
                 >
                   {label}
@@ -126,39 +132,42 @@ export function TemplateConstructor({
         </div>
 
         {isLoading && (
-          <div className="flex min-h-[460px] items-center justify-center text-blue-700">
+          <div className="flex min-h-0 flex-1 items-center justify-center text-[var(--color-primary)]">
             <Loader2 className="mr-2 animate-spin" size={20} />
             Завантаження схеми даних
           </div>
         )}
 
         {isError && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+          <div className="rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-4 text-sm font-bold text-[var(--color-danger)]">
             Не вдалося отримати схему з `/api/constructor/schema`. Перевірте, що backend запущений.
           </div>
         )}
 
         {!isLoading && !isError && (
           <>
-            {currentStep === 1 && <TagMarkupStep />}
-            {currentStep === 2 && <DataSourcesStep schema={schema} />}
-            {currentStep === 3 && <MappingStep schema={schema} />}
-            {currentStep === 4 && (
-              <ReviewStep
-                documentName={documentName}
-                templateName={templateName}
-                onTemplateNameChange={onTemplateNameChange}
-                onBack={onBack}
-                onSave={handleComplete}
-                isSaving={isSaving}
-              />
-            )}
+            <div className="min-h-0">
+              {currentStep === 1 && <TagMarkupStep />}
+              {currentStep === 2 && <DataSourcesStep schema={schema} />}
+              {currentStep === 3 && <MappingStep schema={schema} />}
+              {currentStep === 4 && (
+                <ReviewStep
+                  documentName={documentName}
+                  templateName={templateName}
+                  onTemplateNameChange={onTemplateNameChange}
+                  onBack={onBack}
+                  onSave={handleComplete}
+                  isSaving={isSaving}
+                  showDocumentBackButton={canBackFromFirstStep}
+                />
+              )}
+            </div>
 
             {currentStep < 4 && (
-              <div className="mt-6 flex justify-between">
+              <div className="mt-[clamp(18px,2vh,28px)] flex shrink-0 justify-between">
                 <Button
                   variant="secondary"
-                  className="min-h-8 rounded-full px-6 py-1 text-xs"
+                  size="sm"
                   onClick={currentStep === 1 ? onBack : previousStep}
                   disabled={currentStep === 1 && !canBackFromFirstStep}
                 >
@@ -166,7 +175,8 @@ export function TemplateConstructor({
                   Назад
                 </Button>
                 <Button
-                  className="min-h-8 rounded-full px-7 py-1 text-xs"
+                  variant="success"
+                  size="sm"
                   onClick={handleNext}
                   disabled={currentStep === 3 && !mappingProgress.isComplete}
                 >
@@ -178,9 +188,9 @@ export function TemplateConstructor({
         )}
       </section>
 
-      <aside className="min-h-[615px] rounded-xl bg-[#344356] p-5 shadow-sm">
-        <h3 className="font-mono text-xs font-black uppercase text-emerald-400">Live JSON</h3>
-        <pre className="json-scrollbar mt-4 h-[540px] overflow-auto whitespace-pre-wrap font-mono text-[11px] leading-4 text-emerald-300">
+      <aside className="ui-json-panel flex h-fit min-h-0 self-start flex-col p-5 shadow-[var(--shadow-ui)]">
+        <h3 className="text-xs font-extrabold uppercase text-[var(--color-success-soft)]">Live JSON</h3>
+        <pre className="json-scrollbar mt-4 max-w-full overflow-x-auto overflow-y-visible whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-[var(--color-success-soft)] [overflow-wrap:anywhere]">
           {formattedJson}
         </pre>
       </aside>
