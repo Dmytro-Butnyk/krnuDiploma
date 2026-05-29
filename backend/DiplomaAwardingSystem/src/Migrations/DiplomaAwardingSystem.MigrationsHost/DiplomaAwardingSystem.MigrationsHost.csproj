@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="DotNetEnv" Version="3.2.0" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.8">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Core.Domain\Core.Domain.csproj" />
+        <ProjectReference Include="..\..\Core\Core.Infrastructure\Core.Infrastructure.csproj" />
+        <ProjectReference Include="..\..\DiplomaControlSystem.Server\DiplomaControlSystem.Api\DiplomaControlSystem.Api.csproj" />
+        <ProjectReference Include="..\..\DocumentGenerationSubsystem.Server\DocumentGenerationSubsystem.Api\DocumentGenerationSubsystem.Api.csproj" />
+    </ItemGroup>
+
+</Project>

@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace Core.Infrastructure.Migrations
+namespace DiplomaAwardingSystem.MigrationsHost.Migrations
 {
     [DbContext(typeof(DbDocGenContext))]
-    [Migration("20260520061553_DocumentTemplatesAdd")]
-    partial class DocumentTemplatesAdd
+    [Migration("20260529134517_InitialCurrentState")]
+    partial class InitialCurrentState
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -261,24 +261,6 @@ namespace Core.Infrastructure.Migrations
                     b.ToTable("QualificationWorkCharacteristics", "diploma");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Department", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Departments", "diploma");
-                });
-
             modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Group", b =>
                 {
                     b.Property<int>("Id")
@@ -334,7 +316,14 @@ namespace Core.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("GoogleSubject")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsSuperSecretary")
                         .HasColumnType("boolean");
 
                     b.Property<int>("SpecialtyId")
@@ -344,6 +333,10 @@ namespace Core.Infrastructure.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("GoogleSubject")
+                        .IsUnique()
+                        .HasFilter("\"GoogleSubject\" IS NOT NULL");
 
                     b.HasIndex("SpecialtyId");
 
@@ -363,8 +356,8 @@ namespace Core.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<int>("DepartmentId")
-                        .HasColumnType("integer");
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -375,8 +368,6 @@ namespace Core.Infrastructure.Migrations
 
                     b.HasIndex("Code")
                         .IsUnique();
-
-                    b.HasIndex("DepartmentId");
 
                     b.ToTable("Specialties", "diploma");
                 });
@@ -417,6 +408,9 @@ namespace Core.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ShortName")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -427,6 +421,46 @@ namespace Core.Infrastructure.Migrations
                     b.ToTable("AcademicDegrees", "diploma");
                 });
 
+            modelBuilder.Entity("Core.Domain.Entities.TeacherStaff.CommissionHead", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Company")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Position")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Specialty")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FullName", "Position", "Company", "Specialty")
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
+
+                    b.ToTable("CommissionHeads", "diploma");
+                });
+
             modelBuilder.Entity("Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission", b =>
                 {
                     b.Property<int>("Id")
@@ -434,6 +468,14 @@ namespace Core.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CommissionHeadId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DefenseYear")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.Property<string>("EducationLevel")
                         .IsRequired()
@@ -443,17 +485,6 @@ namespace Core.Infrastructure.Migrations
                         .HasColumnType("date");
 
                     b.Property<int>("FirstMemberTeacherId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("HeadPersonaName")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<string>("HeadPersonaPosition")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<int?>("HeadTeacherId")
                         .HasColumnType("integer");
 
                     b.Property<string>("OrderNumber")
@@ -467,6 +498,9 @@ namespace Core.Infrastructure.Migrations
                     b.Property<int>("SecretaryId")
                         .HasColumnType("integer");
 
+                    b.Property<int>("SpecialtyId")
+                        .HasColumnType("integer");
+
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 
@@ -475,15 +509,23 @@ namespace Core.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("FirstMemberTeacherId");
+                    b.HasIndex("CommissionHeadId");
 
-                    b.HasIndex("HeadTeacherId");
+                    b.HasIndex("FirstMemberTeacherId");
 
                     b.HasIndex("SecondMemberTeacherId");
 
                     b.HasIndex("SecretaryId");
 
+                    b.HasIndex("SpecialtyId");
+
                     b.HasIndex("ThirdMemberTeacherId");
+
+                    b.HasIndex("DefenseYear", "SpecialtyId", "EducationLevel")
+                        .IsUnique();
+
+                    b.HasIndex("DefenseYear", "SpecialtyId", "OrderNumber")
+                        .IsUnique();
 
                     b.ToTable("DiplomaExaminationCommissions", "diploma");
                 });
@@ -509,22 +551,23 @@ namespace Core.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<string>("Position")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)");
-
                     b.Property<string>("ShortName")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<int>("SpecialtyId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TeacherPositionId")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -536,7 +579,35 @@ namespace Core.Infrastructure.Migrations
 
                     b.HasIndex("SpecialtyId");
 
+                    b.HasIndex("TeacherPositionId");
+
                     b.ToTable("Teachers", "diploma");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.TeacherStaff.TeacherPosition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ShortName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("TeacherPositions", "diploma");
                 });
 
             modelBuilder.Entity("DocumentGenerationSubsystem.Api.Entities.DocumentTemplate", b =>
@@ -662,17 +733,6 @@ namespace Core.Infrastructure.Migrations
                     b.Navigation("Specialty");
                 });
 
-            modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Specialty", b =>
-                {
-                    b.HasOne("Core.Domain.Entities.StudyGroup.Department", "Department")
-                        .WithMany("Specialties")
-                        .HasForeignKey("DepartmentId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Department");
-                });
-
             modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Student", b =>
                 {
                     b.HasOne("Core.Domain.Entities.StudyGroup.Group", "Group")
@@ -686,16 +746,17 @@ namespace Core.Infrastructure.Migrations
 
             modelBuilder.Entity("Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission", b =>
                 {
+                    b.HasOne("Core.Domain.Entities.TeacherStaff.CommissionHead", "CommissionHead")
+                        .WithMany("DiplomaExaminationCommissions")
+                        .HasForeignKey("CommissionHeadId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Core.Domain.Entities.TeacherStaff.Teacher", "FirstMemberTeacher")
                         .WithMany()
                         .HasForeignKey("FirstMemberTeacherId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("Core.Domain.Entities.TeacherStaff.Teacher", "HeadTeacher")
-                        .WithMany()
-                        .HasForeignKey("HeadTeacherId")
-                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Core.Domain.Entities.TeacherStaff.Teacher", "SecondMemberTeacher")
                         .WithMany()
@@ -709,19 +770,27 @@ namespace Core.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Core.Domain.Entities.StudyGroup.Specialty", "Specialty")
+                        .WithMany("DiplomaExaminationCommissions")
+                        .HasForeignKey("SpecialtyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Core.Domain.Entities.TeacherStaff.Teacher", "ThirdMemberTeacher")
                         .WithMany()
                         .HasForeignKey("ThirdMemberTeacherId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("FirstMemberTeacher");
+                    b.Navigation("CommissionHead");
 
-                    b.Navigation("HeadTeacher");
+                    b.Navigation("FirstMemberTeacher");
 
                     b.Navigation("SecondMemberTeacher");
 
                     b.Navigation("Secretary");
+
+                    b.Navigation("Specialty");
 
                     b.Navigation("ThirdMemberTeacher");
                 });
@@ -740,19 +809,22 @@ namespace Core.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Core.Domain.Entities.TeacherStaff.TeacherPosition", "TeacherPosition")
+                        .WithMany("Teachers")
+                        .HasForeignKey("TeacherPositionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("AcademicDegree");
 
                     b.Navigation("Specialty");
+
+                    b.Navigation("TeacherPosition");
                 });
 
             modelBuilder.Entity("Core.Domain.Entities.ArchiveGroup.QualificationWork", b =>
                 {
                     b.Navigation("QualificationWorkCharacteristics");
-                });
-
-            modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Department", b =>
-                {
-                    b.Navigation("Specialties");
                 });
 
             modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Group", b =>
@@ -762,6 +834,8 @@ namespace Core.Infrastructure.Migrations
 
             modelBuilder.Entity("Core.Domain.Entities.StudyGroup.Specialty", b =>
                 {
+                    b.Navigation("DiplomaExaminationCommissions");
+
                     b.Navigation("Groups");
 
                     b.Navigation("Secretaries");
@@ -783,6 +857,11 @@ namespace Core.Infrastructure.Migrations
                     b.Navigation("Teachers");
                 });
 
+            modelBuilder.Entity("Core.Domain.Entities.TeacherStaff.CommissionHead", b =>
+                {
+                    b.Navigation("DiplomaExaminationCommissions");
+                });
+
             modelBuilder.Entity("Core.Domain.Entities.TeacherStaff.DiplomaExaminationCommission", b =>
                 {
                     b.Navigation("Archive");
@@ -795,6 +874,11 @@ namespace Core.Infrastructure.Migrations
                     b.Navigation("QualificationWorks");
 
                     b.Navigation("ReviewedQualificationWorks");
+                });
+
+            modelBuilder.Entity("Core.Domain.Entities.TeacherStaff.TeacherPosition", b =>
+                {
+                    b.Navigation("Teachers");
                 });
 #pragma warning restore 612, 618
         }
