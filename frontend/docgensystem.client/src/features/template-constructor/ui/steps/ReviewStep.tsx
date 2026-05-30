@@ -1,10 +1,14 @@
 import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
+import { useRef } from 'react'
 import { Button } from '../../../../shared/ui/Button'
 
 type Props = {
   documentName: string
   templateName: string
+  validationErrors: string[]
+  isTemplateFileMissing?: boolean
   onTemplateNameChange: (name: string) => void
+  onTemplateFileChange?: (file: File) => void
   onBack: () => void
   onSave: () => void
   isSaving: boolean
@@ -14,12 +18,17 @@ type Props = {
 export function ReviewStep({
   documentName,
   templateName,
+  validationErrors,
+  isTemplateFileMissing = false,
   onTemplateNameChange,
+  onTemplateFileChange,
   onBack,
   onSave,
   isSaving,
   showDocumentBackButton = true,
 }: Props) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
   return (
     <div className="custom-scrollbar flex h-full min-h-0 w-full flex-col items-center overflow-y-auto overflow-x-hidden px-1 pb-6">
       {showDocumentBackButton && (
@@ -48,10 +57,45 @@ export function ReviewStep({
           />
         </label>
 
-        <Button size="pill" className="mt-6 w-64 max-w-full" onClick={onSave} disabled={isSaving}>
+        {isTemplateFileMissing && (
+          <div className="mt-5 w-full rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-4 text-left text-sm font-bold text-[var(--color-danger)]">
+            <p>Після перезавантаження сторінки браузер не відновлює файл шаблону. Оберіть .docx ще раз перед збереженням.</p>
+            <input
+              ref={inputRef}
+              type="file"
+              accept=".docx"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file && onTemplateFileChange) onTemplateFileChange(file)
+              }}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              onClick={() => inputRef.current?.click()}
+            >
+              Обрати .docx
+            </Button>
+          </div>
+        )}
+
+        <Button size="pill" className="mt-6 w-64 max-w-full" onClick={onSave} disabled={isSaving || isTemplateFileMissing}>
           {isSaving && <Loader2 size={18} className="animate-spin" />}
           Зберегти
         </Button>
+
+        {validationErrors.length > 0 && (
+          <div className="mt-5 w-full rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-4 text-left text-sm font-bold text-[var(--color-danger)]">
+            <p>Виправте помилки перед збереженням:</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {validationErrors.map((error) => (
+                <li key={error}>{error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   )

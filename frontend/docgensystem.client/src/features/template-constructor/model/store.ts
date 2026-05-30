@@ -3,24 +3,52 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import type { EntitySchema } from '../../../entities/schema/model/types'
 import type {
   ConstructorStep,
+  DataSourceFilterOperator,
   DataSourceConfig,
+  EntitySelectInputConfig,
+  InputConfig,
   MappingMode,
-  NewDataSourceCondition,
   NewDataSourceDraft,
+  NewInputDraft,
   TagKind,
   TemplateConfiguration,
 } from './types'
 
-const defaultCondition: NewDataSourceCondition = {
-  property: 'Id',
-  operator: '==',
-  type: 'arg',
-  value: 'StudentId',
-}
-
 const initialConfig: TemplateConfiguration = {
+  ConfigurationVersion: 2,
+  Inputs: {},
   Mapping: { Tables: {}, Scalars: {} },
   DataSources: [],
+}
+
+function createDefaultInput(defaultEntity = ''): NewInputDraft {
+  return {
+    key: '',
+    kind: 'Manual',
+    entity: defaultEntity,
+    valueType: 'String',
+    label: '',
+    required: true,
+    maxLength: '',
+    display: [],
+    description: [],
+    search: [],
+    orderBy: [],
+    dependsOn: [],
+    filters: [],
+  }
+}
+
+function createDefaultDataSource(defaultEntity = '', inputKey = ''): NewDataSourceDraft {
+  return {
+    entity: defaultEntity,
+    key: defaultEntity ? `Target${defaultEntity}` : '',
+    inputKey,
+    filterProperty: 'Id',
+    filterOperator: 'Equals',
+    argumentLabel: defaultEntity,
+    parentFilterProperties: [],
+  }
 }
 
 export function getTableTagPrefix(tag: string) {
@@ -50,6 +78,8 @@ function normalizeRowMapping(rowMapping: Record<string, string>) {
 function normalizeConfiguration(config: TemplateConfiguration): TemplateConfiguration {
   return {
     ...config,
+    ConfigurationVersion: 2,
+    Inputs: config.Inputs ?? {},
     Mapping: {
       ...config.Mapping,
       Tables: Object.fromEntries(
@@ -83,6 +113,85 @@ function compactIncludes(includes: string[]) {
   )
 }
 
+function getUniqueKey(baseKey: string, existingKeys: Iterable<string>) {
+  const usedKeys = new Set(existingKeys)
+  if (!usedKeys.has(baseKey)) return baseKey
+
+  let index = 2
+  while (usedKeys.has(`${baseKey}${index}`)) {
+    index += 1
+  }
+
+  return `${baseKey}${index}`
+}
+
+function isIntField(schema: EntitySchema, entity: string, field: string) {
+  const node = schema[entity]
+  if (!node) return field === 'Id' || field.endsWith('Id')
+
+  return (
+    node.keyScalars.includes(field) ||
+    node.foreignKeys.some((foreignKey) => foreignKey.property === field) ||
+    field === 'Id' ||
+    field.endsWith('Id')
+  )
+}
+
+function getDefaultOrderBy(schema: EntitySchema, entity: string) {
+  return schema[entity]?.displayCandidates?.length ? schema[entity].displayCandidates : ['Id']
+}
+
+function getDefaultSearch(schema: EntitySchema, entity: string) {
+  const candidates = schema[entity]?.displayCandidates ?? []
+  return candidates.length > 0 ? candidates : ['Id']
+}
+
+function createEntitySelectInput({
+  entity,
+  label,
+  schema,
+  dependsOn = [],
+  filters = [],
+}: {
+  entity: string
+  label: string
+  schema: EntitySchema
+  dependsOn?: string[]
+  filters?: EntitySelectInputConfig['Filters']
+}): EntitySelectInputConfig {
+  return {
+    Kind: 'EntitySelect',
+    Entity: entity,
+    ValueType: 'Int',
+    Label: label || entity,
+    Required: true,
+    DependsOn: dependsOn,
+    Filters: filters,
+    Display: getDefaultSearch(schema, entity),
+    Search: getDefaultSearch(schema, entity),
+    OrderBy: getDefaultOrderBy(schema, entity),
+  }
+}
+
+function createManualInput(label: string): InputConfig {
+  return {
+    Kind: 'Manual',
+    ValueType: 'String',
+    Label: label,
+    Required: true,
+  }
+}
+
+function buildFilterExpression(field: string, operator: DataSourceFilterOperator) {
+  if (operator === 'NotEquals') return `${field} != @0`
+  if (operator === 'Contains') return `${field} != null && ${field}.Contains(@0)`
+  return `${field} == @0`
+}
+
+function getDataSourceInputKey(entity: string, field: string) {
+  return `${entity}${field}`
+}
+
 type StoreState = {
   currentStep: ConstructorStep
   mappingMode: MappingMode
@@ -94,6 +203,7 @@ type StoreState = {
   searchQuery: string
   expandedSources: Record<string, boolean>
   tagTypes: Record<string, TagKind>
+  newInput: NewInputDraft
   newSource: NewDataSourceDraft
   config: TemplateConfiguration
   constructorSessionKey: string | null
@@ -115,15 +225,20 @@ type StoreState = {
   setNewColumnPath: (path: string) => void
   setSearchQuery: (query: string) => void
   setTagType: (tag: string, type: TagKind) => void
+  updateNewInput: (patch: Partial<NewInputDraft>) => void
+  setNewInputArrayField: (field: 'display' | 'description' | 'search' | 'orderBy' | 'dependsOn', value: string) => void
+  setNewInputFilter: (property: string, inputKey: string) => void
+  validateNewInput: () => { ok: true } | { ok: false; reason: string }
+  addInput: () => { ok: true } | { ok: false; reason: string }
+  removeInput: (key: string) => void
   updateNewSource: (patch: Partial<NewDataSourceDraft>) => void
-  updateNewSourceCondition: (index: number, patch: Partial<NewDataSourceCondition>) => void
-  addNewSourceCondition: () => void
-  removeNewSourceCondition: (index: number) => void
+  toggleParentFilterProperty: (property: string) => void
   validateNewDataSource: () => { ok: true } | { ok: false; reason: string }
-  addDataSource: () => { ok: true } | { ok: false; reason: string }
+  addDataSource: (schema?: EntitySchema) => { ok: true } | { ok: false; reason: string }
   removeDataSource: (key: string) => void
   toggleExpanded: (key: string) => void
   mapScalar: (tag: string, fullPath: string) => void
+  mapInputScalar: (tag: string, label: string) => void
   unmapScalar: (tag: string) => void
   createNewTable: () => void
   deleteTable: (tableName: string) => void
@@ -135,60 +250,152 @@ type StoreState = {
   reset: () => void
 }
 
+function buildInput(draft: NewInputDraft) {
+  const key = draft.key.trim()
+  const label = draft.label.trim() || key
+
+  if (draft.kind === 'Manual') {
+    const maxLength = Number(draft.maxLength)
+    return {
+      Key: key,
+      Config: {
+        Kind: 'Manual',
+        ValueType: draft.valueType,
+        Label: label,
+        Required: draft.required,
+        ...(Number.isFinite(maxLength) && maxLength > 0 ? { MaxLength: maxLength } : {}),
+      },
+    } as const
+  }
+
+  const config: EntitySelectInputConfig = {
+    Kind: 'EntitySelect',
+    Entity: draft.entity,
+    ValueType: draft.valueType,
+    Label: label,
+    Required: draft.required,
+    DependsOn: draft.dependsOn,
+    Filters: draft.filters,
+    Display: draft.display,
+    Description: draft.description,
+    Search: draft.search,
+    OrderBy: draft.orderBy,
+  }
+
+  return { Key: key, Config: config } as const
+}
+
 function buildDataSource(draft: NewDataSourceDraft): DataSourceConfig {
-  const filterParts: string[] = []
-  const filterArgs: string[] = []
-  let argIndex = 0
-
-  draft.conditions.forEach((condition) => {
-    if (!condition.value) return
-
-    if (condition.type === 'arg') {
-      filterParts.push(`${condition.property} ${condition.operator} @${argIndex}`)
-      filterArgs.push(condition.value)
-      argIndex += 1
-      return
-    }
-
-    if (condition.operator === '.Contains') {
-      filterParts.push(`${condition.property}.Contains("${condition.value}")`)
-      return
-    }
-
-    filterParts.push(`${condition.property} ${condition.operator} "${condition.value}"`)
-  })
-
   return {
     Key: draft.key.trim(),
     Entity: draft.entity,
-    Filter: filterParts.length > 0 ? filterParts.join(' AND ') : null,
-    FilterArgs: filterArgs,
+    Filter: buildFilterExpression(draft.filterProperty, draft.filterOperator ?? 'Equals'),
+    FilterArgs: [draft.inputKey],
     Includes: [],
   }
 }
 
-function validateNewDataSourceDraft(draft: NewDataSourceDraft) {
-  if (!draft.entity) return 'Оберіть сутність БД.'
-  if (!draft.key.trim()) return 'Вкажіть ключ датасурсу.'
-  if (draft.conditions.length === 0) return 'Додайте хоча б одну умову пошуку.'
+function validateNewInputDraft(draft: NewInputDraft, config: TemplateConfiguration) {
+  const key = draft.key.trim()
+  if (!key) return 'Вкажіть ключ інпута.'
+  if (key === 'Input') return 'Ключ інпута не може бути "Input".'
+  if (config.Inputs[key]) return 'Інпут із таким ключем уже існує.'
+  if (!draft.label.trim()) return 'Вкажіть назву поля для користувача.'
+  if (!draft.valueType) return 'Оберіть тип значення.'
 
-  const invalidConditionIndex = draft.conditions.findIndex(
-    (condition) =>
-      !condition.property.trim() ||
-      !condition.operator ||
-      !condition.type ||
-      !condition.value.trim(),
-  )
-
-  if (invalidConditionIndex !== -1) {
-    return `Заповніть усі поля в умові пошуку ${invalidConditionIndex + 1}.`
+  if (draft.kind === 'EntitySelect') {
+    if (!draft.entity) return 'Оберіть сутність бази даних.'
+    if (draft.filters.some((filter) => !filter.Property || !filter.Input)) {
+      return 'Заповніть усі фільтри залежного вибору.'
+    }
+    if (draft.dependsOn.some((dependency) => !config.Inputs[dependency])) {
+      return 'Залежність має посилатися на існуючий інпут.'
+    }
   }
+
+  return null
+}
+
+function validateNewDataSourceDraft(draft: NewDataSourceDraft) {
+  if (!draft.entity) return 'Оберіть сутність бази даних.'
+  if (!draft.key.trim()) return 'Вкажіть ключ датасурсу.'
+  if (draft.key.trim() === 'Input') return 'Ключ датасурсу не може бути "Input".'
+  if (!draft.filterProperty.trim()) return 'Оберіть поле фільтра.'
+  if (!draft.argumentLabel.trim()) return 'Вкажіть назву аргументу для форми генерації.'
 
   return null
 }
 
 function coerceStep(step: number): ConstructorStep {
   return Math.min(4, Math.max(1, step)) as ConstructorStep
+}
+
+export function validateTemplateConfiguration(config: TemplateConfiguration, schema: EntitySchema = {}) {
+  const errors: string[] = []
+  const inputKeys = Object.keys(config.Inputs)
+  const dataSourceKeys = config.DataSources.map((source) => source.Key)
+  const dataSourceKeySet = new Set(dataSourceKeys)
+
+  if (config.ConfigurationVersion !== 2) errors.push('Версія конфігурації має бути 2.')
+
+  inputKeys.forEach((key) => {
+    if (!key.trim()) errors.push('Ключ інпута не може бути порожнім.')
+    if (key === 'Input') errors.push('Ключ інпута не може бути "Input".')
+
+    const input = config.Inputs[key]
+    if (!input.Kind || !input.ValueType || !input.Label) {
+      errors.push(`Інпут "${key}" заповнений не повністю.`)
+    }
+
+    if (input.Kind === 'EntitySelect') {
+      if (!schema[input.Entity]) errors.push(`Сутність "${input.Entity}" для інпута "${key}" відсутня у схемі.`)
+      input.DependsOn?.forEach((dependency) => {
+        if (!config.Inputs[dependency]) errors.push(`Інпут "${key}" залежить від неіснуючого "${dependency}".`)
+      })
+      input.Filters?.forEach((filter) => {
+        if (filter.Operator !== 'Equals') errors.push(`Фільтр інпута "${key}" має використовувати оператор Equals.`)
+        if (!config.Inputs[filter.Input]) errors.push(`Фільтр інпута "${key}" посилається на неіснуючий "${filter.Input}".`)
+      })
+    }
+  })
+
+  if (new Set(dataSourceKeys).size !== dataSourceKeys.length) {
+    errors.push('Ключі датасурсів мають бути унікальними.')
+  }
+
+  config.DataSources.forEach((source) => {
+    if (!source.Key.trim()) errors.push('Ключ датасурсу не може бути порожнім.')
+    if (source.Key === 'Input') errors.push('Ключ датасурсу не може бути "Input".')
+    if (!schema[source.Entity]) errors.push(`Сутність "${source.Entity}" для датасурсу "${source.Key}" відсутня у схемі.`)
+    source.FilterArgs.forEach((inputKey) => {
+      if (!config.Inputs[inputKey]) errors.push(`Датасурс "${source.Key}" посилається на неіснуючий інпут "${inputKey}".`)
+    })
+  })
+
+  const validateRoot = (path: string, label: string) => {
+    const [root] = path.split('.')
+    if (!root) errors.push(`${label}: шлях не може бути порожнім.`)
+    if (root === 'Input') {
+      const [, inputKey] = path.split('.')
+      if (!inputKey || !config.Inputs[inputKey]) errors.push(`${label}: інпут "${inputKey ?? ''}" не існує.`)
+    }
+    if (root && root !== 'Input' && !dataSourceKeySet.has(root)) {
+      errors.push(`${label}: корінь "${root}" не є інпутом або датасурсом.`)
+    }
+  }
+
+  Object.entries(config.Mapping.Scalars).forEach(([tag, path]) => {
+    validateRoot(path, `Скалярний тег "${tag}"`)
+  })
+
+  Object.entries(config.Mapping.Tables).forEach(([tableName, table]) => {
+    validateRoot(table.SourceArray, `Таблиця "${tableName}"`)
+    Object.entries(table.RowMapping).forEach(([tag, path]) => {
+      if (!path.trim()) errors.push(`Колонка "${tag}" у таблиці "${tableName}" має порожній шлях.`)
+    })
+  })
+
+  return Array.from(new Set(errors))
 }
 
 export const useConstructorStore = create<StoreState>()(
@@ -204,11 +411,8 @@ persist(
   searchQuery: '',
   expandedSources: {},
   tagTypes: {},
-  newSource: {
-    entity: '',
-    key: '',
-    conditions: [{ ...defaultCondition, value: '' }],
-  },
+  newInput: createDefaultInput(),
+  newSource: createDefaultDataSource(),
   config: initialConfig,
   constructorSessionKey: null,
   initialize: ({ tags, config, defaultEntity, sessionKey }) =>
@@ -216,7 +420,7 @@ persist(
       if (state.constructorSessionKey === sessionKey) {
         const nextTags = { ...state.tagTypes }
         tags.forEach((tag) => {
-          nextTags[tag] ??= isReservedNumberTag(tag) ? 'reserved' : 'scalar'
+          nextTags[tag] = isReservedNumberTag(tag) ? 'reserved' : nextTags[tag] ?? 'db_scalar'
         })
         return { tagTypes: nextTags }
       }
@@ -237,24 +441,21 @@ persist(
             isReservedNumberTag(tag)
               ? 'reserved'
               : config
-                ? (config.Mapping.Scalars[tag] ? 'scalar' : 'table_column')
-                : 'scalar',
+                ? (config.Mapping.Scalars[tag]?.startsWith('Input.') ? 'input_scalar' : config.Mapping.Scalars[tag] ? 'db_scalar' : 'table_column')
+                : 'db_scalar',
           ]),
         ),
         config: config ? normalizeConfiguration(config) : initialConfig,
         constructorSessionKey: sessionKey,
-        newSource: {
-          entity: defaultEntity ?? '',
-          key: '',
-          conditions: [{ property: 'Id', operator: '==', type: 'arg', value: '' }],
-        },
+        newInput: createDefaultInput(defaultEntity ?? ''),
+        newSource: createDefaultDataSource(defaultEntity ?? ''),
       }
     }),
   hydrateTags: (tags) =>
     set((state) => {
       const nextTags = { ...state.tagTypes }
       tags.forEach((tag) => {
-        nextTags[tag] ??= isReservedNumberTag(tag) ? 'reserved' : 'scalar'
+        nextTags[tag] = isReservedNumberTag(tag) ? 'reserved' : nextTags[tag] ?? 'db_scalar'
       })
       return { tagTypes: nextTags }
     }),
@@ -277,63 +478,183 @@ persist(
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setTagType: (tag, type) =>
     set((state) => ({
-      tagTypes: { ...state.tagTypes, [tag]: state.tagTypes[tag] === 'reserved' ? 'reserved' : type },
+      tagTypes: { ...state.tagTypes, [tag]: isReservedNumberTag(tag) || state.tagTypes[tag] === 'reserved' ? 'reserved' : type },
     })),
+  updateNewInput: (patch) =>
+    set((state) => ({
+      newInput: { ...state.newInput, ...patch },
+    })),
+  setNewInputArrayField: (field, value) =>
+    set((state) => ({
+      newInput: {
+        ...state.newInput,
+        [field]: value
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean),
+      },
+    })),
+  setNewInputFilter: (property, inputKey) =>
+    set((state) => ({
+      newInput: {
+        ...state.newInput,
+        dependsOn: inputKey ? [inputKey] : [],
+        filters:
+          property && inputKey
+            ? [{ Property: property, Operator: 'Equals', Input: inputKey }]
+            : [],
+      },
+    })),
+  validateNewInput: () => {
+    const reason = validateNewInputDraft(get().newInput, get().config)
+    return reason ? { ok: false, reason } : { ok: true }
+  },
+  addInput: () => {
+    const { newInput, config } = get()
+    const reason = validateNewInputDraft(newInput, config)
+    if (reason) return { ok: false, reason }
+
+    const input = buildInput(newInput)
+    set((state) => ({
+      config: {
+        ...state.config,
+        Inputs: { ...state.config.Inputs, [input.Key]: input.Config },
+      },
+      newInput: createDefaultInput(state.newInput.entity),
+      newSource:
+        state.newSource.inputKey || state.newSource.entity
+          ? state.newSource
+          : createDefaultDataSource(state.newInput.entity, input.Key),
+    }))
+
+    return { ok: true }
+  },
+  removeInput: (key) =>
+    set((state) => {
+      const inputs = { ...state.config.Inputs }
+      delete inputs[key]
+
+      const scalars = { ...state.config.Mapping.Scalars }
+      Object.entries(scalars).forEach(([tag, path]) => {
+        if (path === `Input.${key}`) delete scalars[tag]
+      })
+
+      return {
+        config: {
+          ...state.config,
+          Inputs: Object.fromEntries(
+            Object.entries(inputs).map(([inputKey, input]) => {
+              if (input.Kind !== 'EntitySelect') return [inputKey, input]
+              return [
+                inputKey,
+                {
+                  ...input,
+                  DependsOn: input.DependsOn?.filter((dependency) => dependency !== key),
+                  Filters: input.Filters?.filter((filter) => filter.Input !== key),
+                },
+              ]
+            }),
+          ),
+          DataSources: state.config.DataSources.filter((source) => !source.FilterArgs.includes(key)),
+          Mapping: { ...state.config.Mapping, Scalars: scalars },
+        },
+      }
+    }),
   updateNewSource: (patch) =>
     set((state) => ({
       newSource: { ...state.newSource, ...patch },
     })),
-  updateNewSourceCondition: (index, patch) =>
-    set((state) => ({
-      newSource: {
-        ...state.newSource,
-        conditions: state.newSource.conditions.map((condition, conditionIndex) =>
-          conditionIndex === index ? { ...condition, ...patch } : condition,
-        ),
-      },
-    })),
-  addNewSourceCondition: () =>
-    set((state) => ({
-      newSource: {
-        ...state.newSource,
-        conditions: [
-          ...state.newSource.conditions,
-          { property: 'Id', operator: '==', type: 'arg', value: '' },
-        ],
-      },
-    })),
-  removeNewSourceCondition: (index) =>
-    set((state) => ({
-      newSource: {
-        ...state.newSource,
-        conditions: state.newSource.conditions.filter((_, conditionIndex) => conditionIndex !== index),
-      },
-    })),
+  toggleParentFilterProperty: (property) =>
+    set((state) => {
+      const parentFilterProperties = state.newSource.parentFilterProperties ?? []
+      const selected = parentFilterProperties.includes(property)
+      return {
+        newSource: {
+          ...state.newSource,
+          parentFilterProperties: selected
+            ? parentFilterProperties.filter((candidate) => candidate !== property)
+            : [...parentFilterProperties, property],
+        },
+      }
+    }),
   validateNewDataSource: () => {
     const reason = validateNewDataSourceDraft(get().newSource)
     return reason ? { ok: false, reason } : { ok: true }
   },
-  addDataSource: () => {
+  addDataSource: (schema = {}) => {
     const { newSource, config } = get()
     const key = newSource.key.trim()
+    const reason = validateNewDataSourceDraft(newSource)
+    if (reason) return { ok: false, reason }
 
     if (!key || !newSource.entity) return { ok: false, reason: 'Вкажіть сутність і ключ датасурсу.' }
+    if (key === 'Input') return { ok: false, reason: 'Ключ датасурсу не може бути "Input".' }
     if (config.DataSources.some((source) => source.Key === key)) {
       return { ok: false, reason: 'Датасурс із таким ключем уже існує.' }
     }
 
-    const dataSource = buildDataSource(newSource)
+    const filterInputKey = getUniqueKey(
+      getDataSourceInputKey(newSource.entity, newSource.filterProperty),
+      Object.keys(config.Inputs),
+    )
+    const filterInput =
+      isIntField(schema, newSource.entity, newSource.filterProperty)
+        ? createEntitySelectInput({
+            entity: newSource.entity,
+            label: newSource.argumentLabel,
+            schema,
+          })
+        : createManualInput(newSource.argumentLabel)
+
+    const parentInputs = (schema[newSource.entity]?.foreignKeys ?? [])
+      .filter((foreignKey) => (newSource.parentFilterProperties ?? []).includes(foreignKey.property))
+      .reduce<Record<string, InputConfig>>((acc, foreignKey) => {
+        const parentInputKey = getUniqueKey(
+          getDataSourceInputKey(foreignKey.targetEntity, 'Id'),
+          [...Object.keys(config.Inputs), filterInputKey, ...Object.keys(acc)],
+        )
+        acc[parentInputKey] = createEntitySelectInput({
+          entity: foreignKey.targetEntity,
+          label: foreignKey.targetEntity,
+          schema,
+        })
+        return acc
+      }, {})
+
+    const parentFilters = (schema[newSource.entity]?.foreignKeys ?? [])
+      .filter((foreignKey) => (newSource.parentFilterProperties ?? []).includes(foreignKey.property))
+      .map((foreignKey) => {
+        const parentInputKey = Object.entries(parentInputs).find(([, input]) => (
+          input.Kind === 'EntitySelect' && input.Entity === foreignKey.targetEntity
+        ))?.[0]
+        return parentInputKey
+          ? { Property: foreignKey.property, Operator: 'Equals' as const, Input: parentInputKey }
+          : null
+      })
+      .filter((filter): filter is NonNullable<typeof filter> => Boolean(filter))
+
+    const nextFilterInput: InputConfig =
+      filterInput.Kind === 'EntitySelect'
+        ? {
+            ...filterInput,
+            DependsOn: parentFilters.map((filter) => filter.Input),
+            Filters: parentFilters,
+          }
+        : filterInput
+
+    const dataSource = buildDataSource({ ...newSource, inputKey: filterInputKey })
     set((state) => ({
       config: {
         ...state.config,
+        Inputs: {
+          ...state.config.Inputs,
+          ...parentInputs,
+          [filterInputKey]: nextFilterInput,
+        },
         DataSources: [...state.config.DataSources, dataSource],
       },
       expandedSources: { ...state.expandedSources, [dataSource.Key]: true },
-      newSource: {
-        ...state.newSource,
-        key: '',
-        conditions: [{ property: 'Id', operator: '==', type: 'arg', value: '' }],
-      },
+      newSource: createDefaultDataSource(state.newSource.entity),
     }))
 
     return { ok: true }
@@ -359,14 +680,45 @@ persist(
         },
       },
     })),
+  mapInputScalar: (tag, label) =>
+    set((state) => {
+      const existingPath = state.config.Mapping.Scalars[tag]
+      const existingKey = existingPath?.startsWith('Input.') ? existingPath.slice('Input.'.length) : null
+      const inputKey = existingKey ?? getUniqueKey(tag, Object.keys(state.config.Inputs))
+
+      return {
+        config: {
+          ...state.config,
+          Inputs: {
+            ...state.config.Inputs,
+            [inputKey]: createManualInput(label.trim() || tag),
+          },
+          Mapping: {
+            ...state.config.Mapping,
+            Scalars: { ...state.config.Mapping.Scalars, [tag]: `Input.${inputKey}` },
+          },
+        },
+      }
+    }),
   unmapScalar: (tag) =>
     set((state) => {
+      const removedPath = state.config.Mapping.Scalars[tag]
+      const removedInputKey = removedPath?.startsWith('Input.') ? removedPath.slice('Input.'.length) : null
       const restScalars = { ...state.config.Mapping.Scalars }
       delete restScalars[tag]
+      const inputs = { ...state.config.Inputs }
+      if (
+        removedInputKey &&
+        !Object.entries(restScalars).some(([, path]) => path === `Input.${removedInputKey}`) &&
+        !state.config.DataSources.some((source) => source.FilterArgs.includes(removedInputKey))
+      ) {
+        delete inputs[removedInputKey]
+      }
       return {
         selectedTag: state.selectedTag === tag ? null : state.selectedTag,
         config: {
           ...state.config,
+          Inputs: inputs,
           Mapping: { ...state.config.Mapping, Scalars: restScalars },
         },
       }
@@ -590,11 +942,8 @@ persist(
       tagTypes: {},
       config: initialConfig,
       constructorSessionKey: null,
-      newSource: {
-        entity: '',
-        key: '',
-        conditions: [{ ...defaultCondition, value: '' }],
-      },
+      newInput: createDefaultInput(),
+      newSource: createDefaultDataSource(),
     }),
   }),
   {
@@ -611,6 +960,7 @@ persist(
       searchQuery: state.searchQuery,
       expandedSources: state.expandedSources,
       tagTypes: state.tagTypes,
+      newInput: state.newInput,
       newSource: state.newSource,
       config: state.config,
       constructorSessionKey: state.constructorSessionKey,

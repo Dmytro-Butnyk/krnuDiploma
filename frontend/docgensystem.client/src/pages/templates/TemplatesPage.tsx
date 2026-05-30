@@ -8,17 +8,20 @@ import {
   UploadCloud,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import {
+  fetchGenerationInputOptions,
   useDeleteTemplate,
   useGenerateDocument,
+  useGenerationForm,
   useScanTemplateForTags,
   useTemplateDetails,
   useTemplates,
   useUpdateTemplate,
   useUploadTemplate,
 } from '../../entities/template/api/templateApi'
-import type { TemplateListItemDto } from '../../entities/template/model/types'
+import type { GenerationInputDto, TemplateListItemDto } from '../../entities/template/model/types'
 import { useConstructorStore } from '../../features/template-constructor/model/store'
 import { TemplateConstructor } from '../../features/template-constructor/ui/TemplateConstructor'
 import type { TemplateConfiguration } from '../../features/template-constructor/model/types'
@@ -35,6 +38,15 @@ type DraftTemplate = {
   name: string
   tags: string[]
 }
+
+type DraftTemplateMeta = {
+  fileName: string
+  name: string
+  size: number
+  lastModified: number
+  tags: string[]
+}
+
 type PersistedTemplatesPageState = {
   mode: ScreenMode
   selectedTemplate: TemplateListItemDto | null
@@ -42,6 +54,7 @@ type PersistedTemplatesPageState = {
   constructorTemplateName: string
   generationParams: Record<string, string>
   isGenerationFormOpen: boolean
+  draftTemplateMeta: DraftTemplateMeta | null
 }
 
 const templatesPageStateStorageKey = 'templates-page-state'
@@ -53,6 +66,7 @@ const defaultTemplatesPageState: PersistedTemplatesPageState = {
   constructorTemplateName: '',
   generationParams: {},
   isGenerationFormOpen: false,
+  draftTemplateMeta: null,
 }
 
 function readPersistedTemplatesPageState(): PersistedTemplatesPageState {
@@ -63,14 +77,14 @@ function readPersistedTemplatesPageState(): PersistedTemplatesPageState {
     if (!raw) return fallback
 
     const parsed = JSON.parse(raw) as Partial<PersistedTemplatesPageState>
-    const mode = parsed.mode === 'constructor' && parsed.constructorMode === 'create' ? 'upload' : parsed.mode
 
     return {
       ...fallback,
       ...parsed,
-      mode: mode ?? fallback.mode,
+      mode: parsed.mode ?? fallback.mode,
       selectedTemplate: parsed.selectedTemplate ?? null,
       generationParams: parsed.generationParams ?? {},
+      draftTemplateMeta: parsed.draftTemplateMeta ?? null,
     }
   } catch {
     return fallback
@@ -81,19 +95,35 @@ function sameTemplateId(left: TemplateListItemDto['id'], right: TemplateListItem
   return String(left) === String(right)
 }
 
-function parseConfiguration(value?: string | null): TemplateConfiguration | undefined {
-  if (!value) return undefined
+type ParsedConfigurationState = {
+  configuration?: TemplateConfiguration
+  isSupported: boolean
+  hasConfiguration: boolean
+}
+
+function parseConfiguration(value?: string | null): ParsedConfigurationState {
+  if (!value) return { isSupported: false, hasConfiguration: false }
 
   try {
-    const parsed = JSON.parse(value) as TemplateConfiguration
-    if (parsed?.Mapping?.Scalars && parsed?.Mapping?.Tables && Array.isArray(parsed.DataSources)) {
-      return parsed
+    const parsed = JSON.parse(value) as Partial<TemplateConfiguration>
+    if (
+      parsed?.ConfigurationVersion === 2 &&
+      parsed.Inputs &&
+      parsed.Mapping?.Scalars &&
+      parsed.Mapping?.Tables &&
+      Array.isArray(parsed.DataSources)
+    ) {
+      return {
+        configuration: parsed as TemplateConfiguration,
+        isSupported: true,
+        hasConfiguration: true,
+      }
     }
   } catch {
-    return undefined
+    return { isSupported: false, hasConfiguration: true }
   }
 
-  return undefined
+  return { isSupported: false, hasConfiguration: true }
 }
 
 function getTagsFromConfiguration(configuration?: TemplateConfiguration) {
@@ -112,6 +142,22 @@ function getDraftTemplateSessionKey(draftTemplate: DraftTemplate | null) {
   return `create:${file.name}:${file.size}:${file.lastModified}`
 }
 
+function getDraftTemplateMetaSessionKey(draftTemplateMeta: DraftTemplateMeta | null) {
+  if (!draftTemplateMeta) return 'create:no-file'
+
+  return `create:${draftTemplateMeta.fileName}:${draftTemplateMeta.size}:${draftTemplateMeta.lastModified}`
+}
+
+function createDraftTemplateMeta(draftTemplate: DraftTemplate): DraftTemplateMeta {
+  return {
+    fileName: draftTemplate.file.name,
+    name: draftTemplate.name,
+    size: draftTemplate.file.size,
+    lastModified: draftTemplate.file.lastModified,
+    tags: draftTemplate.tags,
+  }
+}
+
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -121,11 +167,31 @@ function downloadBlob(blob: Blob, fileName: string) {
   URL.revokeObjectURL(url)
 }
 
+function useDebouncedValue(value: string, delayMs: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value)
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDebouncedValue(value), delayMs)
+    return () => window.clearTimeout(timeoutId)
+  }, [delayMs, value])
+
+  return debouncedValue
+}
+
+function getManualInputType(valueType: string) {
+  if (valueType === 'Date') return 'date'
+  if (valueType === 'DateTime') return 'datetime-local'
+  if (valueType === 'Bool') return 'checkbox'
+  if (valueType === 'Int' || valueType === 'Long' || valueType === 'Decimal') return 'number'
+  return 'text'
+}
+
 export function TemplatesPage() {
   const [restoredPageState] = useState(readPersistedTemplatesPageState)
   const [mode, setMode] = useState<ScreenMode>(restoredPageState.mode)
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateListItemDto | null>(restoredPageState.selectedTemplate)
   const [draftTemplate, setDraftTemplate] = useState<DraftTemplate | null>(null)
+  const [draftTemplateMeta, setDraftTemplateMeta] = useState<DraftTemplateMeta | null>(restoredPageState.draftTemplateMeta)
   const [constructorMode, setConstructorMode] = useState<ConstructorMode>(restoredPageState.constructorMode)
   const [constructorTemplateName, setConstructorTemplateName] = useState(restoredPageState.constructorTemplateName)
   const [menuTemplateId, setMenuTemplateId] = useState<string | number | null>(null)
@@ -137,20 +203,21 @@ export function TemplatesPage() {
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
-    const persistedMode = mode === 'constructor' && constructorMode === 'create' ? 'upload' : mode
     const state: PersistedTemplatesPageState = {
-      mode: persistedMode,
+      mode,
       selectedTemplate,
       constructorMode,
       constructorTemplateName,
       generationParams,
       isGenerationFormOpen,
+      draftTemplateMeta,
     }
 
     sessionStorage.setItem(templatesPageStateStorageKey, JSON.stringify(state))
   }, [
     constructorMode,
     constructorTemplateName,
+    draftTemplateMeta,
     generationParams,
     isGenerationFormOpen,
     mode,
@@ -201,26 +268,32 @@ export function TemplatesPage() {
     }
   }, [selectedTemplate, templatesQuery.data])
 
-  const selectedConfiguration = useMemo(
+  const selectedConfigurationState = useMemo(
     () => parseConfiguration(detailsQuery.data?.configurationJson),
     [detailsQuery.data?.configurationJson],
+  )
+  const selectedConfiguration = selectedConfigurationState.configuration
+  const isSupportedConfiguration = constructorMode === 'create' || selectedConfigurationState.isSupported
+  const generationFormQuery = useGenerationForm(
+    selectedId,
+    mode === 'details' && isGenerationFormOpen && selectedConfigurationState.isSupported,
   )
   const constructorTags = useMemo(
     () =>
       constructorMode === 'create'
-        ? draftTemplate?.tags ?? []
+        ? draftTemplate?.tags ?? draftTemplateMeta?.tags ?? []
         : getTagsFromConfiguration(selectedConfiguration),
-    [constructorMode, draftTemplate?.tags, selectedConfiguration],
+    [constructorMode, draftTemplate?.tags, draftTemplateMeta?.tags, selectedConfiguration],
   )
   const constructorSessionKey = useMemo(
     () =>
       constructorMode === 'create'
-        ? getDraftTemplateSessionKey(draftTemplate)
+        ? draftTemplate ? getDraftTemplateSessionKey(draftTemplate) : getDraftTemplateMetaSessionKey(draftTemplateMeta)
         : `edit:${selectedTemplate?.id ?? 'none'}:${detailsQuery.data?.configurationJson ?? ''}`,
-    [constructorMode, detailsQuery.data?.configurationJson, draftTemplate, selectedTemplate?.id],
+    [constructorMode, detailsQuery.data?.configurationJson, draftTemplate, draftTemplateMeta, selectedTemplate?.id],
   )
-  const requiredArguments = detailsQuery.data?.requiredArguments ?? []
-  const canGenerate = requiredArguments.every((argument) => generationParams[argument]?.trim())
+  const generationInputs = generationFormQuery.data?.inputs ?? detailsQuery.data?.generationForm?.inputs ?? []
+  const canGenerate = generationInputs.every((input) => !input.required || Boolean(generationParams[input.key]?.trim()))
 
   const showError = (error: unknown, fallback?: string) => {
     setErrorText(getApiErrorMessage(error, fallback))
@@ -238,6 +311,7 @@ export function TemplatesPage() {
   const openUpload = () => {
     useConstructorStore.getState().reset()
     setDraftTemplate(null)
+    setDraftTemplateMeta(null)
     setConstructorMode('create')
     setConstructorTemplateName('')
     setErrorText(null)
@@ -268,7 +342,9 @@ export function TemplatesPage() {
 
     try {
       const result = await scanTags.mutateAsync(file)
-      setDraftTemplate({ file, name, tags: result.tags })
+      const nextDraftTemplate = { file, name, tags: result.tags }
+      setDraftTemplate(nextDraftTemplate)
+      setDraftTemplateMeta(createDraftTemplateMeta(nextDraftTemplate))
       setConstructorTemplateName(name)
       setConstructorMode('create')
       setMode('constructor')
@@ -278,7 +354,10 @@ export function TemplatesPage() {
   }
 
   const handleCreateTemplate = async (configuration: TemplateConfiguration) => {
-    if (!draftTemplate) return
+    if (!draftTemplate) {
+      setErrorText('Після перезавантаження сторінки браузер не відновлює файл шаблону. Оберіть .docx ще раз перед збереженням.')
+      return
+    }
 
     setErrorText(null)
     try {
@@ -289,6 +368,7 @@ export function TemplatesPage() {
       })
       useConstructorStore.getState().reset()
       setDraftTemplate(null)
+      setDraftTemplateMeta(null)
       setMode('list')
       setDialog('template-created')
       setErrorText(null)
@@ -321,10 +401,29 @@ export function TemplatesPage() {
 
   const openGenerationForm = () => {
     setErrorText(null)
+    if (!selectedConfigurationState.isSupported) {
+      setErrorText('Конфігурація шаблону застаріла. Перестворіть шаблон за допомогою конструктора.')
+      return
+    }
     setIsGenerationFormOpen(true)
     setGenerationParams(
-      Object.fromEntries(requiredArguments.map((argument) => [argument, generationParams[argument] ?? ''])),
+      Object.fromEntries(generationInputs.map((input) => [input.key, generationParams[input.key] ?? ''])),
     )
+  }
+
+  const handleTemplateFileRestore = async (file: File) => {
+    setErrorText(null)
+    const name = file.name.replace(/\.docx$/i, '')
+
+    try {
+      const result = await scanTags.mutateAsync(file)
+      const nextDraftTemplate = { file, name, tags: result.tags }
+      setDraftTemplate(nextDraftTemplate)
+      setDraftTemplateMeta(createDraftTemplateMeta(nextDraftTemplate))
+      setConstructorTemplateName((currentName) => currentName || name)
+    } catch (error) {
+      showError(error, 'Не вдалося просканувати документ.')
+    }
   }
 
   const handleGenerate = async () => {
@@ -381,9 +480,23 @@ export function TemplatesPage() {
       )
     }
 
+    if (constructorMode === 'edit' && !isSupportedConfiguration) {
+      return (
+        <div className="ui-surface flex min-h-0 flex-col items-start gap-4 p-6">
+          <ErrorMessage
+            message="Конфігурація шаблону застаріла. Перестворіть шаблон за допомогою конструктора."
+            onClose={() => setMode('details')}
+          />
+          <Button variant="secondary" onClick={() => setMode('details')}>
+            Повернутися до шаблону
+          </Button>
+        </div>
+      )
+    }
+
     const documentName =
       constructorMode === 'create'
-        ? draftTemplate?.file.name ?? 'Новий шаблон.docx'
+        ? draftTemplate?.file.name ?? draftTemplateMeta?.fileName ?? 'Новий шаблон.docx'
         : selectedTemplate?.name ?? 'Шаблон.docx'
 
     return (
@@ -397,8 +510,10 @@ export function TemplatesPage() {
             initialConfiguration={constructorMode === 'edit' ? selectedConfiguration : undefined}
             sessionKey={constructorSessionKey}
             isSaving={uploadTemplate.isPending || updateTemplate.isPending}
+            isTemplateFileMissing={constructorMode === 'create' && Boolean(draftTemplateMeta) && !draftTemplate}
             canBackFromFirstStep={constructorMode === 'create'}
             onTemplateNameChange={setConstructorTemplateName}
+            onTemplateFileChange={handleTemplateFileRestore}
             onCancel={leaveConstructor}
             onBack={leaveConstructor}
             onComplete={constructorMode === 'create' ? handleCreateTemplate : handleUpdateTemplate}
@@ -440,16 +555,21 @@ export function TemplatesPage() {
         {mode === 'upload' && (
           <UploadPanel
             draftTemplate={draftTemplate}
+            draftTemplateMeta={draftTemplateMeta}
             isScanning={scanTags.isPending}
             inputRef={inputRef}
             onClose={() => {
               setDraftTemplate(null)
+              setDraftTemplateMeta(null)
               setMode('list')
             }}
             onContinue={() => {
-              if (!draftTemplate) return
+              if (!draftTemplate && !draftTemplateMeta) return
+              if (draftTemplate) {
+                setDraftTemplateMeta(createDraftTemplateMeta(draftTemplate))
+              }
               setConstructorMode('create')
-              setConstructorTemplateName((name) => name || draftTemplate.name)
+              setConstructorTemplateName((name) => name || draftTemplate?.name || draftTemplateMeta?.name || '')
               setMode('constructor')
             }}
             onFile={handleFile}
@@ -471,45 +591,45 @@ export function TemplatesPage() {
                   size="lg"
                   className="justify-start"
                   onClick={() => openConstructorForEdit(selectedTemplate)}
-                  disabled={detailsQuery.isLoading}
+                  disabled={detailsQuery.isLoading || !selectedConfigurationState.isSupported}
                 >
                   Змінити конфігурацію
                 </Button>
-                <Button variant="successOutline" size="lg" className="justify-start" onClick={openGenerationForm}>
+                <Button
+                  variant="successOutline"
+                  size="lg"
+                  className="justify-start"
+                  onClick={openGenerationForm}
+                  disabled={detailsQuery.isLoading || !selectedConfigurationState.isSupported}
+                >
                   Згенерувати документ
                 </Button>
               </div>
 
-              {isGenerationFormOpen && (
-                <div className="mt-7 w-full max-w-[540px] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)]/50 p-5">
-                  <h3 className="text-sm font-black uppercase text-blue-700">Параметри генерації</h3>
-                  <div className="mt-4 space-y-3">
-                    {requiredArguments.map((argument) => (
-                      <label key={argument} className="block">
-                        <span className="mb-1 block text-xs font-bold text-slate-500">{argument}</span>
-                        <input
-                          value={generationParams[argument] ?? ''}
-                          onChange={(event) =>
-                            setGenerationParams((params) => ({ ...params, [argument]: event.target.value }))
-                          }
-                          className="ui-input w-full px-4 py-3 text-sm font-bold"
-                          placeholder="Введіть значення"
-                        />
-                      </label>
-                    ))}
-                    {requiredArguments.length === 0 && (
-                      <p className="text-sm text-slate-500">Цей шаблон не потребує параметрів.</p>
-                    )}
-                  </div>
-                  <Button
-                    size="pill"
-                    className="mt-5 w-full"
-                    onClick={() => void handleGenerate()}
-                    disabled={requiredArguments.length > 0 && !canGenerate}
-                  >
-                    Згенерувати документ
-                  </Button>
+              {!detailsQuery.isLoading && !selectedConfigurationState.isSupported && (
+                <div className="mt-5 max-w-[540px] rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-4 text-sm font-bold text-[var(--color-danger)]">
+                  Конфігурація шаблону застаріла. Генерацію заблоковано, перестворіть шаблон за допомогою конструктора.
                 </div>
+              )}
+
+              {isGenerationFormOpen && detailsQuery.isLoading && (
+                <div className="mt-7 flex w-full max-w-[560px] items-center rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)]/50 p-5 text-sm font-bold text-[var(--color-primary)]">
+                  <Loader2 className="mr-2 animate-spin" size={18} />
+                  Завантаження шаблону
+                </div>
+              )}
+
+              {isGenerationFormOpen && !detailsQuery.isLoading && selectedConfigurationState.isSupported && (
+                <GenerationFormPanel
+                  templateId={selectedTemplate.id}
+                  inputs={generationInputs}
+                  isLoading={generationFormQuery.isLoading}
+                  params={generationParams}
+                  onParamsChange={setGenerationParams}
+                  onGenerate={() => void handleGenerate()}
+                  canGenerate={canGenerate}
+                  isGenerating={generateDocument.isPending}
+                />
               )}
             </div>
             <LiveJsonPanel value={detailsQuery.data?.configurationJson ?? '{}'} />
@@ -597,8 +717,244 @@ function ErrorMessage({ message, onClose }: { message: string; onClose: () => vo
   )
 }
 
+function GenerationFormPanel({
+  templateId,
+  inputs,
+  isLoading,
+  params,
+  onParamsChange,
+  onGenerate,
+  canGenerate,
+  isGenerating,
+}: {
+  templateId: TemplateListItemDto['id']
+  inputs: GenerationInputDto[]
+  isLoading: boolean
+  params: Record<string, string>
+  onParamsChange: Dispatch<SetStateAction<Record<string, string>>>
+  onGenerate: () => void
+  canGenerate: boolean
+  isGenerating: boolean
+}) {
+  const dependentKeysByInput = useMemo(() => {
+    return inputs.reduce<Record<string, string[]>>((acc, input) => {
+      input.dependsOn.forEach((dependency) => {
+        acc[dependency] = [...(acc[dependency] ?? []), input.key]
+      })
+      return acc
+    }, {})
+  }, [inputs])
+
+  const clearDependents = (key: string, nextParams: Record<string, string>) => {
+    dependentKeysByInput[key]?.forEach((dependentKey) => {
+      if (nextParams[dependentKey]) nextParams[dependentKey] = ''
+      clearDependents(dependentKey, nextParams)
+    })
+  }
+
+  const updateParam = (key: string, value: string) => {
+    onParamsChange((current) => {
+      const nextParams = { ...current, [key]: value }
+      clearDependents(key, nextParams)
+      return nextParams
+    })
+  }
+
+  return (
+    <div className="mt-7 w-full max-w-[560px] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)]/50 p-5">
+      <h3 className="text-sm font-black uppercase text-blue-700">Параметри генерації</h3>
+
+      {isLoading ? (
+        <div className="mt-5 flex items-center text-sm font-bold text-[var(--color-primary)]">
+          <Loader2 className="mr-2 animate-spin" size={18} />
+          Завантаження форми
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {inputs.map((input) =>
+            input.kind === 'EntitySelect' ? (
+              <GenerationEntitySelect
+                key={input.key}
+                templateId={templateId}
+                input={input}
+                params={params}
+                value={params[input.key] ?? ''}
+                onChange={(value) => updateParam(input.key, value)}
+              />
+            ) : (
+              <GenerationManualInput
+                key={input.key}
+                input={input}
+                value={params[input.key] ?? ''}
+                onChange={(value) => updateParam(input.key, value)}
+              />
+            ),
+          )}
+          {inputs.length === 0 && (
+            <p className="text-sm text-slate-500">Цей шаблон не потребує параметрів.</p>
+          )}
+        </div>
+      )}
+
+      <Button
+        size="pill"
+        className="mt-5 w-full"
+        onClick={onGenerate}
+        disabled={isLoading || isGenerating || !canGenerate}
+      >
+        {isGenerating && <Loader2 size={16} className="animate-spin" />}
+        Згенерувати документ
+      </Button>
+    </div>
+  )
+}
+
+function GenerationManualInput({
+  input,
+  value,
+  onChange,
+}: {
+  input: GenerationInputDto
+  value: string
+  onChange: (value: string) => void
+}) {
+  const type = getManualInputType(input.valueType)
+
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-bold text-slate-500">
+        {input.label}
+        {input.required && <span className="text-[var(--color-danger)]"> *</span>}
+      </span>
+      {type === 'checkbox' ? (
+        <input
+          type="checkbox"
+          checked={value === 'true'}
+          onChange={(event) => onChange(event.target.checked ? 'true' : 'false')}
+          className="h-5 w-5 accent-[var(--color-primary)]"
+        />
+      ) : (
+        <input
+          type={type}
+          value={value}
+          maxLength={typeof input.maxLength === 'number' ? input.maxLength : undefined}
+          onChange={(event) => onChange(event.target.value)}
+          className="ui-input w-full px-4 py-3 text-sm font-bold"
+          placeholder="Введіть значення"
+        />
+      )}
+    </label>
+  )
+}
+
+function GenerationEntitySelect({
+  templateId,
+  input,
+  params,
+  value,
+  onChange,
+}: {
+  templateId: TemplateListItemDto['id']
+  input: GenerationInputDto
+  params: Record<string, string>
+  value: string
+  onChange: (value: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+  const debouncedQuery = useDebouncedValue(query, 500)
+  const dependenciesReady = input.dependsOn.every((dependency) => Boolean(params[dependency]?.trim()))
+  const dependencyParams = useMemo(
+    () =>
+      Object.fromEntries(
+        input.dependsOn
+          .map((dependency) => [dependency, params[dependency] ?? ''])
+          .filter(([, dependencyValue]) => dependencyValue),
+      ) as Record<string, string>,
+    [input.dependsOn, params],
+  )
+  const optionsQuery = useQuery({
+    queryKey: ['documents', 'generation-input-options', templateId, input.key, debouncedQuery, dependencyParams],
+    queryFn: () =>
+      fetchGenerationInputOptions({
+        templateId,
+        inputKey: input.key,
+        params: {
+          ...dependencyParams,
+          ...(debouncedQuery.trim() ? { q: debouncedQuery.trim() } : {}),
+          take: '30',
+        },
+      }),
+    enabled: isOpen && dependenciesReady,
+  })
+  const selectedOption = optionsQuery.data?.items.find((option) => option.value === value)
+  const disabled = !dependenciesReady
+
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-bold text-slate-500">
+        {input.label}
+        {input.required && <span className="text-[var(--color-danger)]"> *</span>}
+      </span>
+      <div className="relative">
+        <input
+          value={isOpen ? query : selectedOption?.label ?? value}
+          disabled={disabled}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setIsOpen(true)
+          }}
+          onFocus={() => {
+            setQuery('')
+            setIsOpen(true)
+          }}
+          onBlur={() => window.setTimeout(() => setIsOpen(false), 140)}
+          className="ui-input w-full px-4 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-white disabled:text-slate-400"
+          placeholder={disabled ? 'Спочатку заповніть залежні поля' : 'Почніть вводити для пошуку'}
+        />
+
+        {isOpen && !disabled && (
+          <div className="custom-scrollbar absolute left-0 right-0 top-[calc(100%+8px)] z-30 max-h-72 overflow-auto rounded-[var(--radius-ui-sm)] border border-[var(--color-primary)] bg-white p-2 shadow-[var(--shadow-ui-strong)]">
+            {optionsQuery.isLoading && (
+              <div className="flex items-center px-4 py-3 text-sm font-bold text-[var(--color-primary)]">
+                <Loader2 className="mr-2 animate-spin" size={16} />
+                Пошук
+              </div>
+            )}
+            {optionsQuery.data?.items.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="block w-full rounded-[14px] px-4 py-3 text-left text-sm font-bold text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white"
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  onChange(option.value)
+                  setQuery('')
+                  setIsOpen(false)
+                }}
+              >
+                <span className="block">{option.label}</span>
+                {option.description && <span className="mt-1 block text-xs text-slate-400">{option.description}</span>}
+              </button>
+            ))}
+            {optionsQuery.data?.hasMore && (
+              <div className="px-4 py-2 text-xs font-bold text-slate-400">
+                Уточніть пошук, знайдено більше результатів.
+              </div>
+            )}
+            {!optionsQuery.isLoading && optionsQuery.data?.items.length === 0 && (
+              <div className="px-4 py-3 text-sm font-semibold text-slate-400">Нічого не знайдено</div>
+            )}
+          </div>
+        )}
+      </div>
+    </label>
+  )
+}
+
 function UploadPanel({
   draftTemplate,
+  draftTemplateMeta,
   isScanning,
   inputRef,
   onClose,
@@ -606,6 +962,7 @@ function UploadPanel({
   onFile,
 }: {
   draftTemplate: DraftTemplate | null
+  draftTemplateMeta: DraftTemplateMeta | null
   isScanning: boolean
   inputRef: React.RefObject<HTMLInputElement | null>
   onClose: () => void
@@ -632,15 +989,20 @@ function UploadPanel({
         }}
       />
 
-      {draftTemplate ? (
+      {draftTemplate || draftTemplateMeta ? (
         <div className="mt-[clamp(32px,5vh,56px)] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)]/50 p-[clamp(24px,2vw,34px)]">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-ui-sm)] bg-white text-[var(--color-primary)]">
               <FileText size={24} />
             </div>
             <div>
-              <p className="font-extrabold text-[var(--color-primary)]">{draftTemplate.file.name}</p>
-              <p className="mt-1 text-sm text-slate-500">Знайдено тегів: {draftTemplate.tags.length}</p>
+              <p className="font-extrabold text-[var(--color-primary)]">{draftTemplate?.file.name ?? draftTemplateMeta?.fileName}</p>
+              <p className="mt-1 text-sm text-slate-500">Знайдено тегів: {draftTemplate?.tags.length ?? draftTemplateMeta?.tags.length ?? 0}</p>
+              {!draftTemplate && draftTemplateMeta && (
+                <p className="mt-1 text-xs font-bold text-[var(--color-danger)]">
+                  Файл потрібно вибрати повторно перед збереженням.
+                </p>
+              )}
             </div>
           </div>
           <div className="mt-6 flex gap-3">
@@ -740,9 +1102,9 @@ function LiveJsonPanel({ value }: { value: string }) {
   }, [value])
 
   return (
-    <aside className="ui-json-panel flex h-fit max-w-full self-start flex-col p-5">
+    <aside className="ui-json-panel sticky top-4 flex max-h-[calc(100vh-2rem)] max-w-full self-start overflow-hidden p-5">
       <h3 className="text-xs font-extrabold uppercase text-[var(--color-success-soft)]">Live JSON</h3>
-      <pre className="json-scrollbar mt-4 max-w-full overflow-x-auto overflow-y-visible whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-[var(--color-success-soft)] [overflow-wrap:anywhere]">
+      <pre className="json-scrollbar mt-4 max-w-full flex-1 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-[var(--color-success-soft)] [overflow-wrap:anywhere]">
         {formatted}
       </pre>
     </aside>

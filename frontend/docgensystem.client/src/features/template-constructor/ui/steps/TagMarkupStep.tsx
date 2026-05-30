@@ -3,7 +3,8 @@ import { useConstructorStore } from '../../model/store'
 import type { TagKind } from '../../model/types'
 
 const tagTypeLabels: Record<TagKind, string> = {
-  scalar: 'Скаляр',
+  db_scalar: 'Скаляр бази даних',
+  input_scalar: 'Скаляр введення',
   table_column: 'Табличний тег',
   reserved: 'Системний тег',
 }
@@ -54,10 +55,11 @@ export function TagMarkupStep() {
               className="ui-input w-full min-w-0 px-4 py-3 text-sm font-bold disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
             >
               {type === 'reserved' ? (
-                <option value="reserved">Системний тег</option>
-              ) : (
-                <>
-                  <option value="scalar">Скаляр</option>
+                  <option value="reserved">Системний тег</option>
+                ) : (
+                  <>
+                  <option value="db_scalar">Скаляр бази даних</option>
+                  <option value="input_scalar">Скаляр введення</option>
                   <option value="table_column">Табличний тег</option>
                 </>
               )}

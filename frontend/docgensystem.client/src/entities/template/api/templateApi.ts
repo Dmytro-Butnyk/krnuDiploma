@@ -3,7 +3,9 @@ import { apiClient } from '../../../shared/api/client'
 import type {
   ApiId,
   GenerateDocumentRequest,
+  GenerationFormDto,
   GetTemplateDetailsResponse,
+  OptionsResponse,
   ScanTemplateForTagsResponse,
   TemplateListItemDto,
   UpdateTemplatePayload,
@@ -12,6 +14,7 @@ import type {
 } from '../model/types'
 
 export const templatesQueryKey = ['documents', 'templates'] as const
+export const generationFormQueryKey = ['documents', 'generation-form'] as const
 const docxMimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 function appendNullableText(formData: FormData, key: string, value: ApiId | string | null) {
@@ -46,6 +49,27 @@ export async function fetchTemplates() {
 
 export async function fetchTemplateDetails(id: ApiId) {
   const response = await apiClient.get<GetTemplateDetailsResponse>(`/api/documents/templates/${id}`)
+  return response.data
+}
+
+export async function fetchGenerationForm(id: ApiId) {
+  const response = await apiClient.get<GenerationFormDto>(`/api/documents/templates/${id}/generation-form`)
+  return response.data
+}
+
+export async function fetchGenerationInputOptions({
+  templateId,
+  inputKey,
+  params,
+}: {
+  templateId: ApiId
+  inputKey: string
+  params: Record<string, string>
+}) {
+  const response = await apiClient.get<OptionsResponse>(
+    `/api/documents/templates/${templateId}/generation-inputs/${encodeURIComponent(inputKey)}/options`,
+    { params },
+  )
   return response.data
 }
 
@@ -107,6 +131,14 @@ export function useTemplateDetails(id: ApiId) {
     queryKey: [...templatesQueryKey, id],
     queryFn: () => fetchTemplateDetails(id),
     enabled: Boolean(id),
+  })
+}
+
+export function useGenerationForm(id: ApiId, enabled = true) {
+  return useQuery({
+    queryKey: [...generationFormQueryKey, id],
+    queryFn: () => fetchGenerationForm(id),
+    enabled: Boolean(id) && enabled,
   })
 }
 

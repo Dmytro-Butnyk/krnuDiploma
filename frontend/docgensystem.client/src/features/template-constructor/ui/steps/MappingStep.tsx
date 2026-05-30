@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronRight, Plus, Trash2, X } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { EntitySchema, SchemaPath } from '../../../../entities/schema/model/types'
 import { cn } from '../../../../shared/lib/cn'
 import { getPathsForEntity, getSourceArrayScalarPaths } from '../../../../shared/lib/paths'
@@ -39,7 +39,7 @@ function ScalarPathList({
         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
       {isExpanded && (
-        <ul className="p-2 lg:max-h-72 lg:overflow-auto lg:custom-scrollbar">
+        <ul className="p-2">
           {paths.map((path) => (
             <li key={path.fullPath}>
               <button
@@ -57,6 +57,37 @@ function ScalarPathList({
           {paths.length === 0 && <li className="p-3 text-sm text-slate-400">Нічого не знайдено</li>}
         </ul>
       )}
+    </div>
+  )
+}
+
+function InputScalarPanel({ tag }: { tag: string }) {
+  const config = useConstructorStore((state) => state.config)
+  const mapInputScalar = useConstructorStore((state) => state.mapInputScalar)
+  const existingInputKey = config.Mapping.Scalars[tag]?.startsWith('Input.')
+    ? config.Mapping.Scalars[tag].slice('Input.'.length)
+    : null
+  const existingLabel = existingInputKey ? config.Inputs[existingInputKey]?.Label : null
+  const [label, setLabel] = useState(existingLabel ?? tag)
+
+  return (
+    <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-5 shadow-[var(--shadow-ui)]">
+      <h4 className="text-lg font-extrabold text-[var(--color-primary)]">{tag}</h4>
+      <p className="mt-2 text-sm font-bold text-[var(--color-muted)]">
+        Це поле користувач заповнить вручну перед генерацією. Значення буде збережено як текст.
+      </p>
+      <label className="mt-5 block">
+        <span className="ui-label mb-2 block">Назва поля у формі генерації</span>
+        <input
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          className="ui-input w-full px-4 py-3 text-sm font-bold"
+          placeholder="Дата підписання"
+        />
+      </label>
+      <Button className="mt-4" onClick={() => mapInputScalar(tag, label)} disabled={!label.trim()}>
+        Застосувати
+      </Button>
     </div>
   )
 }
@@ -87,9 +118,10 @@ export function MappingStep({ schema = {} }: Props) {
   const removeColumnFromTable = useConstructorStore((state) => state.removeColumnFromTable)
 
   const scalarTags = useMemo(
-    () => Object.keys(tagTypes).filter((tag) => tagTypes[tag] === 'scalar'),
+    () => Object.keys(tagTypes).filter((tag) => tagTypes[tag] === 'db_scalar' || tagTypes[tag] === 'input_scalar'),
     [tagTypes],
   )
+  const selectedTagKind = selectedTag ? tagTypes[selectedTag] : null
   const tableColumnTags = useMemo(
     () => Object.keys(tagTypes).filter((tag) => tagTypes[tag] === 'table_column'),
     [tagTypes],
@@ -129,7 +161,7 @@ export function MappingStep({ schema = {} }: Props) {
   }
 
   return (
-    <div className="custom-scrollbar flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden pr-1 lg:overflow-hidden lg:pr-0">
+    <div className="flex min-h-0 flex-col overflow-visible pr-1 lg:pr-0">
       <div className="mb-5 flex shrink-0 flex-wrap items-start justify-between gap-4">
         <div>
           <h3 className="ui-step-title">3 КРОК: МАППІНГ</h3>
@@ -158,8 +190,8 @@ export function MappingStep({ schema = {} }: Props) {
       </div>
 
       {mappingMode === 'scalars' ? (
-        <div className="grid shrink-0 grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[clamp(260px,22%,340px)_minmax(0,1fr)]">
-          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[clamp(260px,22%,340px)_minmax(0,1fr)]">
+          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)]">
             <p className="ui-label mb-3">Оберіть тег</p>
             {scalarTags.map((tag) => {
               const isMapped = Boolean(config.Mapping.Scalars[tag])
@@ -198,7 +230,7 @@ export function MappingStep({ schema = {} }: Props) {
             })}
           </div>
 
-          <div className="flex min-h-[240px] flex-col rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-hidden">
+          <div className="flex min-h-[240px] flex-col rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)]">
             <div className="shrink-0 border-b border-[var(--color-bg-lavender)] bg-white p-3">
               <input
                 value={searchQuery}
@@ -207,9 +239,10 @@ export function MappingStep({ schema = {} }: Props) {
                 placeholder="Пошук властивостей"
               />
             </div>
-            <div className="grid content-start gap-3 p-3 lg:min-h-0 lg:flex-1 lg:overflow-auto lg:custom-scrollbar">
+            <div className="grid content-start gap-3 p-3">
               {!selectedTag && <div className="p-10 text-center text-sm text-slate-400">Оберіть тег ліворуч</div>}
-              {selectedTag &&
+              {selectedTag && selectedTagKind === 'input_scalar' && <InputScalarPanel key={selectedTag} tag={selectedTag} />}
+              {selectedTag && selectedTagKind === 'db_scalar' &&
                 config.DataSources.map((source) => (
                   <ScalarPathList
                     key={source.Key}
@@ -222,8 +255,8 @@ export function MappingStep({ schema = {} }: Props) {
           </div>
         </div>
       ) : (
-        <div className="grid shrink-0 grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[clamp(220px,19%,300px)_minmax(0,1fr)]">
-          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[clamp(220px,19%,300px)_minmax(0,1fr)]">
+          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)]">
             <Button variant="primary" size="pill" className="mb-5 w-full text-base" onClick={createNewTable}>
               <Plus size={16} />
               Створити таблицю
@@ -248,7 +281,7 @@ export function MappingStep({ schema = {} }: Props) {
             ))}
           </div>
 
-          <div className="min-h-[260px] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-5 shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
+          <div className="min-h-[260px] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-5 shadow-[var(--shadow-ui)]">
             {!selectedTable || !activeTable ? (
               <div className="p-10 text-center text-sm text-slate-400">Створіть або оберіть таблицю</div>
             ) : (
