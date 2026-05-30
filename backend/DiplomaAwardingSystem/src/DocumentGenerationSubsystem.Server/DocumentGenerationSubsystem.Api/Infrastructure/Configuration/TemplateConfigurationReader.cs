@@ -161,6 +161,12 @@ internal static class TemplateConfigurationReader
                 "Template configuration mapping is required.");
         }
 
+        var mappingResult = ValidateMapping(configuration.Mapping);
+        if (mappingResult.IsFailure)
+        {
+            return mappingResult.ErrorDetails;
+        }
+
         if (configuration.Inputs is not null)
         {
             foreach (var (key, input) in configuration.Inputs)
@@ -182,6 +188,11 @@ internal static class TemplateConfigurationReader
                     return ErrorDetails.Forbidden(
                         "DocGen.UnauthorizedEntity",
                         $"Unknown or not allowed entity '{source.Entity}'.");
+                }
+
+                if (DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(source.Filter))
+                {
+                    return ProtectedPropertyError($"Data source '{source.Key}' filter references a protected property.");
                 }
 
                 if (source.FilterArgs is null)
@@ -244,6 +255,14 @@ internal static class TemplateConfigurationReader
                     "DocGen.UnauthorizedEntity",
                     $"Unknown or not allowed entity '{input.Entity}'.");
             }
+
+            if (DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.Display)
+                || DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.Description)
+                || DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.Search)
+                || DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.OrderBy))
+            {
+                return ProtectedPropertyError($"Entity select input '{key}' references a protected property.");
+            }
         }
         else if (!string.Equals(input.Kind, InputKinds.Manual, StringComparison.OrdinalIgnoreCase))
         {
@@ -276,6 +295,11 @@ internal static class TemplateConfigurationReader
                         $"Input '{key}' has a filter with empty property.");
                 }
 
+                if (DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(filter.Property))
+                {
+                    return ProtectedPropertyError($"Input '{key}' filter references a protected property.");
+                }
+
                 if (!string.Equals(filter.Operator, "Equals", StringComparison.OrdinalIgnoreCase))
                 {
                     return ErrorDetails.Validation(
@@ -288,6 +312,41 @@ internal static class TemplateConfigurationReader
                     return ErrorDetails.Validation(
                         "DocGen.InputFilterDependencyMissing",
                         $"Input '{key}' filter depends on unknown input '{filter.Input}'.");
+                }
+            }
+        }
+
+        return Result.Success();
+    }
+
+    private static Result ValidateMapping(MappingConfig mapping)
+    {
+        if (mapping.Scalars is not null)
+        {
+            foreach (var (tag, path) in mapping.Scalars)
+            {
+                if (DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(path))
+                {
+                    return ProtectedPropertyError($"Scalar mapping '{tag}' references a protected property.");
+                }
+            }
+        }
+
+        if (mapping.Tables is not null)
+        {
+            foreach (var (tableName, table) in mapping.Tables)
+            {
+                if (DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(table.SourceArray))
+                {
+                    return ProtectedPropertyError($"Table mapping '{tableName}' source references a protected property.");
+                }
+
+                foreach (var (columnTag, path) in table.RowMapping)
+                {
+                    if (DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(path))
+                    {
+                        return ProtectedPropertyError($"Table mapping '{tableName}.{columnTag}' references a protected property.");
+                    }
                 }
             }
         }
@@ -318,5 +377,12 @@ internal static class TemplateConfigurationReader
         return ErrorDetails.Validation(
             "DocGen.InvalidInputType",
             $"Input '{key}' must be a valid {expectedType} value.");
+    }
+
+    private static ErrorDetails ProtectedPropertyError(string message)
+    {
+        return ErrorDetails.Forbidden(
+            "DocGen.ProtectedProperty",
+            message);
     }
 }

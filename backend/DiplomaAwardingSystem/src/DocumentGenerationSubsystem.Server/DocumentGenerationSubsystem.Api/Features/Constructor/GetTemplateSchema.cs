@@ -94,29 +94,34 @@ internal sealed class EntitySchemaProvider : IEntitySchemaProvider
         var result = new Dictionary<string, GetTemplateSchema.EntitySchemaNode>(StringComparer.OrdinalIgnoreCase);
         var efModel = context.Model;
 
-        foreach (var entityName in DocumentGenerationAllowedEntities.Registry.Keys)
+        foreach (var (entityName, registration) in DocumentGenerationAllowedEntities.Registry)
         {
             var entityType = efModel.GetEntityTypes()
-                .FirstOrDefault(e => e.ClrType.Name.Equals(entityName, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(e => e.ClrType == registration.ClrType);
 
             if (entityType is null) continue;
 
             var scalars = entityType.GetProperties()
-                .Where(p => !p.IsShadowProperty() && !p.IsForeignKey())
+                .Where(p => !p.IsShadowProperty()
+                            && !p.IsForeignKey()
+                            && registration.AllowsProperty(p.Name))
                 .Select(p => p.Name)
                 .ToArray();
 
             var keyScalars = entityType.FindPrimaryKey()?.Properties
-                .Where(p => !p.IsShadowProperty())
+                .Where(p => !p.IsShadowProperty()
+                            && registration.AllowsProperty(p.Name))
                 .Select(p => p.Name)
                 .ToArray()
                 ?? [];
 
             var foreignKeys = entityType.GetForeignKeys()
                 .Where(fk => DocumentGenerationAllowedEntities.Registry.ContainsKey(fk.PrincipalEntityType.ClrType.Name))
-                .SelectMany(fk => fk.Properties.Select(property => new GetTemplateSchema.ForeignKeySchemaNode(
-                    property.Name,
-                    fk.PrincipalEntityType.ClrType.Name)))
+                .SelectMany(fk => fk.Properties
+                    .Where(property => registration.AllowsProperty(property.Name))
+                    .Select(property => new GetTemplateSchema.ForeignKeySchemaNode(
+                        property.Name,
+                        fk.PrincipalEntityType.ClrType.Name)))
                 .ToArray();
 
             var entities = new Dictionary<string, string>();
@@ -136,7 +141,10 @@ internal sealed class EntitySchemaProvider : IEntitySchemaProvider
                 references.Add(new GetTemplateSchema.EntityReferenceSchemaNode(
                     nav.Name,
                     targetTypeName,
-                    nav.ForeignKey.Properties.Select(p => p.Name).ToArray(),
+                    nav.ForeignKey.Properties
+                        .Where(p => registration.AllowsProperty(p.Name))
+                        .Select(p => p.Name)
+                        .ToArray(),
                     nav.IsCollection));
             }
 
