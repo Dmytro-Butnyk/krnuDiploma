@@ -9,7 +9,7 @@ import {
   X,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type SetStateAction } from 'react'
 import {
   fetchGenerationInputOptions,
   useDeleteTemplate,
@@ -969,6 +969,14 @@ function UploadPanel({
   onContinue: () => void
   onFile: (file: File) => void
 }) {
+  const handleFileDrop = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+
+    const file = event.dataTransfer.files?.[0]
+    if (file) onFile(file)
+  }
+
   return (
     <div className="ui-surface relative flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-5 py-[clamp(20px,2vw,36px)] custom-scrollbar">
       <button className="absolute right-6 top-6 text-red-500 hover:text-red-600" onClick={onClose} title="Закрити">
@@ -1016,6 +1024,11 @@ function UploadPanel({
         <button
           className="mt-[clamp(32px,5vh,56px)] flex min-h-[clamp(220px,34vh,420px)] flex-1 items-center justify-center rounded-[var(--radius-ui-md)] border border-dashed border-[var(--color-primary)] bg-white text-center transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-bg-pink)]"
           onClick={() => inputRef.current?.click()}
+          onDragOver={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+          }}
+          onDrop={handleFileDrop}
         >
           <span className="flex flex-col items-center">
             {isScanning ? (

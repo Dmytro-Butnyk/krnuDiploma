@@ -62,7 +62,7 @@ export function DataSourcesStep({ schema = {} }: Props) {
   const validationReason = validationResult.ok ? null : validationResult.reason
   const generatedInputKey = getInputKey(newSource.entity, newSource.filterProperty || 'Id')
   const parentSuggestions = entityNode?.foreignKeys ?? []
-  const selectedParentFilterProperties = newSource.parentFilterProperties ?? []
+  const selectedParentFilterProperties = (newSource.parentFilterProperties ?? []).slice(0, 1)
 
   useEffect(() => {
     if (!newSource.entity && entityNames[0]) {
@@ -72,7 +72,7 @@ export function DataSourcesStep({ schema = {} }: Props) {
         key: `Target${entity}`,
         filterProperty: schema[entity]?.keyScalars[0] ?? schema[entity]?.scalars[0] ?? 'Id',
         filterOperator: 'Equals',
-        argumentLabel: entity,
+        argumentLabel: getInputKey(entity, schema[entity]?.keyScalars[0] ?? schema[entity]?.scalars[0] ?? 'Id'),
         parentFilterProperties: [],
       })
     }
@@ -90,7 +90,7 @@ export function DataSourcesStep({ schema = {} }: Props) {
       key: `Target${entity}`,
       filterProperty,
       filterOperator: 'Equals',
-      argumentLabel: entity,
+      argumentLabel: getInputKey(entity, filterProperty),
       parentFilterProperties: [],
     })
   }
@@ -99,6 +99,8 @@ export function DataSourcesStep({ schema = {} }: Props) {
     updateNewSource({
       filterProperty,
       filterOperator: 'Equals',
+      argumentLabel: getInputKey(newSource.entity, filterProperty),
+      parentFilterProperties: [],
     })
   }
 

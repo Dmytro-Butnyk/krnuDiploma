@@ -46,7 +46,7 @@ function createDefaultDataSource(defaultEntity = '', inputKey = ''): NewDataSour
     inputKey,
     filterProperty: 'Id',
     filterOperator: 'Equals',
-    argumentLabel: defaultEntity,
+    argumentLabel: defaultEntity ? getDataSourceInputKey(defaultEntity, 'Id') : '',
     parentFilterProperties: [],
   }
 }
@@ -571,9 +571,7 @@ persist(
       return {
         newSource: {
           ...state.newSource,
-          parentFilterProperties: selected
-            ? parentFilterProperties.filter((candidate) => candidate !== property)
-            : [...parentFilterProperties, property],
+          parentFilterProperties: selected ? [] : [property],
         },
       }
     }),
@@ -605,9 +603,10 @@ persist(
             schema,
           })
         : createManualInput(newSource.argumentLabel)
+    const selectedParentFilterProperties = new Set((newSource.parentFilterProperties ?? []).slice(0, 1))
 
     const parentInputs = (schema[newSource.entity]?.foreignKeys ?? [])
-      .filter((foreignKey) => (newSource.parentFilterProperties ?? []).includes(foreignKey.property))
+      .filter((foreignKey) => selectedParentFilterProperties.has(foreignKey.property))
       .reduce<Record<string, InputConfig>>((acc, foreignKey) => {
         const parentInputKey = getUniqueKey(
           getDataSourceInputKey(foreignKey.targetEntity, 'Id'),
@@ -622,7 +621,7 @@ persist(
       }, {})
 
     const parentFilters = (schema[newSource.entity]?.foreignKeys ?? [])
-      .filter((foreignKey) => (newSource.parentFilterProperties ?? []).includes(foreignKey.property))
+      .filter((foreignKey) => selectedParentFilterProperties.has(foreignKey.property))
       .map((foreignKey) => {
         const parentInputKey = Object.entries(parentInputs).find(([, input]) => (
           input.Kind === 'EntitySelect' && input.Entity === foreignKey.targetEntity

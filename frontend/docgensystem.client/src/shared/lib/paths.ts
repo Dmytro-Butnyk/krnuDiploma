@@ -1,34 +1,76 @@
 import type { EntitySchema, EntitySchemaNode, SchemaPath } from '../../entities/schema/model/types'
 
-export function getPathsForEntity(
+const MAX_GENERATED_SCHEMA_PATHS = 5000
+const pathsCache = new WeakMap<EntitySchema, Map<string, SchemaPath[]>>()
+
+function addPath(paths: SchemaPath[], path: SchemaPath) {
+  if (paths.length >= MAX_GENERATED_SCHEMA_PATHS) return false
+
+  paths.push(path)
+  return true
+}
+
+function buildPathsForEntity(
   schema: EntitySchema,
   entityName: string,
+  visitedEntities: Set<string>,
   prefix = '',
-  depth = 0,
-  maxDepth = 2,
 ): SchemaPath[] {
-  if (depth > maxDepth) return []
+  if (visitedEntities.has(entityName)) return []
 
   const schemaNode: EntitySchemaNode | undefined = schema[entityName]
   if (!schemaNode) return []
 
-  const scalarPaths = schemaNode.scalars.map((scalar) => ({
-    fullPath: prefix ? `${prefix}.${scalar}` : scalar,
-    isCollection: false as const,
-  }))
+  const nextVisitedEntities = new Set(visitedEntities)
+  nextVisitedEntities.add(entityName)
+  const paths: SchemaPath[] = []
 
-  const entityPaths = Object.entries(schemaNode.entities).flatMap(([navProp, targetEntity]) => {
+  for (const scalar of schemaNode.scalars) {
+    if (!addPath(paths, {
+      fullPath: prefix ? `${prefix}.${scalar}` : scalar,
+      isCollection: false,
+    })) {
+      return paths
+    }
+  }
+
+  for (const [navProp, targetEntity] of Object.entries(schemaNode.entities)) {
+    if (nextVisitedEntities.has(targetEntity)) continue
+
     const nextPrefix = prefix ? `${prefix}.${navProp}` : navProp
-    return getPathsForEntity(schema, targetEntity, nextPrefix, depth + 1, maxDepth)
-  })
+    const entityPaths = buildPathsForEntity(schema, targetEntity, nextVisitedEntities, nextPrefix)
+    for (const path of entityPaths) {
+      if (!addPath(paths, path)) return paths
+    }
+  }
 
-  const collectionPaths = Object.entries(schemaNode.collections).map(([navProp, targetEntity]) => ({
-    fullPath: prefix ? `${prefix}.${navProp}` : navProp,
-    isCollection: true as const,
-    targetType: targetEntity,
-  }))
+  for (const [navProp, targetEntity] of Object.entries(schemaNode.collections)) {
+    if (nextVisitedEntities.has(targetEntity)) continue
+    if (!addPath(paths, {
+      fullPath: prefix ? `${prefix}.${navProp}` : navProp,
+      isCollection: true,
+      targetType: targetEntity,
+    })) {
+      return paths
+    }
+  }
 
-  return [...scalarPaths, ...entityPaths, ...collectionPaths]
+  return paths
+}
+
+export function getPathsForEntity(schema: EntitySchema, entityName: string): SchemaPath[] {
+  let schemaCache = pathsCache.get(schema)
+  if (!schemaCache) {
+    schemaCache = new Map<string, SchemaPath[]>()
+    pathsCache.set(schema, schemaCache)
+  }
+
+  const cachedPaths = schemaCache.get(entityName)
+  if (cachedPaths) return cachedPaths
+
+  const paths = buildPathsForEntity(schema, entityName, new Set())
+  schemaCache.set(entityName, paths)
+  return paths
 }
 
 export function getSourceArrayScalarPaths(

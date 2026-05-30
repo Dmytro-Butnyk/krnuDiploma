@@ -11,6 +11,8 @@ type Props = {
   schema?: EntitySchema
 }
 
+const MAX_VISIBLE_MAPPING_PATHS = 200
+
 function ScalarPathList({
   sourceKey,
   entity,
@@ -25,6 +27,7 @@ function ScalarPathList({
   const selectedTag = useConstructorStore((state) => state.selectedTag)
   const mapScalar = useConstructorStore((state) => state.mapScalar)
   const isExpanded = expandedSources[sourceKey] ?? true
+  const visiblePaths = paths.slice(0, MAX_VISIBLE_MAPPING_PATHS)
 
   return (
     <div className="overflow-hidden rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)]">
@@ -40,7 +43,7 @@ function ScalarPathList({
       </button>
       {isExpanded && (
         <ul className="p-2">
-          {paths.map((path) => (
+          {visiblePaths.map((path) => (
             <li key={path.fullPath}>
               <button
                 disabled={!selectedTag}
@@ -90,6 +93,78 @@ function InputScalarPanel({ tag }: { tag: string }) {
       </Button>
     </div>
   )
+}
+
+function getPathSearchScore(path: string, query: string) {
+  const normalizedPath = path.toLowerCase()
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return 0
+  if (!normalizedPath.includes(normalizedQuery)) return Number.NEGATIVE_INFINITY
+
+  const segments = normalizedPath.split('.')
+  const bestSegmentScore = segments.reduce((bestScore, segment, index) => {
+    const matchIndex = segment.indexOf(normalizedQuery)
+    if (matchIndex === -1) return bestScore
+
+    let score = 500
+    if (matchIndex === 0) score += 700
+    if (segment === normalizedQuery) score += 300
+    if (index === 0) score += 260
+    if (index === segments.length - 1) score += 40
+    score -= matchIndex * 25
+
+    return Math.max(bestScore, score)
+  }, 0)
+
+  const fullPathMatchIndex = normalizedPath.indexOf(normalizedQuery)
+  let fullPathScore = 400
+  if (fullPathMatchIndex === 0) fullPathScore += 400
+  if (normalizedPath === normalizedQuery) fullPathScore += 300
+  fullPathScore -= fullPathMatchIndex * 10
+  const depthPenalty = (segments.length - 1) * 140
+  const lengthPenalty = normalizedPath.length * 0.5
+
+  return Math.max(bestSegmentScore, fullPathScore) - depthPenalty - lengthPenalty
+}
+
+function getPathCost(path: string) {
+  const segments = path.split('.')
+  return (segments.length - 1) * 100 + path.length * 0.5
+}
+
+function rankSchemaPaths(paths: SchemaPath[], query: string) {
+  const normalizedQuery = query.trim()
+  if (!normalizedQuery) {
+    return [...paths].sort((left, right) => {
+      const costDifference = getPathCost(left.fullPath) - getPathCost(right.fullPath)
+      return costDifference || left.fullPath.localeCompare(right.fullPath)
+    })
+  }
+
+  return paths
+    .map((path, index) => ({
+      path,
+      index,
+      score: getPathSearchScore(path.fullPath, normalizedQuery),
+    }))
+    .filter((item) => Number.isFinite(item.score))
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score
+      const lengthDifference = left.path.fullPath.length - right.path.fullPath.length
+      return lengthDifference || left.index - right.index
+    })
+    .map((item) => item.path)
+}
+
+function rankPathValues(paths: string[], query: string) {
+  return rankSchemaPaths(
+    paths.map((fullPath) => ({ fullPath, isCollection: false as const })),
+    query,
+  ).map((path) => path.fullPath)
+}
+
+function getOptionPathSearchScore(option: { label: string }, query: string) {
+  return getPathSearchScore(option.label, query)
 }
 
 export function MappingStep({ schema = {} }: Props) {
@@ -142,8 +217,7 @@ export function MappingStep({ schema = {} }: Props) {
     () =>
       config.DataSources.flatMap((source) => [
         { value: source.Key, label: `${source.Key} (${source.Entity})` },
-        ...getPathsForEntity(schema, source.Entity)
-          .filter((path) => path.isCollection)
+        ...rankSchemaPaths(getPathsForEntity(schema, source.Entity).filter((path) => path.isCollection), '')
           .map((path) => ({
             value: `${source.Key}.${path.fullPath}`,
             label: `${source.Key}.${path.fullPath}`,
@@ -151,13 +225,11 @@ export function MappingStep({ schema = {} }: Props) {
       ]),
     [config.DataSources, schema],
   )
-  const sourcePathOptions = sourceArrayPaths.map((path) => ({ value: path, label: path }))
+  const sourcePathOptions = rankPathValues(sourceArrayPaths, '').map((path) => ({ value: path, label: path }))
 
   const getFilteredScalarPaths = (entity: string) => {
     const allPaths = getPathsForEntity(schema, entity).filter((path) => !path.isCollection)
-    if (!searchQuery) return allPaths
-    const query = searchQuery.toLowerCase()
-    return allPaths.filter((path) => path.fullPath.toLowerCase().includes(query))
+    return rankSchemaPaths(allPaths, searchQuery)
   }
 
   return (
@@ -310,6 +382,8 @@ export function MappingStep({ schema = {} }: Props) {
                   <SearchableSelect
                     value={activeTable.SourceArray}
                     options={sourceArrayOptions}
+                    maxVisibleOptions={MAX_VISIBLE_MAPPING_PATHS}
+                    getOptionSearchScore={getOptionPathSearchScore}
                     placeholder="Виберіть колекцію бази даних"
                     onChange={(value) => updateTableSourceArray(selectedTable, value)}
                   />
@@ -334,6 +408,8 @@ export function MappingStep({ schema = {} }: Props) {
                       <SearchableSelect
                         value={newColumnPath}
                         options={sourcePathOptions}
+                        maxVisibleOptions={MAX_VISIBLE_MAPPING_PATHS}
+                        getOptionSearchScore={getOptionPathSearchScore}
                         placeholder="Поле"
                         onChange={setNewColumnPath}
                       />

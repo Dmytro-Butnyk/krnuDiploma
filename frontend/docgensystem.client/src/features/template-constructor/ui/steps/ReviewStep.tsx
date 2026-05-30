@@ -1,5 +1,5 @@
 import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
-import { useRef } from 'react'
+import { useRef, type DragEvent } from 'react'
 import { Button } from '../../../../shared/ui/Button'
 
 type Props = {
@@ -28,6 +28,14 @@ export function ReviewStep({
   showDocumentBackButton = true,
 }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null)
+  const handleTemplateFile = (file: File | undefined) => {
+    if (file && onTemplateFileChange) onTemplateFileChange(file)
+  }
+  const handleTemplateFileDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    handleTemplateFile(event.dataTransfer.files?.[0])
+  }
 
   return (
     <div className="custom-scrollbar flex h-full min-h-0 w-full flex-col items-center overflow-y-auto overflow-x-hidden px-1 pb-6">
@@ -58,7 +66,14 @@ export function ReviewStep({
         </label>
 
         {isTemplateFileMissing && (
-          <div className="mt-5 w-full rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-4 text-left text-sm font-bold text-[var(--color-danger)]">
+          <div
+            className="mt-5 w-full rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-4 text-left text-sm font-bold text-[var(--color-danger)]"
+            onDragOver={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onDrop={handleTemplateFileDrop}
+          >
             <p>Після перезавантаження сторінки браузер не відновлює файл шаблону. Оберіть .docx ще раз перед збереженням.</p>
             <input
               ref={inputRef}
@@ -66,8 +81,7 @@ export function ReviewStep({
               accept=".docx"
               className="hidden"
               onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (file && onTemplateFileChange) onTemplateFileChange(file)
+                handleTemplateFile(event.target.files?.[0])
               }}
             />
             <Button

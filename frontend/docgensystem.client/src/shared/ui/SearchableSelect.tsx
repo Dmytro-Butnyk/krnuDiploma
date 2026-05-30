@@ -2,12 +2,19 @@ import { ChevronDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { cn } from '../lib/cn'
 
+type SearchableSelectOption = {
+  value: string
+  label: string
+}
+
 type SearchableSelectProps = {
   value: string
-  options: Array<{ value: string; label: string }>
+  options: SearchableSelectOption[]
   placeholder: string
   emptyText?: string
   className?: string
+  maxVisibleOptions?: number
+  getOptionSearchScore?: (option: SearchableSelectOption, query: string) => number
   onChange: (value: string) => void
 }
 
@@ -17,6 +24,8 @@ export function SearchableSelect({
   placeholder,
   emptyText = 'Нічого не знайдено',
   className,
+  maxVisibleOptions,
+  getOptionSearchScore,
   onChange,
 }: SearchableSelectProps) {
   const [query, setQuery] = useState('')
@@ -24,10 +33,25 @@ export function SearchableSelect({
   const selectedLabel = options.find((option) => option.value === value)?.label ?? ''
   const visibleOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
-    if (!normalizedQuery) return options
+    const rankedOptions = normalizedQuery && getOptionSearchScore
+      ? options
+          .map((option, index) => ({
+            option,
+            index,
+            score: getOptionSearchScore(option, normalizedQuery),
+          }))
+          .filter((item) => Number.isFinite(item.score))
+          .sort((left, right) => {
+            if (right.score !== left.score) return right.score - left.score
+            return left.index - right.index
+          })
+          .map((item) => item.option)
+      : normalizedQuery
+        ? options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
+        : options
 
-    return options.filter((option) => option.label.toLowerCase().includes(normalizedQuery))
-  }, [options, query])
+    return typeof maxVisibleOptions === 'number' ? rankedOptions.slice(0, maxVisibleOptions) : rankedOptions
+  }, [getOptionSearchScore, maxVisibleOptions, options, query])
 
   return (
     <div className={cn('relative', className)}>
