@@ -195,6 +195,20 @@ internal static class TemplateConfigurationReader
                     return ProtectedPropertyError($"Data source '{source.Key}' filter references a protected property.");
                 }
 
+                if (DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(source.OrderBy))
+                {
+                    return ProtectedPropertyError($"Data source '{source.Key}' order by references a protected property.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(source.Result)
+                    && !string.Equals(source.Result, DataSourceResults.One, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(source.Result, DataSourceResults.Many, StringComparison.OrdinalIgnoreCase))
+                {
+                    return ErrorDetails.Validation(
+                        "DocGen.UnsupportedDataSourceResult",
+                        $"Data source '{source.Key}' has unsupported result mode '{source.Result}'.");
+                }
+
                 if (source.FilterArgs is null)
                 {
                     continue;
@@ -212,7 +226,75 @@ internal static class TemplateConfigurationReader
             }
         }
 
+        var scenarioMappingsResult = ValidateHardcodedScenarioMappings(configuration);
+        if (scenarioMappingsResult.IsFailure)
+        {
+            return scenarioMappingsResult.ErrorDetails;
+        }
+
         return configuration;
+    }
+
+    private static Result ValidateHardcodedScenarioMappings(TemplateConfiguration configuration)
+    {
+        if (!IsGroupDefenceDayExtractScenario(configuration))
+        {
+            return Result.Success();
+        }
+
+        if (configuration.Mapping?.Scalars is null
+            || !configuration.Mapping.Scalars.TryGetValue("DefenceDate", out var defenceDatePath)
+            || !string.Equals(defenceDatePath, "Input.DefenceDate", StringComparison.OrdinalIgnoreCase))
+        {
+            return ErrorDetails.Validation(
+                "DocGen.ScenarioRequiredScalarMissing",
+                "Scenario 'group-defence-day-extract' requires scalar tag 'DefenceDate' mapped to 'Input.DefenceDate'.");
+        }
+
+        if (!configuration.Mapping.Scalars.TryGetValue("ProtocolsNumbers", out var protocolsNumbersPath)
+            || !string.Equals(protocolsNumbersPath, "Computed.ProtocolsNumbers", StringComparison.OrdinalIgnoreCase))
+        {
+            return ErrorDetails.Validation(
+                "DocGen.ScenarioRequiredScalarMissing",
+                "Scenario 'group-defence-day-extract' requires scalar tag 'ProtocolsNumbers' mapped to 'Computed.ProtocolsNumbers'.");
+        }
+
+        if (configuration.Mapping.Tables is null
+            || !configuration.Mapping.Tables.Values.Any(table =>
+                string.Equals(table.SourceArray, "DayStudents", StringComparison.OrdinalIgnoreCase)))
+        {
+            return ErrorDetails.Validation(
+                "DocGen.ScenarioRequiredTableMissing",
+                "Scenario 'group-defence-day-extract' requires a student table mapped to SourceArray 'DayStudents'.");
+        }
+
+        if (configuration.Mapping.Tables.Values.Any(table =>
+                string.Equals(table.SourceArray, "TargetGroup.Students", StringComparison.OrdinalIgnoreCase)))
+        {
+            return ErrorDetails.Validation(
+                "DocGen.ScenarioWrongTableSource",
+                "Use SourceArray 'DayStudents' for the defence-day student table. 'TargetGroup.Students' bypasses the scenario filter by defence date and score.");
+        }
+
+        return Result.Success();
+    }
+
+    private static bool IsGroupDefenceDayExtractScenario(TemplateConfiguration configuration)
+    {
+        var hasDefenceDateInput =
+            configuration.Inputs is not null
+            && configuration.Inputs.TryGetValue("DefenceDate", out var defenceDateInput)
+            && string.Equals(defenceDateInput.Kind, InputKinds.ValueSelect, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(defenceDateInput.Entity, "QualificationWork", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(defenceDateInput.ValuePath, "DefenceDate", StringComparison.OrdinalIgnoreCase);
+
+        var hasDayStudentsSource =
+            configuration.DataSources is not null
+            && configuration.DataSources.Any(source =>
+                string.Equals(source.Key, "DayStudents", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(source.Result, DataSourceResults.Many, StringComparison.OrdinalIgnoreCase));
+
+        return hasDefenceDateInput && hasDayStudentsSource;
     }
 
     private static Result ValidateInput(
@@ -242,11 +324,12 @@ internal static class TemplateConfigurationReader
                 $"Input '{key}' has unsupported value type '{input.ValueType}'.");
         }
 
-        if (string.Equals(input.Kind, InputKinds.EntitySelect, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(input.Kind, InputKinds.EntitySelect, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(input.Kind, InputKinds.ValueSelect, StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(input.Entity))
             {
-                return ErrorDetails.Validation("DocGen.InputEntityMissing", $"Entity select input '{key}' must define Entity.");
+                return ErrorDetails.Validation("DocGen.InputEntityMissing", $"Input '{key}' must define Entity.");
             }
 
             if (!DocumentGenerationAllowedEntities.Registry.ContainsKey(input.Entity))
@@ -256,12 +339,19 @@ internal static class TemplateConfigurationReader
                     $"Unknown or not allowed entity '{input.Entity}'.");
             }
 
-            if (DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.Display)
+            if (string.Equals(input.Kind, InputKinds.ValueSelect, StringComparison.OrdinalIgnoreCase)
+                && string.IsNullOrWhiteSpace(input.ValuePath))
+            {
+                return ErrorDetails.Validation("DocGen.InputValuePathMissing", $"Value select input '{key}' must define ValuePath.");
+            }
+
+            if (DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.ValuePath)
+                || DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.Display)
                 || DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.Description)
                 || DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.Search)
                 || DocumentGenerationAllowedEntities.ContainsProtectedPropertyReference(input.OrderBy))
             {
-                return ProtectedPropertyError($"Entity select input '{key}' references a protected property.");
+                return ProtectedPropertyError($"Input '{key}' references a protected property.");
             }
         }
         else if (!string.Equals(input.Kind, InputKinds.Manual, StringComparison.OrdinalIgnoreCase))

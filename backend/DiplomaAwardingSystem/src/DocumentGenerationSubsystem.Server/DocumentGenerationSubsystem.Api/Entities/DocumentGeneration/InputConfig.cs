@@ -8,6 +8,7 @@ public sealed record InputConfig(
     [property: JsonPropertyName("Label")] string? Label,
     [property: JsonPropertyName("Required")] bool Required,
     [property: JsonPropertyName("Entity")] string? Entity,
+    [property: JsonPropertyName("ValuePath")] string? ValuePath,
     [property: JsonPropertyName("DependsOn")] IReadOnlyCollection<string>? DependsOn,
     [property: JsonPropertyName("Filters")] IReadOnlyCollection<InputFilterConfig>? Filters,
     [property: JsonPropertyName("Display")] IReadOnlyCollection<string>? Display,

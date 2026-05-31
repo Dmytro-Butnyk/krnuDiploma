@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Globalization;
 using System.Linq.Dynamic.Core;
 using System.Linq.Dynamic.Core.Exceptions;
 using Core.Api.Extensions;
@@ -92,7 +93,10 @@ public static class GetGenerationInputOptions
                     $"Generation input '{inputKey}' was not found.");
             }
 
-            if (!string.Equals(input.Kind, InputKinds.EntitySelect, StringComparison.OrdinalIgnoreCase))
+            var isEntitySelect = string.Equals(input.Kind, InputKinds.EntitySelect, StringComparison.OrdinalIgnoreCase);
+            var isValueSelect = string.Equals(input.Kind, InputKinds.ValueSelect, StringComparison.OrdinalIgnoreCase);
+
+            if (!isEntitySelect && !isValueSelect)
             {
                 return ErrorDetails.Validation(
                     "DocGen.InputOptionsNotSupported",
@@ -123,17 +127,29 @@ public static class GetGenerationInputOptions
 
             try
             {
-                query = ApplySearch(query, input, request.Search);
-                query = ApplyOrderBy(query, input);
-
                 var take = Math.Clamp(request.Take ?? DefaultTake, 1, MaxTake);
-                var rows = await query.Take(take + 1).ToDynamicListAsync(ct);
-                var hasMore = rows.Count > take;
+                OptionDto[] options;
+                bool hasMore;
 
-                var options = rows.Cast<object>()
-                    .Take(take)
-                    .Select(row => MapOption(row, input))
-                    .ToArray();
+                if (isValueSelect)
+                {
+                    var valueOptions = await LoadValueSelectOptionsAsync(query, input, take, ct);
+                    options = valueOptions.Options;
+                    hasMore = valueOptions.HasMore;
+                }
+                else
+                {
+                    query = ApplySearch(query, input, request.Search);
+                    query = ApplyOrderBy(query, input);
+
+                    var rows = await query.Take(take + 1).ToDynamicListAsync(ct);
+                    hasMore = rows.Count > take;
+
+                    options = rows.Cast<object>()
+                        .Take(take)
+                        .Select(row => MapOption(row, input))
+                        .ToArray();
+                }
 
                 return new OptionsResponse(options, hasMore);
             }
@@ -170,13 +186,42 @@ public static class GetGenerationInputOptions
         {
             if (input.OrderBy is null || input.OrderBy.Count == 0)
             {
-                return query.OrderBy("Id");
+                return string.Equals(input.Kind, InputKinds.ValueSelect, StringComparison.OrdinalIgnoreCase)
+                       && !string.IsNullOrWhiteSpace(input.ValuePath)
+                    ? query.OrderBy(input.ValuePath)
+                    : query.OrderBy("Id");
             }
 
             var orderBy = string.Join(", ", input.OrderBy.Where(x => !string.IsNullOrWhiteSpace(x)));
             return string.IsNullOrWhiteSpace(orderBy)
                 ? query.OrderBy("Id")
                 : query.OrderBy(orderBy);
+        }
+
+        private static async Task<(OptionDto[] Options, bool HasMore)> LoadValueSelectOptionsAsync(
+            IQueryable query,
+            InputConfig input,
+            int take,
+            CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(input.ValuePath))
+            {
+                return ([], false);
+            }
+
+            query = query.Where($"{input.ValuePath} != null");
+            query = ApplyOrderBy(query, input);
+
+            var rows = await query.Take(1000).ToDynamicListAsync(ct);
+            var options = rows.Cast<object>()
+                .Select(row => DynamicDocumentEngine.TraverseObjectGraph(row, input.ValuePath))
+                .Where(value => value is not null)
+                .Distinct()
+                .Select(value => MapValueOption(value!, input))
+                .Take(take + 1)
+                .ToArray();
+
+            return (options.Take(take).ToArray(), options.Length > take);
         }
 
         private static OptionDto MapOption(object row, InputConfig input)
@@ -195,6 +240,22 @@ public static class GetGenerationInputOptions
 
             var description = BuildText(row, input.Description);
             return new OptionDto(value, label, string.IsNullOrWhiteSpace(description) ? null : description);
+        }
+
+        private static OptionDto MapValueOption(object value, InputConfig input)
+        {
+            return value switch
+            {
+                DateOnly date => new OptionDto(
+                    date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture),
+                    null),
+                DateTime dateTime => new OptionDto(
+                    dateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    dateTime.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture),
+                    null),
+                _ => new OptionDto(value.ToString() ?? string.Empty, value.ToString() ?? string.Empty, null)
+            };
         }
 
         private static string BuildText(object row, IReadOnlyCollection<string>? fields)

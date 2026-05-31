@@ -15,6 +15,7 @@ public sealed record GenerationInputDto(
     string Label,
     bool Required,
     string? Entity,
+    string? ValuePath,
     IReadOnlyCollection<string> DependsOn,
     IReadOnlyCollection<InputFilterConfig> Filters,
     IReadOnlyCollection<string> Display,
@@ -38,7 +39,9 @@ internal static class GenerationFormMapper
 
     private static GenerationInputDto MapInput(int templateId, string key, InputConfig input)
     {
-        var isEntitySelect = string.Equals(input.Kind, InputKinds.EntitySelect, StringComparison.OrdinalIgnoreCase);
+        var hasOptionsEndpoint =
+            string.Equals(input.Kind, InputKinds.EntitySelect, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(input.Kind, InputKinds.ValueSelect, StringComparison.OrdinalIgnoreCase);
 
         return new GenerationInputDto(
             key,
@@ -47,6 +50,7 @@ internal static class GenerationFormMapper
             string.IsNullOrWhiteSpace(input.Label) ? key : input.Label,
             input.Required,
             input.Entity,
+            input.ValuePath,
             input.DependsOn?.ToArray() ?? [],
             input.Filters?.ToArray() ?? [],
             input.Display?.ToArray() ?? [],
@@ -54,7 +58,7 @@ internal static class GenerationFormMapper
             input.Search?.ToArray() ?? [],
             input.OrderBy?.ToArray() ?? [],
             input.MaxLength,
-            isEntitySelect
+            hasOptionsEndpoint
                 ? $"/api/documents/templates/{templateId}/generation-inputs/{key}/options"
                 : null);
     }

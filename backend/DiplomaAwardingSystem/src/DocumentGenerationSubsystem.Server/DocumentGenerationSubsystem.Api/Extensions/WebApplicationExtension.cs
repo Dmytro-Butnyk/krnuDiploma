@@ -12,6 +12,7 @@ public static class WebApplicationExtension
         GenerateDocument.Endpoint.MapEndpoint(apiGroup);
         GetGenerationInputOptions.Endpoint.MapEndpoint(apiGroup);
         GetTemplateGenerationForm.Endpoint.MapEndpoint(apiGroup);
+        GetConstructorScenarios.Endpoint.MapEndpoint(apiGroup);
         GetTemplateSchema.Endpoint.MapEndpoint(apiGroup);
         ScanTemplateForTags.Endpoint.MapEndpoint(apiGroup);
         

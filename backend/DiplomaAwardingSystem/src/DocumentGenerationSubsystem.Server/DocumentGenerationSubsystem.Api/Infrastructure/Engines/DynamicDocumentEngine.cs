@@ -1,8 +1,10 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Data.Common;
+using System.Globalization;
 using System.Linq.Dynamic.Core;
 using System.Linq.Dynamic.Core.Exceptions;
+using Core.Domain.Enums;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
@@ -55,7 +57,7 @@ public sealed class DynamicDocumentEngine(
                     return DynamicDocumentEngineErrors.NestedListNotSupported;
                 }
 
-                result[wordTag] = val ?? string.Empty;
+                result[wordTag] = FormatMappedValue(fullPath, val);
             }
         }
 
@@ -98,7 +100,7 @@ public sealed class DynamicDocumentEngine(
                                 return DynamicDocumentEngineErrors.NestedListNotSupported;
                             }
 
-                            rowDict[columnTag] = rawValue?.ToString() ?? string.Empty;
+                            rowDict[columnTag] = FormatMappedValue(columnPath, rawValue);
                         }
 
                         listResult.Add(rowDict);
@@ -161,7 +163,11 @@ public sealed class DynamicDocumentEngine(
         {
             foreach (var source in config.DataSources)
             {
-                var fetchResult = await FetchDataAsync(source, parameters, cancellationToken);
+                var fetchResult = await FetchDataAsync(
+                    source,
+                    config.Inputs,
+                    parameters,
+                    cancellationToken);
 
                 if (fetchResult.IsFailure)
                     return fetchResult.ErrorDetails;
@@ -172,6 +178,14 @@ public sealed class DynamicDocumentEngine(
                 }
             }
         }
+
+        var computedContextResult = await BuildComputedContextAsync(config, parameters, cancellationToken);
+        if (computedContextResult.IsFailure)
+        {
+            return computedContextResult.ErrorDetails;
+        }
+
+        dataContext["Computed"] = computedContextResult.Value!;
 
         var mappingResult = MapToMiniWordDictionary(config.Mapping!, dataContext);
         if (mappingResult.IsFailure)
@@ -281,11 +295,211 @@ public sealed class DynamicDocumentEngine(
         return current;
     }
 
+    private async Task<Result<Dictionary<string, object>>> BuildComputedContextAsync(
+        TemplateConfiguration config,
+        IReadOnlyDictionary<string, string> parameters,
+        CancellationToken cancellationToken)
+    {
+        var computedContext = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+        if (!RequiresComputedScalar(config, "ProtocolsNumbers"))
+        {
+            return computedContext;
+        }
+
+        var protocolsNumbersResult = await ComputeProtocolsNumbersAsync(config, parameters, cancellationToken);
+        if (protocolsNumbersResult.IsFailure)
+        {
+            return protocolsNumbersResult.ErrorDetails;
+        }
+
+        computedContext["ProtocolsNumbers"] = protocolsNumbersResult.Value!;
+
+        return computedContext;
+    }
+
+    private async Task<Result<string>> ComputeProtocolsNumbersAsync(
+        TemplateConfiguration config,
+        IReadOnlyDictionary<string, string> parameters,
+        CancellationToken cancellationToken)
+    {
+        var groupIdResult = ParseRequiredComputedInput<int>(config, parameters, "GroupId");
+        if (groupIdResult.IsFailure)
+        {
+            return groupIdResult.ErrorDetails;
+        }
+
+        var defenceDateResult = ParseRequiredComputedInput<DateOnly>(config, parameters, "DefenceDate");
+        if (defenceDateResult.IsFailure)
+        {
+            return defenceDateResult.ErrorDetails;
+        }
+
+        var groupId = groupIdResult.Value;
+        var defenceDate = defenceDateResult.Value;
+
+        var students = await dbContext.Students
+            .AsNoTracking()
+            .Where(student => student.GroupId == groupId
+                              && student.QualificationWork != null
+                              && student.QualificationWork.DefenceDate != null
+                              && student.QualificationWork.CommissionScore >= 60)
+            .Select(student => new
+            {
+                student.FullName,
+                DefenceDate = student.QualificationWork!.DefenceDate!.Value
+            })
+            .OrderBy(student => student.DefenceDate)
+            .ThenBy(student => student.FullName)
+            .ToListAsync(cancellationToken);
+
+        var firstNumber = 0;
+        var lastNumber = 0;
+
+        for (var index = 0; index < students.Count; index++)
+        {
+            if (students[index].DefenceDate != defenceDate)
+            {
+                continue;
+            }
+
+            var protocolNumber = index + 1;
+            if (firstNumber == 0)
+            {
+                firstNumber = protocolNumber;
+            }
+
+            lastNumber = protocolNumber;
+        }
+
+        if (firstNumber == 0)
+        {
+            return ErrorDetails.Validation(
+                "DocGen.ComputedProtocolsNumbers.Empty",
+                "Cannot compute protocol numbers because no students with score 60+ were found for the selected group and defence date.");
+        }
+
+        return firstNumber == lastNumber
+            ? firstNumber.ToString(CultureInfo.InvariantCulture)
+            : string.Concat(
+                firstNumber.ToString(CultureInfo.InvariantCulture),
+                "-",
+                lastNumber.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static Result<T> ParseRequiredComputedInput<T>(
+        TemplateConfiguration config,
+        IReadOnlyDictionary<string, string> parameters,
+        string inputKey)
+    {
+        if (config.Inputs is null || !config.Inputs.TryGetValue(inputKey, out var input))
+        {
+            return ErrorDetails.Validation(
+                "DocGen.ComputedInputMissing",
+                $"Computed field requires input '{inputKey}'.");
+        }
+
+        if (!parameters.TryGetValue(inputKey, out var rawValue) || string.IsNullOrWhiteSpace(rawValue))
+        {
+            return ErrorDetails.Validation(
+                "DocGen.ComputedInputValueMissing",
+                $"Computed field requires selected value for input '{inputKey}'.");
+        }
+
+        var parsedValueResult = TemplateConfigurationReader.ParseInputValue(inputKey, input.ValueType, rawValue);
+        if (parsedValueResult.IsFailure)
+        {
+            return parsedValueResult.ErrorDetails;
+        }
+
+        if (parsedValueResult.Value is T typedValue)
+        {
+            return typedValue;
+        }
+
+        return ErrorDetails.Validation(
+            "DocGen.ComputedInputTypeMismatch",
+            $"Computed field input '{inputKey}' has unexpected value type.");
+    }
+
+    private static bool RequiresComputedScalar(TemplateConfiguration config, string key)
+    {
+        return config.Mapping?.Scalars is not null
+               && config.Mapping.Scalars.Values.Any(path =>
+                   string.Equals(path, $"Computed.{key}", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string FormatMappedValue(string path, object? value)
+    {
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        if (PathEndsWith(path, "QualificationWork.NationalGrade"))
+        {
+            return value switch
+            {
+                NationalGrade.Excellent => "відмінно",
+                NationalGrade.Good => "добре",
+                NationalGrade.Satisfactory => "задовільно",
+                NationalGrade.None => string.Empty,
+                _ => value.ToString() ?? string.Empty
+            };
+        }
+
+        if (PathEndsWith(path, "QualificationWork.HasDiplomaWithHonors"))
+        {
+            return value is bool hasHonors && hasHonors
+                ? "з відзнакою"
+                : "без відзнаки";
+        }
+
+        if (PathEndsWith(path, "Group.EducationLevel"))
+        {
+            return value switch
+            {
+                EducationLevel.Bachelor => "бакалавр",
+                EducationLevel.Master => "магістр",
+                EducationLevel.None => string.Empty,
+                _ => value.ToString() ?? string.Empty
+            };
+        }
+
+        if (value is DateOnly date)
+        {
+            return date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+        }
+
+        if (value is DateTime dateTime)
+        {
+            return dateTime.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+        }
+
+        if (value is string stringValue
+            && path.EndsWith("Date", StringComparison.OrdinalIgnoreCase)
+            && DateOnly.TryParse(stringValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDate))
+        {
+            return parsedDate.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+        }
+
+        return value.ToString() ?? string.Empty;
+    }
+
+    private static bool PathEndsWith(string path, string expectedSuffix)
+    {
+        var shortSuffixStartIndex = expectedSuffix.IndexOf('.', StringComparison.Ordinal) + 1;
+
+        return path.EndsWith(expectedSuffix, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(path, expectedSuffix[shortSuffixStartIndex..], StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// Parses string parameters into their strongly typed equivalents for Dynamic LINQ consumption.
     /// </summary>
     private static object?[] ParseFilterArguments(
         DataSourceConfig source,
+        IReadOnlyDictionary<string, InputConfig>? inputs,
         IReadOnlyDictionary<string, string> parameters)
     {
         if (source.FilterArgs == null || source.FilterArgs.Count == 0)
@@ -305,20 +519,31 @@ public sealed class DynamicDocumentEngine(
                 continue;
             }
 
-            // Simple fast-path type parsing
-            if (Guid.TryParse(stringValue, out var guidVal))
-                args[i] = guidVal;
-            else if (int.TryParse(stringValue, out var intVal))
-                args[i] = intVal;
-            else if (long.TryParse(stringValue, out var longVal))
-                args[i] = longVal;
-            else if (bool.TryParse(stringValue, out var boolVal))
-                args[i] = boolVal;
-            else
-                args[i] = stringValue;
+            if (inputs is not null && inputs.TryGetValue(argName, out var input))
+            {
+                var parseResult = TemplateConfigurationReader.ParseInputValue(argName, input.ValueType, stringValue);
+                args[i] = parseResult.IsSuccess ? parseResult.Value : stringValue;
+                continue;
+            }
+
+            args[i] = ParseUntypedFilterArgument(stringValue);
         }
 
         return args;
+    }
+
+    private static object ParseUntypedFilterArgument(string stringValue)
+    {
+        if (Guid.TryParse(stringValue, out var guidVal))
+            return guidVal;
+        if (int.TryParse(stringValue, out var intVal))
+            return intVal;
+        if (long.TryParse(stringValue, out var longVal))
+            return longVal;
+        if (bool.TryParse(stringValue, out var boolVal))
+            return boolVal;
+
+        return stringValue;
     }
 
     /// <summary>
@@ -351,6 +576,7 @@ public sealed class DynamicDocumentEngine(
     /// </summary>
     private async Task<Result<object?>> FetchDataAsync(
         DataSourceConfig source,
+        IReadOnlyDictionary<string, InputConfig>? inputs,
         IReadOnlyDictionary<string, string> parameters,
         CancellationToken cancellationToken)
     {
@@ -364,11 +590,24 @@ public sealed class DynamicDocumentEngine(
         {
             if (!string.IsNullOrWhiteSpace(source.Filter))
             {
-                var args = ParseFilterArguments(source, parameters);
+                var args = ParseFilterArguments(source, inputs, parameters);
                 query = query.Where(source.Filter, args);
             }
 
-            // Optimization: Grab exactly one via dynamic LINQ
+            if (source.OrderBy is not null && source.OrderBy.Count > 0)
+            {
+                var orderBy = string.Join(", ", source.OrderBy.Where(x => !string.IsNullOrWhiteSpace(x)));
+                if (!string.IsNullOrWhiteSpace(orderBy))
+                {
+                    query = query.OrderBy(orderBy);
+                }
+            }
+
+            if (string.Equals(source.Result, DataSourceResults.Many, StringComparison.OrdinalIgnoreCase))
+            {
+                return await query.ToDynamicListAsync(cancellationToken);
+            }
+
             var resultList = await query.Take(1).ToDynamicListAsync(cancellationToken);
             return resultList.FirstOrDefault();
         }
