@@ -1,8 +1,9 @@
-import { Check, Trash2 } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { Check, Loader2, RotateCcw, Sparkles, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import type { EntitySchema } from '../../../../entities/schema/model/types'
 import { cn } from '../../../../shared/lib/cn'
 import { Button } from '../../../../shared/ui/Button'
+import { useConstructorScenarios } from '../../api/scenarioApi'
 import { useConstructorStore } from '../../model/store'
 import type { DataSourceFilterOperator } from '../../model/types'
 
@@ -46,7 +47,12 @@ function getInputKey(entity: string, field: string) {
 
 export function DataSourcesStep({ schema = {} }: Props) {
   const newSource = useConstructorStore((state) => state.newSource)
+  const dataSetupMode = useConstructorStore((state) => state.dataSetupMode)
+  const appliedScenarioId = useConstructorStore((state) => state.appliedScenarioId)
   const config = useConstructorStore((state) => state.config)
+  const setDataSetupMode = useConstructorStore((state) => state.setDataSetupMode)
+  const applyScenario = useConstructorStore((state) => state.applyScenario)
+  const cancelScenario = useConstructorStore((state) => state.cancelScenario)
   const updateNewSource = useConstructorStore((state) => state.updateNewSource)
   const toggleParentFilterProperty = useConstructorStore((state) => state.toggleParentFilterProperty)
   const validateNewDataSource = useConstructorStore((state) => state.validateNewDataSource)
@@ -63,6 +69,8 @@ export function DataSourcesStep({ schema = {} }: Props) {
   const generatedInputKey = getInputKey(newSource.entity, newSource.filterProperty || 'Id')
   const parentSuggestions = entityNode?.foreignKeys ?? []
   const selectedParentFilterProperties = (newSource.parentFilterProperties ?? []).slice(0, 1)
+  const scenariosQuery = useConstructorScenarios()
+  const [scenarioError, setScenarioError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!newSource.entity && entityNames[0]) {
@@ -109,6 +117,19 @@ export function DataSourcesStep({ schema = {} }: Props) {
     if (!result.ok) window.alert(result.reason)
   }
 
+  const handleApplyScenario = (scenarioId: string) => {
+    const scenario = scenariosQuery.data?.find((item) => item.id === scenarioId)
+    if (!scenario) return
+
+    const result = applyScenario(scenario)
+    setScenarioError(result.ok ? null : result.reason)
+  }
+
+  const handleCancelScenario = () => {
+    cancelScenario()
+    setScenarioError(null)
+  }
+
   return (
     <div className="h-full min-h-0 overflow-y-auto overflow-x-hidden pr-1 custom-scrollbar">
       <h3 className="ui-step-title">2 КРОК: ДЖЕРЕЛА ДАНИХ</h3>
@@ -116,6 +137,129 @@ export function DataSourcesStep({ schema = {} }: Props) {
         Оберіть сутність, за якою шаблон отримуватиме дані. Поле для форми генерації буде створено автоматично.
       </p>
 
+      <div className="mt-6 flex flex-wrap gap-2 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white p-2 shadow-[var(--shadow-ui)]">
+        <button
+          type="button"
+          onClick={() => {
+            setDataSetupMode('manual')
+            setScenarioError(null)
+          }}
+          className={cn(
+            'rounded-[var(--radius-ui-sm)] px-4 py-2 text-sm font-extrabold transition',
+            dataSetupMode === 'manual'
+              ? 'bg-[var(--color-primary)] text-white'
+              : 'text-[var(--color-primary)] hover:bg-[var(--color-bg-lavender)]',
+          )}
+        >
+          Ручне налаштування
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setDataSetupMode('scenario')
+            setScenarioError(null)
+          }}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-[var(--radius-ui-sm)] px-4 py-2 text-sm font-extrabold transition',
+            dataSetupMode === 'scenario'
+              ? 'bg-[var(--color-primary)] text-white'
+              : 'text-[var(--color-primary)] hover:bg-[var(--color-bg-lavender)]',
+          )}
+        >
+          <Sparkles size={15} />
+          Сценарій
+        </button>
+      </div>
+
+      {dataSetupMode === 'scenario' && (
+        <div className="mt-5 rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-ui)]">
+          <div className="mb-4">
+            <h4 className="text-lg font-extrabold text-[var(--color-primary)]">Попередньо налаштовані сценарії</h4>
+            <p className="mt-2 text-sm font-bold text-[var(--color-muted)]">
+              Сценарій додає тільки Inputs і DataSources. Маппінг тегів залишається гнучким.
+            </p>
+          </div>
+
+          {scenariosQuery.isLoading && (
+            <div className="flex items-center text-sm font-bold text-[var(--color-primary)]">
+              <Loader2 className="mr-2 animate-spin" size={18} />
+              Завантаження сценаріїв
+            </div>
+          )}
+
+          {scenariosQuery.isError && (
+            <div className="rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-4 text-sm font-bold text-[var(--color-danger)]">
+              Не вдалося отримати сценарії з `/api/constructor/scenarios`.
+            </div>
+          )}
+
+          {scenarioError && (
+            <div className="mb-4 rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-4 text-sm font-bold text-[var(--color-danger)]">
+              {scenarioError}
+            </div>
+          )}
+
+          {appliedScenarioId && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)]">
+              <div>
+                <p className="text-sm font-extrabold text-[var(--color-primary)]">Сценарій застосовано</p>
+                <p className="mt-1 text-xs font-bold text-[var(--color-muted)]">
+                  Обов'язкові теги та джерела сценарію налаштовані автоматично.
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={handleCancelScenario}>
+                <RotateCcw size={14} />
+                Скасувати сценарій
+              </Button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            {scenariosQuery.data?.map((scenario) => {
+              const isApplied = scenario.id === appliedScenarioId
+
+              return (
+                <article key={scenario.id} className="rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h5 className="text-base font-extrabold text-[var(--color-primary)]">{scenario.title}</h5>
+                      <p className="mt-2 text-sm font-semibold leading-5 text-[var(--color-muted)]">{scenario.description}</p>
+                    </div>
+                    {isApplied && <Check className="shrink-0 text-[var(--color-success)]" size={20} />}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold uppercase text-[var(--color-muted)]">
+                    <span className="rounded-[10px] bg-[var(--color-bg-lavender)] px-2 py-1">
+                      Inputs: {Object.keys(scenario.inputs).join(', ')}
+                    </span>
+                    <span className="rounded-[10px] bg-[var(--color-bg-lavender)] px-2 py-1">
+                      DataSources: {scenario.dataSources.map((source) => source.Key).join(', ')}
+                    </span>
+                  </div>
+
+                  {scenario.recommendedTableSources.length > 0 && (
+                    <div className="mt-3 text-xs font-bold text-[var(--color-muted)]">
+                      Рекомендовано для таблиць: {scenario.recommendedTableSources.map((source) => source.key).join(', ')}
+                    </div>
+                  )}
+
+                  <Button
+                    variant={isApplied ? 'secondary' : 'primary'}
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => handleApplyScenario(scenario.id)}
+                    disabled={isApplied}
+                  >
+                    {isApplied ? 'Застосовано' : 'Застосувати'}
+                  </Button>
+                </article>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {dataSetupMode === 'manual' && (
       <div className="mt-8 rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-[var(--color-surface)] p-5 shadow-[var(--shadow-ui)]">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="block">
@@ -234,6 +378,7 @@ export function DataSourcesStep({ schema = {} }: Props) {
           </div>
         </div>
       </div>
+      )}
 
       <ul className="mt-5 space-y-3">
         {config.DataSources.map((source) => (

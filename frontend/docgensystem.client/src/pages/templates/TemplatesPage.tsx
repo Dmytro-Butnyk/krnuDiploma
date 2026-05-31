@@ -772,7 +772,7 @@ function GenerationFormPanel({
       ) : (
         <div className="mt-4 space-y-3">
           {inputs.map((input) =>
-            input.kind === 'EntitySelect' ? (
+            input.kind === 'EntitySelect' || input.kind === 'ValueSelect' ? (
               <GenerationEntitySelect
                 key={input.key}
                 templateId={templateId}

@@ -52,6 +52,9 @@ export function TemplateConstructor({
   const calculateIncludes = useConstructorStore((state) => state.calculateIncludes)
   const config = useConstructorStore((state) => state.config)
   const tagTypes = useConstructorStore((state) => state.tagTypes)
+  const appliedScenarioId = useConstructorStore((state) => state.appliedScenarioId)
+  const requiredScalarMappings = useConstructorStore((state) => state.requiredScalarMappings)
+  const requiredTableSources = useConstructorStore((state) => state.requiredTableSources)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
 
   const schemaKeys = useMemo(() => Object.keys(schema ?? {}), [schema])
@@ -93,7 +96,11 @@ export function TemplateConstructor({
   const handleComplete = () => {
     calculateIncludes(schema)
     const nextConfig = useConstructorStore.getState().config
-    const errors = validateTemplateConfiguration(nextConfig, schema)
+    const errors = validateTemplateConfiguration(nextConfig, schema, {
+      appliedScenarioId,
+      requiredScalarMappings,
+      requiredTableSources,
+    })
     setValidationErrors(errors)
     if (errors.length > 0) return
     onComplete(nextConfig)

@@ -5,7 +5,7 @@ import { cn } from '../../../../shared/lib/cn'
 import { getPathsForEntity, getSourceArrayScalarPaths } from '../../../../shared/lib/paths'
 import { Button } from '../../../../shared/ui/Button'
 import { SearchableSelect } from '../../../../shared/ui/SearchableSelect'
-import { getTableRowTagName, getTableTagPrefix, useConstructorStore } from '../../model/store'
+import { getSourceArrayEntity, getTableRowTagName, getTableTagPrefix, useConstructorStore } from '../../model/store'
 
 type Props = {
   schema?: EntitySchema
@@ -26,7 +26,11 @@ function ScalarPathList({
   const toggleExpanded = useConstructorStore((state) => state.toggleExpanded)
   const selectedTag = useConstructorStore((state) => state.selectedTag)
   const mapScalar = useConstructorStore((state) => state.mapScalar)
+  const requiredScalarMappings = useConstructorStore((state) => state.requiredScalarMappings)
   const isExpanded = expandedSources[sourceKey] ?? true
+  const selectedTagIsRequired = selectedTag
+    ? requiredScalarMappings.some((mapping) => mapping.tag === selectedTag)
+    : false
   const visiblePaths = paths.slice(0, MAX_VISIBLE_MAPPING_PATHS)
 
   return (
@@ -46,7 +50,7 @@ function ScalarPathList({
           {visiblePaths.map((path) => (
             <li key={path.fullPath}>
               <button
-                disabled={!selectedTag}
+                disabled={!selectedTag || selectedTagIsRequired}
                 onClick={() => selectedTag && mapScalar(selectedTag, `${sourceKey}.${path.fullPath}`)}
                 className="group flex w-full items-center justify-between rounded-[12px] px-3 py-2 text-left font-mono text-sm text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -60,6 +64,25 @@ function ScalarPathList({
           {paths.length === 0 && <li className="p-3 text-sm text-slate-400">Нічого не знайдено</li>}
         </ul>
       )}
+    </div>
+  )
+}
+
+function RequiredScalarMappingPanel({
+  mapping,
+}: {
+  mapping: { tag: string; path: string; message: string }
+}) {
+  return (
+    <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-5 shadow-[var(--shadow-ui)]">
+      <h4 className="text-lg font-extrabold text-[var(--color-primary)]">{mapping.tag}</h4>
+      <p className="mt-2 text-sm font-bold text-[var(--color-muted)]">
+        Цей тег є обовʼязковим для застосованого сценарію, тому його шлях зафіксований.
+      </p>
+      <div className="mt-5 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)] px-4 py-3 font-mono text-sm font-bold text-[var(--color-primary)]">
+        {mapping.path}
+      </div>
+      <p className="mt-3 text-xs font-semibold text-[var(--color-muted)]">{mapping.message}</p>
     </div>
   )
 }
@@ -182,6 +205,9 @@ export function MappingStep({ schema = {} }: Props) {
   const setNewColumnPath = useConstructorStore((state) => state.setNewColumnPath)
   const searchQuery = useConstructorStore((state) => state.searchQuery)
   const setSearchQuery = useConstructorStore((state) => state.setSearchQuery)
+  const recommendedTableSources = useConstructorStore((state) => state.recommendedTableSources)
+  const requiredScalarMappings = useConstructorStore((state) => state.requiredScalarMappings)
+  const requiredTableSources = useConstructorStore((state) => state.requiredTableSources)
   const tagTypes = useConstructorStore((state) => state.tagTypes)
   const config = useConstructorStore((state) => state.config)
   const unmapScalar = useConstructorStore((state) => state.unmapScalar)
@@ -197,6 +223,11 @@ export function MappingStep({ schema = {} }: Props) {
     [tagTypes],
   )
   const selectedTagKind = selectedTag ? tagTypes[selectedTag] : null
+  const requiredScalarMappingByTag = useMemo(
+    () => new Map(requiredScalarMappings.map((mapping) => [mapping.tag, mapping])),
+    [requiredScalarMappings],
+  )
+  const selectedRequiredScalarMapping = selectedTag ? requiredScalarMappingByTag.get(selectedTag) : null
   const tableColumnTags = useMemo(
     () => Object.keys(tagTypes).filter((tag) => tagTypes[tag] === 'table_column'),
     [tagTypes],
@@ -225,6 +256,29 @@ export function MappingStep({ schema = {} }: Props) {
       ]),
     [config.DataSources, schema],
   )
+  const availableRecommendedTableSources = recommendedTableSources.filter((recommendation) =>
+    config.DataSources.some((source) => source.Key === recommendation.key),
+  )
+  const requiredSourceEntities = useMemo(
+    () =>
+      requiredTableSources
+        .map((requirement) => ({
+          source: requirement.sourceArray,
+          message: requirement.message,
+          entity: getSourceArrayEntity(schema, config.DataSources, requirement.sourceArray),
+        }))
+        .filter((item): item is { source: string; message: string; entity: string } => Boolean(item.entity)),
+    [config.DataSources, requiredTableSources, schema],
+  )
+  const requiredSourceArrays = useMemo(
+    () => requiredTableSources.map((requirement) => requirement.sourceArray),
+    [requiredTableSources],
+  )
+  const activeTableSourceWarning = activeTable?.SourceArray && !requiredSourceArrays.includes(activeTable.SourceArray)
+    ? requiredSourceEntities.find((item) => (
+        item.entity === getSourceArrayEntity(schema, config.DataSources, activeTable.SourceArray)
+      ))
+    : null
   const sourcePathOptions = rankPathValues(sourceArrayPaths, '').map((path) => ({ value: path, label: path }))
 
   const getFilteredScalarPaths = (entity: string) => {
@@ -267,6 +321,7 @@ export function MappingStep({ schema = {} }: Props) {
             <p className="ui-label mb-3">Оберіть тег</p>
             {scalarTags.map((tag) => {
               const isMapped = Boolean(config.Mapping.Scalars[tag])
+              const requiredScalarMapping = requiredScalarMappingByTag.get(tag)
               return (
                 <button
                   key={tag}
@@ -279,22 +334,29 @@ export function MappingStep({ schema = {} }: Props) {
                   )}
                 >
                   {tag}
+                  {requiredScalarMapping && (
+                    <span className="ml-2 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-extrabold uppercase text-white">
+                      сценарій
+                    </span>
+                  )}
                   {isMapped && (
                     <>
                       <span className="mt-1 block truncate pr-6 text-[11px] font-semibold text-blue-100">
                         {config.Mapping.Scalars[tag]}
                       </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          unmapScalar(tag)
-                        }}
-                        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-red-100 hover:bg-white hover:text-[var(--color-danger)]"
-                      >
-                        <X size={14} />
-                      </span>
+                      {!requiredScalarMapping && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            unmapScalar(tag)
+                          }}
+                          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-red-100 hover:bg-white hover:text-[var(--color-danger)]"
+                        >
+                          <X size={14} />
+                        </span>
+                      )}
                     </>
                   )}
                 </button>
@@ -313,8 +375,9 @@ export function MappingStep({ schema = {} }: Props) {
             </div>
             <div className="grid content-start gap-3 p-3">
               {!selectedTag && <div className="p-10 text-center text-sm text-slate-400">Оберіть тег ліворуч</div>}
-              {selectedTag && selectedTagKind === 'input_scalar' && <InputScalarPanel key={selectedTag} tag={selectedTag} />}
-              {selectedTag && selectedTagKind === 'db_scalar' &&
+              {selectedRequiredScalarMapping && <RequiredScalarMappingPanel mapping={selectedRequiredScalarMapping} />}
+              {selectedTag && !selectedRequiredScalarMapping && selectedTagKind === 'input_scalar' && <InputScalarPanel key={selectedTag} tag={selectedTag} />}
+              {selectedTag && !selectedRequiredScalarMapping && selectedTagKind === 'db_scalar' &&
                 config.DataSources.map((source) => (
                   <ScalarPathList
                     key={source.Key}
@@ -379,6 +442,26 @@ export function MappingStep({ schema = {} }: Props) {
 
                 <div className="mb-5">
                   <span className="ui-label mb-2 block">Джерело колекції</span>
+                  {availableRecommendedTableSources.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {availableRecommendedTableSources.map((recommendation) => (
+                        <button
+                          key={recommendation.key}
+                          type="button"
+                          onClick={() => updateTableSourceArray(selectedTable, recommendation.key)}
+                          className={cn(
+                            'rounded-[var(--radius-ui-sm)] border px-3 py-2 text-left text-xs font-extrabold transition',
+                            activeTable.SourceArray === recommendation.key
+                              ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
+                              : 'border-[var(--color-primary)] bg-white text-[var(--color-primary)] hover:bg-[var(--color-bg-lavender)]',
+                          )}
+                        >
+                          {recommendation.label}
+                          <span className="ml-2 font-mono opacity-70">{recommendation.key}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <SearchableSelect
                     value={activeTable.SourceArray}
                     options={sourceArrayOptions}
@@ -387,6 +470,11 @@ export function MappingStep({ schema = {} }: Props) {
                     placeholder="Виберіть колекцію бази даних"
                     onChange={(value) => updateTableSourceArray(selectedTable, value)}
                   />
+                  {activeTableSourceWarning && (
+                    <div className="mt-3 rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-3 text-xs font-bold text-[var(--color-danger)]">
+                      {activeTableSourceWarning.message}
+                    </div>
+                  )}
                 </div>
 
                 {activeTable.SourceArray && (

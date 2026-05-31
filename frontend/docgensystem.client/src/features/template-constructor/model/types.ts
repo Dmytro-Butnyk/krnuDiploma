@@ -1,10 +1,12 @@
 export type TagKind = 'db_scalar' | 'input_scalar' | 'table_column' | 'reserved'
 export type MappingMode = 'scalars' | 'tables'
+export type DataSetupMode = 'manual' | 'scenario'
 
-export type InputKind = 'Manual' | 'EntitySelect'
+export type InputKind = 'Manual' | 'EntitySelect' | 'ValueSelect'
 export type InputValueType = 'String' | 'Int' | 'Long' | 'Guid' | 'Bool' | 'Date' | 'DateTime' | 'Decimal'
 export type EntitySelectFilterOperator = 'Equals'
 export type DataSourceFilterOperator = 'Equals' | 'NotEquals' | 'Contains'
+export type DataSourceResult = 'One' | 'Many'
 
 export type InputFilterConfig = {
   Property: string
@@ -34,7 +36,19 @@ export type EntitySelectInputConfig = {
   OrderBy?: string[]
 }
 
-export type InputConfig = ManualInputConfig | EntitySelectInputConfig
+export type ValueSelectInputConfig = {
+  Kind: 'ValueSelect'
+  Entity: string
+  ValueType: InputValueType
+  ValuePath: string
+  Label: string
+  Required: boolean
+  DependsOn?: string[]
+  Filters?: InputFilterConfig[]
+  OrderBy?: string[]
+}
+
+export type InputConfig = ManualInputConfig | EntitySelectInputConfig | ValueSelectInputConfig
 
 export type NewInputDraft = {
   key: string
@@ -65,9 +79,11 @@ export type NewDataSourceDraft = {
 export type DataSourceConfig = {
   Key: string
   Entity: string
+  Result?: DataSourceResult | null
   Filter: string | null
   FilterArgs: string[]
   Includes: string[]
+  OrderBy?: string[] | null
 }
 
 export type TableMappingConfig = {
@@ -83,6 +99,34 @@ export type TemplateConfiguration = {
     Scalars: Record<string, string>
   }
   DataSources: DataSourceConfig[]
+}
+
+export type ScenarioTableSource = {
+  key: string
+  label: string
+  entity: string
+}
+
+export type ScenarioScalarMapping = {
+  tag: string
+  path: string
+  message: string
+}
+
+export type ScenarioTableRequirement = {
+  sourceArray: string
+  message: string
+}
+
+export type ConstructorScenario = {
+  id: string
+  title: string
+  description: string
+  inputs: Record<string, InputConfig>
+  dataSources: DataSourceConfig[]
+  recommendedTableSources: ScenarioTableSource[]
+  requiredScalarMappings: ScenarioScalarMapping[]
+  requiredTableSources: ScenarioTableRequirement[]
 }
 
 export type ConstructorStep = 1 | 2 | 3 | 4

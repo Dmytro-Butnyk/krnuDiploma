@@ -3,13 +3,18 @@ import { createJSONStorage, persist } from 'zustand/middleware'
 import type { EntitySchema } from '../../../entities/schema/model/types'
 import type {
   ConstructorStep,
+  ConstructorScenario,
   DataSourceFilterOperator,
   DataSourceConfig,
+  DataSetupMode,
   EntitySelectInputConfig,
   InputConfig,
   MappingMode,
   NewDataSourceDraft,
   NewInputDraft,
+  ScenarioScalarMapping,
+  ScenarioTableSource,
+  ScenarioTableRequirement,
   TagKind,
   TemplateConfiguration,
 } from './types'
@@ -91,7 +96,9 @@ function normalizeConfiguration(config: TemplateConfiguration): TemplateConfigur
     },
     DataSources: config.DataSources.map((source) => ({
       ...source,
-      Includes: [...source.Includes],
+      FilterArgs: [...(source.FilterArgs ?? [])],
+      Includes: [...(source.Includes ?? [])],
+      OrderBy: source.OrderBy ? [...source.OrderBy] : source.OrderBy,
     })),
   }
 }
@@ -194,6 +201,15 @@ function getDataSourceInputKey(entity: string, field: string) {
 
 type StoreState = {
   currentStep: ConstructorStep
+  dataSetupMode: DataSetupMode
+  appliedScenarioId: string | null
+  recommendedTableSources: ScenarioTableSource[]
+  requiredScalarMappings: ScenarioScalarMapping[]
+  requiredTableSources: ScenarioTableRequirement[]
+  appliedScenarioInputKeys: string[]
+  appliedScenarioDataSourceKeys: string[]
+  appliedScenarioScalarTags: string[]
+  appliedScenarioPreviousTagTypes: Record<string, TagKind>
   mappingMode: MappingMode
   selectedTag: string | null
   selectedTable: string | null
@@ -217,6 +233,9 @@ type StoreState = {
   setStep: (step: ConstructorStep) => void
   nextStep: () => void
   previousStep: () => void
+  setDataSetupMode: (mode: DataSetupMode) => void
+  applyScenario: (scenario: ConstructorScenario) => { ok: true } | { ok: false; reason: string }
+  cancelScenario: () => void
   setMappingMode: (mode: MappingMode) => void
   setSelectedTag: (tag: string | null) => void
   setSelectedTable: (tableName: string | null) => void
@@ -289,10 +308,119 @@ function buildDataSource(draft: NewDataSourceDraft): DataSourceConfig {
   return {
     Key: draft.key.trim(),
     Entity: draft.entity,
+    Result: 'One',
     Filter: buildFilterExpression(draft.filterProperty, draft.filterOperator ?? 'Equals'),
     FilterArgs: [draft.inputKey],
     Includes: [],
+    OrderBy: [],
   }
+}
+
+function getScenarioConflictKeys(scenario: ConstructorScenario, config: TemplateConfiguration) {
+  const inputConflicts = Object.keys(scenario.inputs).filter((key) => Boolean(config.Inputs[key]))
+  const dataSourceKeys = new Set(config.DataSources.map((source) => source.Key))
+  const dataSourceConflicts = scenario.dataSources
+    .map((source) => source.Key)
+    .filter((key) => dataSourceKeys.has(key))
+
+  return [...inputConflicts, ...dataSourceConflicts]
+}
+
+function getRequiredScalarMappings(scenario: ConstructorScenario) {
+  return scenario.requiredScalarMappings ?? []
+}
+
+function getRequiredTableSources(scenario: ConstructorScenario) {
+  return scenario.requiredTableSources ?? []
+}
+
+function getRequiredScalarMappingEntries(requiredScalarMappings: ScenarioScalarMapping[]) {
+  return Object.fromEntries(requiredScalarMappings.map((mapping) => [mapping.tag, mapping.path]))
+}
+
+function getRequiredSourceArrays(requiredTableSources: ScenarioTableRequirement[]) {
+  return requiredTableSources.map((requirement) => requirement.sourceArray)
+}
+
+function getPathRoot(path: string) {
+  return path.split('.')[0] ?? ''
+}
+
+export function getSourceArrayEntity(schema: EntitySchema, dataSources: DataSourceConfig[], sourceArray: string) {
+  if (!sourceArray) return null
+
+  const [rootKey, ...pathParts] = sourceArray.split('.')
+  const dataSource = dataSources.find((source) => source.Key === rootKey)
+  if (!dataSource) return null
+
+  let currentEntity = dataSource.Entity
+  for (const part of pathParts) {
+    const node = schema[currentEntity]
+    if (!node) return null
+
+    const collectionTarget = node.collections[part]
+    if (collectionTarget) return collectionTarget
+
+    const entityTarget = node.entities[part]
+    if (!entityTarget) return null
+
+    currentEntity = entityTarget
+  }
+
+  return currentEntity
+}
+
+function validateScenarioRequirements(
+  config: TemplateConfiguration,
+  schema: EntitySchema,
+  requirements: {
+    requiredScalarMappings?: ScenarioScalarMapping[]
+    requiredTableSources?: ScenarioTableRequirement[]
+  },
+) {
+  const errors: string[] = []
+
+  ;(requirements.requiredScalarMappings ?? []).forEach((mapping) => {
+    if (config.Mapping.Scalars[mapping.tag] !== mapping.path) {
+      errors.push(mapping.message)
+    }
+  })
+
+  const requiredTableSources = requirements.requiredTableSources ?? []
+  const requiredSources = getRequiredSourceArrays(requiredTableSources)
+  requiredTableSources.forEach((requirement) => {
+    const requiredSource = requirement.sourceArray
+    const isUsed = Object.values(config.Mapping.Tables).some((table) => table.SourceArray === requiredSource)
+    if (!isUsed) {
+      errors.push(requirement.message)
+    }
+  })
+
+  const requiredSourceEntities = new Map(
+    requiredSources
+      .map((source) => [source, getSourceArrayEntity(schema, config.DataSources, source)] as const)
+      .filter(([, entity]) => Boolean(entity)),
+  )
+
+  Object.entries(config.Mapping.Tables).forEach(([tableName, table]) => {
+    if (!table.SourceArray || requiredSources.includes(table.SourceArray)) return
+
+    const tableEntity = getSourceArrayEntity(schema, config.DataSources, table.SourceArray)
+    const matchingRequiredSource = [...requiredSourceEntities.entries()].find(([, entity]) => entity === tableEntity)
+    if (!matchingRequiredSource) return
+
+    const [requiredSource] = matchingRequiredSource
+    const requirement = requiredTableSources.find((item) => item.sourceArray === requiredSource)
+    if (requirement) {
+      errors.push(requirement.message)
+      return
+    }
+    errors.push(
+      `Таблиця "${tableName}" використовує SourceArray "${table.SourceArray}", але застосований сценарій вимагає фільтроване джерело "${requiredSource}" для рядків "${tableEntity}".`,
+    )
+  })
+
+  return errors
 }
 
 function validateNewInputDraft(draft: NewInputDraft, config: TemplateConfiguration) {
@@ -319,7 +447,9 @@ function validateNewInputDraft(draft: NewInputDraft, config: TemplateConfigurati
 function validateNewDataSourceDraft(draft: NewDataSourceDraft) {
   if (!draft.entity) return 'Оберіть сутність бази даних.'
   if (!draft.key.trim()) return 'Вкажіть ключ датасурсу.'
-  if (draft.key.trim() === 'Input') return 'Ключ датасурсу не може бути "Input".'
+  if (draft.key.trim() === 'Input' || draft.key.trim() === 'Computed') {
+    return 'Ключ датасурсу не може бути "Input" або "Computed".'
+  }
   if (!draft.filterProperty.trim()) return 'Оберіть поле фільтра.'
   if (!draft.argumentLabel.trim()) return 'Вкажіть назву аргументу для форми генерації.'
 
@@ -330,7 +460,15 @@ function coerceStep(step: number): ConstructorStep {
   return Math.min(4, Math.max(1, step)) as ConstructorStep
 }
 
-export function validateTemplateConfiguration(config: TemplateConfiguration, schema: EntitySchema = {}) {
+export function validateTemplateConfiguration(
+  config: TemplateConfiguration,
+  schema: EntitySchema = {},
+  scenarioRequirements: {
+    appliedScenarioId?: string | null
+    requiredScalarMappings?: ScenarioScalarMapping[]
+    requiredTableSources?: ScenarioTableRequirement[]
+  } = {},
+) {
   const errors: string[] = []
   const inputKeys = Object.keys(config.Inputs)
   const dataSourceKeys = config.DataSources.map((source) => source.Key)
@@ -357,6 +495,18 @@ export function validateTemplateConfiguration(config: TemplateConfiguration, sch
         if (!config.Inputs[filter.Input]) errors.push(`Фільтр інпута "${key}" посилається на неіснуючий "${filter.Input}".`)
       })
     }
+
+    if (input.Kind === 'ValueSelect') {
+      if (!schema[input.Entity]) errors.push(`Сутність "${input.Entity}" для інпута "${key}" відсутня у схемі.`)
+      if (!input.ValuePath?.trim()) errors.push(`ValueSelect "${key}" має мати ValuePath.`)
+      input.DependsOn?.forEach((dependency) => {
+        if (!config.Inputs[dependency]) errors.push(`Інпут "${key}" залежить від неіснуючого "${dependency}".`)
+      })
+      input.Filters?.forEach((filter) => {
+        if (filter.Operator !== 'Equals') errors.push(`Фільтр інпута "${key}" має використовувати оператор Equals.`)
+        if (!config.Inputs[filter.Input]) errors.push(`Фільтр інпута "${key}" посилається на неіснуючий "${filter.Input}".`)
+      })
+    }
   })
 
   if (new Set(dataSourceKeys).size !== dataSourceKeys.length) {
@@ -365,9 +515,14 @@ export function validateTemplateConfiguration(config: TemplateConfiguration, sch
 
   config.DataSources.forEach((source) => {
     if (!source.Key.trim()) errors.push('Ключ датасурсу не може бути порожнім.')
-    if (source.Key === 'Input') errors.push('Ключ датасурсу не може бути "Input".')
+    if (source.Key === 'Input' || source.Key === 'Computed') {
+      errors.push('Ключ датасурсу не може бути "Input" або "Computed".')
+    }
     if (!schema[source.Entity]) errors.push(`Сутність "${source.Entity}" для датасурсу "${source.Key}" відсутня у схемі.`)
-    source.FilterArgs.forEach((inputKey) => {
+    if (source.Result && source.Result !== 'One' && source.Result !== 'Many') {
+      errors.push(`Датасурс "${source.Key}" має мати Result One або Many.`)
+    }
+    ;(source.FilterArgs ?? []).forEach((inputKey) => {
       if (!config.Inputs[inputKey]) errors.push(`Датасурс "${source.Key}" посилається на неіснуючий інпут "${inputKey}".`)
     })
   })
@@ -378,9 +533,15 @@ export function validateTemplateConfiguration(config: TemplateConfiguration, sch
     if (root === 'Input') {
       const [, inputKey] = path.split('.')
       if (!inputKey || !config.Inputs[inputKey]) errors.push(`${label}: інпут "${inputKey ?? ''}" не існує.`)
+      return
     }
-    if (root && root !== 'Input' && !dataSourceKeySet.has(root)) {
-      errors.push(`${label}: корінь "${root}" не є інпутом або датасурсом.`)
+    if (root === 'Computed') {
+      const [, computedKey] = path.split('.')
+      if (!computedKey) errors.push(`${label}: computed-значення не вказане.`)
+      return
+    }
+    if (root && !dataSourceKeySet.has(root)) {
+      errors.push(`${label}: корінь "${root}" не є інпутом, computed-значенням або датасурсом.`)
     }
   }
 
@@ -395,6 +556,8 @@ export function validateTemplateConfiguration(config: TemplateConfiguration, sch
     })
   })
 
+  errors.push(...validateScenarioRequirements(config, schema, scenarioRequirements))
+
   return Array.from(new Set(errors))
 }
 
@@ -402,6 +565,15 @@ export const useConstructorStore = create<StoreState>()(
 persist(
   (set, get) => ({
   currentStep: 1,
+  dataSetupMode: 'manual',
+  appliedScenarioId: null,
+  recommendedTableSources: [],
+  requiredScalarMappings: [],
+  requiredTableSources: [],
+  appliedScenarioInputKeys: [],
+  appliedScenarioDataSourceKeys: [],
+  appliedScenarioScalarTags: [],
+  appliedScenarioPreviousTagTypes: {},
   mappingMode: 'scalars',
   selectedTag: null,
   selectedTable: null,
@@ -427,6 +599,15 @@ persist(
 
       return {
         currentStep: 1,
+        dataSetupMode: 'manual',
+        appliedScenarioId: null,
+        recommendedTableSources: [],
+        requiredScalarMappings: [],
+        requiredTableSources: [],
+        appliedScenarioInputKeys: [],
+        appliedScenarioDataSourceKeys: [],
+        appliedScenarioScalarTags: [],
+        appliedScenarioPreviousTagTypes: {},
         mappingMode: 'scalars',
         selectedTag: null,
         selectedTable: null,
@@ -465,6 +646,148 @@ persist(
     set({ currentStep: coerceStep(currentStep + 1) })
   },
   previousStep: () => set((state) => ({ currentStep: coerceStep(state.currentStep - 1) })),
+  setDataSetupMode: (dataSetupMode) => set({ dataSetupMode }),
+  applyScenario: (scenario) => {
+    const { config, tagTypes } = get()
+    const conflictKeys = getScenarioConflictKeys(scenario, config)
+    const requiredScalarMappings = getRequiredScalarMappings(scenario)
+    const requiredTableSources = getRequiredTableSources(scenario)
+    const requiredScalarMappingEntries = getRequiredScalarMappingEntries(requiredScalarMappings)
+    const requiredScalarTags = requiredScalarMappings.map((mapping) => mapping.tag)
+    const missingRequiredTags = requiredScalarMappings
+      .map((mapping) => mapping.tag)
+      .filter((tag) => !tagTypes[tag] || tagTypes[tag] === 'reserved')
+    const conflictingScalarMappings = requiredScalarMappings
+      .filter((mapping) => config.Mapping.Scalars[mapping.tag] && config.Mapping.Scalars[mapping.tag] !== mapping.path)
+      .map((mapping) => mapping.tag)
+
+    if (conflictKeys.length > 0) {
+      return {
+        ok: false,
+        reason: `Сценарій не можна застосувати, бо конфігурація вже містить ключі: ${conflictKeys.join(', ')}.`,
+      }
+    }
+
+    if (missingRequiredTags.length > 0) {
+      return {
+        ok: false,
+        reason: `Сценарій не можна застосувати, бо в шаблоні немає обов'язкових скалярних тегів: ${missingRequiredTags.join(', ')}. Додайте їх у .docx шаблон і проскануйте файл ще раз.`,
+      }
+    }
+
+    if (conflictingScalarMappings.length > 0) {
+      return {
+        ok: false,
+        reason: `Сценарій не можна застосувати, бо ці скалярні теги вже мають інший маппінг: ${conflictingScalarMappings.join(', ')}.`,
+      }
+    }
+
+    set((state) => ({
+      dataSetupMode: 'scenario',
+      appliedScenarioId: scenario.id,
+      recommendedTableSources: scenario.recommendedTableSources,
+      requiredScalarMappings,
+      requiredTableSources,
+      appliedScenarioInputKeys: Object.keys(scenario.inputs),
+      appliedScenarioDataSourceKeys: scenario.dataSources.map((source) => source.Key),
+      appliedScenarioScalarTags: requiredScalarTags,
+      appliedScenarioPreviousTagTypes: Object.fromEntries(
+        requiredScalarTags.flatMap((tag) => state.tagTypes[tag] ? [[tag, state.tagTypes[tag]] as const] : []),
+      ),
+      tagTypes: {
+        ...state.tagTypes,
+        ...Object.fromEntries(requiredScalarMappings.map((mapping) => [mapping.tag, 'input_scalar' as const])),
+      },
+      expandedSources: {
+        ...state.expandedSources,
+        ...Object.fromEntries(scenario.dataSources.map((source) => [source.Key, true])),
+      },
+      config: {
+        ...state.config,
+        Inputs: {
+          ...state.config.Inputs,
+          ...scenario.inputs,
+        },
+        Mapping: {
+          ...state.config.Mapping,
+          Scalars: {
+            ...state.config.Mapping.Scalars,
+            ...requiredScalarMappingEntries,
+          },
+        },
+        DataSources: [...state.config.DataSources, ...scenario.dataSources],
+      },
+    }))
+
+    return { ok: true }
+  },
+  cancelScenario: () =>
+    set((state) => {
+      const removedInputKeys = new Set(state.appliedScenarioInputKeys)
+      const removedDataSourceKeys = new Set(state.appliedScenarioDataSourceKeys)
+      const removedScalarTags = new Set(state.appliedScenarioScalarTags)
+      const removedSourceArrays = new Set([
+        ...state.appliedScenarioDataSourceKeys,
+        ...getRequiredSourceArrays(state.requiredTableSources),
+      ])
+
+      const inputs = { ...state.config.Inputs }
+      removedInputKeys.forEach((key) => delete inputs[key])
+
+      const scalars = Object.fromEntries(
+        Object.entries(state.config.Mapping.Scalars).filter(([tag, path]) => {
+          if (removedScalarTags.has(tag)) return false
+          const root = getPathRoot(path)
+          if (root === 'Input' && removedInputKeys.has(path.slice('Input.'.length))) return false
+          return !removedDataSourceKeys.has(root)
+        }),
+      )
+
+      const tables = Object.fromEntries(
+        Object.entries(state.config.Mapping.Tables).map(([tableName, table]) => {
+          const sourceRoot = getPathRoot(table.SourceArray)
+          const shouldClearTable = removedSourceArrays.has(table.SourceArray) || removedDataSourceKeys.has(sourceRoot)
+          return [
+            tableName,
+            shouldClearTable
+              ? { ...table, SourceArray: '', RowMapping: {} }
+              : table,
+          ]
+        }),
+      )
+
+      const tagTypes = { ...state.tagTypes }
+      Object.entries(state.appliedScenarioPreviousTagTypes).forEach(([tag, previousType]) => {
+        if (tagTypes[tag] !== 'reserved') tagTypes[tag] = previousType
+      })
+
+      return {
+        dataSetupMode: 'manual',
+        appliedScenarioId: null,
+        recommendedTableSources: [],
+        requiredScalarMappings: [],
+        requiredTableSources: [],
+        appliedScenarioInputKeys: [],
+        appliedScenarioDataSourceKeys: [],
+        appliedScenarioScalarTags: [],
+        appliedScenarioPreviousTagTypes: {},
+        selectedTable: state.selectedTable && tables[state.selectedTable] ? state.selectedTable : null,
+        tagTypes,
+        expandedSources: Object.fromEntries(
+          Object.entries(state.expandedSources).filter(([key]) => !removedDataSourceKeys.has(key)),
+        ),
+        config: {
+          ...state.config,
+          Inputs: inputs,
+          DataSources: state.config.DataSources.filter((source) => !removedDataSourceKeys.has(source.Key)),
+          Mapping: {
+            ...state.config.Mapping,
+            Scalars: scalars,
+            Tables: tables,
+          },
+        },
+      }
+    }),
   setMappingMode: (mappingMode) => set({ mappingMode }),
   setSelectedTag: (selectedTag) => set({ selectedTag }),
   setSelectedTable: (selectedTable) =>
@@ -478,7 +801,14 @@ persist(
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setTagType: (tag, type) =>
     set((state) => ({
-      tagTypes: { ...state.tagTypes, [tag]: isReservedNumberTag(tag) || state.tagTypes[tag] === 'reserved' ? 'reserved' : type },
+      tagTypes: {
+        ...state.tagTypes,
+        [tag]: isReservedNumberTag(tag) || state.tagTypes[tag] === 'reserved'
+          ? 'reserved'
+          : state.requiredScalarMappings.some((mapping) => mapping.tag === tag)
+            ? 'input_scalar'
+            : type,
+      },
     })),
   updateNewInput: (patch) =>
     set((state) => ({
@@ -544,7 +874,7 @@ persist(
           ...state.config,
           Inputs: Object.fromEntries(
             Object.entries(inputs).map(([inputKey, input]) => {
-              if (input.Kind !== 'EntitySelect') return [inputKey, input]
+              if (input.Kind !== 'EntitySelect' && input.Kind !== 'ValueSelect') return [inputKey, input]
               return [
                 inputKey,
                 {
@@ -586,7 +916,9 @@ persist(
     if (reason) return { ok: false, reason }
 
     if (!key || !newSource.entity) return { ok: false, reason: 'Вкажіть сутність і ключ датасурсу.' }
-    if (key === 'Input') return { ok: false, reason: 'Ключ датасурсу не може бути "Input".' }
+    if (key === 'Input' || key === 'Computed') {
+      return { ok: false, reason: 'Ключ датасурсу не може бути "Input" або "Computed".' }
+    }
     if (config.DataSources.some((source) => source.Key === key)) {
       return { ok: false, reason: 'Датасурс із таким ключем уже існує.' }
     }
@@ -670,17 +1002,23 @@ persist(
       expandedSources: { ...state.expandedSources, [key]: !state.expandedSources[key] },
     })),
   mapScalar: (tag, fullPath) =>
-    set((state) => ({
-      config: {
-        ...state.config,
-        Mapping: {
-          ...state.config.Mapping,
-          Scalars: { ...state.config.Mapping.Scalars, [tag]: fullPath },
+    set((state) => {
+      if (state.requiredScalarMappings.some((mapping) => mapping.tag === tag)) return state
+
+      return {
+        config: {
+          ...state.config,
+          Mapping: {
+            ...state.config.Mapping,
+            Scalars: { ...state.config.Mapping.Scalars, [tag]: fullPath },
+          },
         },
-      },
-    })),
+      }
+    }),
   mapInputScalar: (tag, label) =>
     set((state) => {
+      if (state.requiredScalarMappings.some((mapping) => mapping.tag === tag)) return state
+
       const existingPath = state.config.Mapping.Scalars[tag]
       const existingKey = existingPath?.startsWith('Input.') ? existingPath.slice('Input.'.length) : null
       const inputKey = existingKey ?? getUniqueKey(tag, Object.keys(state.config.Inputs))
@@ -701,6 +1039,8 @@ persist(
     }),
   unmapScalar: (tag) =>
     set((state) => {
+      if (state.requiredScalarMappings.some((mapping) => mapping.tag === tag)) return state
+
       const removedPath = state.config.Mapping.Scalars[tag]
       const removedInputKey = removedPath?.startsWith('Input.') ? removedPath.slice('Input.'.length) : null
       const restScalars = { ...state.config.Mapping.Scalars }
@@ -930,6 +1270,15 @@ persist(
   reset: () =>
     set({
       currentStep: 1,
+      dataSetupMode: 'manual',
+      appliedScenarioId: null,
+      recommendedTableSources: [],
+      requiredScalarMappings: [],
+      requiredTableSources: [],
+      appliedScenarioInputKeys: [],
+      appliedScenarioDataSourceKeys: [],
+      appliedScenarioScalarTags: [],
+      appliedScenarioPreviousTagTypes: {},
       mappingMode: 'scalars',
       selectedTag: null,
       selectedTable: null,
@@ -950,6 +1299,15 @@ persist(
     storage: createJSONStorage(() => sessionStorage),
     partialize: (state) => ({
       currentStep: state.currentStep,
+      dataSetupMode: state.dataSetupMode,
+      appliedScenarioId: state.appliedScenarioId,
+      recommendedTableSources: state.recommendedTableSources,
+      requiredScalarMappings: state.requiredScalarMappings,
+      requiredTableSources: state.requiredTableSources,
+      appliedScenarioInputKeys: state.appliedScenarioInputKeys,
+      appliedScenarioDataSourceKeys: state.appliedScenarioDataSourceKeys,
+      appliedScenarioScalarTags: state.appliedScenarioScalarTags,
+      appliedScenarioPreviousTagTypes: state.appliedScenarioPreviousTagTypes,
       mappingMode: state.mappingMode,
       selectedTag: state.selectedTag,
       selectedTable: state.selectedTable,
