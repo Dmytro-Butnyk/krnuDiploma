@@ -4,6 +4,7 @@ using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DocumentGenerationSubsystem.Api.Entities;
+using DocumentGenerationSubsystem.Api.Infrastructure.Configuration;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -121,6 +122,12 @@ public static class UploadTemplate
             using var memoryStream = new MemoryStream();
             await uploadTemplateRequest.Template.CopyToAsync(memoryStream, ct);
             var fileBytes = memoryStream.ToArray();
+
+            var configurationResult = TemplateConfigurationReader.Parse(uploadTemplateRequest.ConfigurationJson);
+            if (configurationResult.IsFailure)
+            {
+                return configurationResult.ErrorDetails;
+            }
 
             DocumentTemplate template = new DocumentTemplate(uploadTemplateRequest.Name, fileBytes, uploadTemplateRequest.ConfigurationJson);
 

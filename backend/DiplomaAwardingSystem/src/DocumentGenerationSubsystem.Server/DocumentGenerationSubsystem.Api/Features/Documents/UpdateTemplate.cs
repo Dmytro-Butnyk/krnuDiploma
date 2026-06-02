@@ -4,6 +4,7 @@ using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DocumentGenerationSubsystem.Api.Entities;
+using DocumentGenerationSubsystem.Api.Infrastructure.Configuration;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -119,7 +120,16 @@ public static class UpdateTemplate
                 request.Name.UpdateIfNotNull(v => template.Name = v);
             }
 
-            request.ConfigurationJson.UpdateIfNotNull(v => template.ConfigurationJson = v);
+            if (!string.IsNullOrWhiteSpace(request.ConfigurationJson))
+            {
+                var configurationResult = TemplateConfigurationReader.Parse(request.ConfigurationJson);
+                if (configurationResult.IsFailure)
+                {
+                    return configurationResult.ErrorDetails;
+                }
+
+                template.ConfigurationJson = request.ConfigurationJson;
+            }
 
             if (request.Template != null)
             {

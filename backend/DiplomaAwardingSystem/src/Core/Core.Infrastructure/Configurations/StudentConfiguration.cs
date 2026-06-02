@@ -14,6 +14,8 @@ public sealed class StudentConfiguration : IEntityTypeConfiguration<Student>
         
         builder.Property(s => s.FullName).IsRequired().HasMaxLength(256);
 
+        builder.HasIndex(s => new { s.GroupId, s.FullName });
+
         // 1-to-1: Student (Principal) <-> QualificationWork (Dependent)
         builder.HasOne(s => s.QualificationWork)
             .WithOne(qw => qw.Student)

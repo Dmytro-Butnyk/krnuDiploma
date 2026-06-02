@@ -17,6 +17,7 @@ public sealed class TeacherConfiguration : IEntityTypeConfiguration<Teacher>
         builder.Property(t => t.IsActive).IsRequired();
         
         builder.HasIndex(t => t.Email).IsUnique();
+        builder.HasIndex(t => new { t.SpecialtyId, t.IsActive, t.ShortName });
 
         builder.HasMany(t => t.QualificationWorks)
             .WithOne(qw => qw.Teacher)

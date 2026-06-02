@@ -16,7 +16,21 @@ internal static class GetTemplateSchema
     internal sealed record EntitySchemaNode(
         [property: JsonPropertyName("scalars")] IReadOnlyCollection<string> Scalars,
         [property: JsonPropertyName("entities")] IReadOnlyDictionary<string, string> Entities,
-        [property: JsonPropertyName("collections")] IReadOnlyDictionary<string, string> Collections);
+        [property: JsonPropertyName("collections")] IReadOnlyDictionary<string, string> Collections,
+        [property: JsonPropertyName("keyScalars")] IReadOnlyCollection<string> KeyScalars,
+        [property: JsonPropertyName("foreignKeys")] IReadOnlyCollection<ForeignKeySchemaNode> ForeignKeys,
+        [property: JsonPropertyName("references")] IReadOnlyCollection<EntityReferenceSchemaNode> References,
+        [property: JsonPropertyName("displayCandidates")] IReadOnlyCollection<string> DisplayCandidates);
+
+    internal sealed record ForeignKeySchemaNode(
+        [property: JsonPropertyName("property")] string Property,
+        [property: JsonPropertyName("targetEntity")] string TargetEntity);
+
+    internal sealed record EntityReferenceSchemaNode(
+        [property: JsonPropertyName("navigation")] string Navigation,
+        [property: JsonPropertyName("targetEntity")] string TargetEntity,
+        [property: JsonPropertyName("foreignKeys")] IReadOnlyCollection<string> ForeignKeys,
+        [property: JsonPropertyName("isCollection")] bool IsCollection);
 
     internal static class Endpoint
     {
@@ -80,20 +94,39 @@ internal sealed class EntitySchemaProvider : IEntitySchemaProvider
         var result = new Dictionary<string, GetTemplateSchema.EntitySchemaNode>(StringComparer.OrdinalIgnoreCase);
         var efModel = context.Model;
 
-        foreach (var entityName in DocumentGenerationAllowedEntities.Registry.Keys)
+        foreach (var (entityName, registration) in DocumentGenerationAllowedEntities.Registry)
         {
             var entityType = efModel.GetEntityTypes()
-                .FirstOrDefault(e => e.ClrType.Name.Equals(entityName, StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(e => e.ClrType == registration.ClrType);
 
             if (entityType is null) continue;
 
             var scalars = entityType.GetProperties()
-                .Where(p => !p.IsShadowProperty() && !p.IsForeignKey())
+                .Where(p => !p.IsShadowProperty()
+                            && !p.IsForeignKey()
+                            && registration.AllowsProperty(p.Name))
                 .Select(p => p.Name)
+                .ToArray();
+
+            var keyScalars = entityType.FindPrimaryKey()?.Properties
+                .Where(p => !p.IsShadowProperty()
+                            && registration.AllowsProperty(p.Name))
+                .Select(p => p.Name)
+                .ToArray()
+                ?? [];
+
+            var foreignKeys = entityType.GetForeignKeys()
+                .Where(fk => DocumentGenerationAllowedEntities.Registry.ContainsKey(fk.PrincipalEntityType.ClrType.Name))
+                .SelectMany(fk => fk.Properties
+                    .Where(property => registration.AllowsProperty(property.Name))
+                    .Select(property => new GetTemplateSchema.ForeignKeySchemaNode(
+                        property.Name,
+                        fk.PrincipalEntityType.ClrType.Name)))
                 .ToArray();
 
             var entities = new Dictionary<string, string>();
             var collections = new Dictionary<string, string>();
+            var references = new List<GetTemplateSchema.EntityReferenceSchemaNode>();
 
             foreach (var nav in entityType.GetNavigations())
             {
@@ -104,11 +137,52 @@ internal sealed class EntitySchemaProvider : IEntitySchemaProvider
                     collections[nav.Name] = targetTypeName;
                 else
                     entities[nav.Name] = targetTypeName;
+
+                references.Add(new GetTemplateSchema.EntityReferenceSchemaNode(
+                    nav.Name,
+                    targetTypeName,
+                    nav.ForeignKey.Properties
+                        .Where(p => registration.AllowsProperty(p.Name))
+                        .Select(p => p.Name)
+                        .ToArray(),
+                    nav.IsCollection));
             }
 
-            result[entityName] = new GetTemplateSchema.EntitySchemaNode(scalars, entities, collections);
+            var displayCandidates = BuildDisplayCandidates(scalars);
+
+            result[entityName] = new GetTemplateSchema.EntitySchemaNode(
+                scalars,
+                entities,
+                collections,
+                keyScalars,
+                foreignKeys,
+                references,
+                displayCandidates);
         }
 
         return result;
+    }
+
+    private static string[] BuildDisplayCandidates(IReadOnlyCollection<string> scalars)
+    {
+        string[] preferred =
+        [
+            "FullName",
+            "Name",
+            "ShortName",
+            "Code",
+            "Email",
+            "OrderNumber",
+            "Year",
+            "DefenseYear",
+            "Topic"
+        ];
+
+        return preferred
+            .Where(scalars.Contains)
+            .Concat(scalars.Where(scalar => scalar.EndsWith("Name", StringComparison.Ordinal)
+                                            && !preferred.Contains(scalar, StringComparer.Ordinal)))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
 }
