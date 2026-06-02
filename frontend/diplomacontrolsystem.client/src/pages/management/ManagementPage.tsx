@@ -116,8 +116,60 @@ const emptySpecialtyForm: SpecialtyFormState = {
   isActive: true,
 }
 
+const fullNameValidationMessage =
+  "ПІБ має містити рівно прізвище, ім'я та по батькові кирилицею, кожне слово з великої літери. Дозволені лише дефіс і апостроф."
+
 function idEquals(left: EntityId, right: EntityId | string | undefined) {
   return String(left) === String(right ?? '')
+}
+
+function tidyText(value: string) {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+function normalizeFullNameInput(value: string) {
+  const normalized = value
+    .replace(/[’ʼ`´]/g, "'")
+    .replace(/[^А-ЯЄІЇҐа-яєіїґ'\-\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s*'\s*/g, "'")
+    .replace(/-{2,}/g, '-')
+    .replace(/'{2,}/g, "'")
+  const hasTrailingSpace = normalized.endsWith(' ')
+  const parts = normalized.trimStart().split(' ').filter(Boolean).slice(0, 3)
+
+  if (parts.length === 0) {
+    return ''
+  }
+
+  const limited = parts.join(' ')
+
+  return hasTrailingSpace && parts.length < 3 ? `${limited} ` : limited
+}
+
+function isCapitalizedNamePart(part: string) {
+  return part
+    .split('-')
+    .every((segment) => /^[А-ЯЄІЇҐ][а-яєіїґ]*(?:'[а-яєіїґ]+)?$/u.test(segment))
+}
+
+function isValidFullName(value: string) {
+  const parts = tidyText(value).split(' ')
+
+  return parts.length === 3 && parts.every(isCapitalizedNamePart)
+}
+
+function makeTeacherShortName(fullName: string) {
+  const parts = tidyText(fullName).split(' ')
+
+  if (parts.length !== 3 || parts.some((part) => !part)) {
+    return ''
+  }
+
+  const [lastName, firstName, middleName] = parts
+
+  return `${lastName} ${firstName[0].toLocaleUpperCase('uk-UA')}. ${middleName[0].toLocaleUpperCase('uk-UA')}.`
 }
 
 function lookupLabel(item: AcademicDegreeDto | TeacherPositionDto) {
@@ -148,9 +200,11 @@ function makeTeacherForm(
   degreeId: EntityId | undefined,
   positionId: EntityId | undefined,
 ): TeacherFormState {
+  const fullName = teacher?.fullName ?? ''
+
   return {
-    fullName: teacher?.fullName ?? '',
-    shortName: teacher?.shortName ?? '',
+    fullName,
+    shortName: makeTeacherShortName(fullName),
     email: teacher?.email ?? '',
     phoneNumber: teacher?.phoneNumber ?? '',
     academicDegreeId: String(teacher?.academicDegreeId ?? degreeId ?? ''),
@@ -342,9 +396,16 @@ export function ManagementPage() {
   const submitTeacher = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
+    const fullName = tidyText(teacherForm.fullName)
+
+    if (!isValidFullName(fullName)) {
+      toast.showError(fullNameValidationMessage)
+      return
+    }
+
     const request: UpsertTeacherRequest = {
-      fullName: teacherForm.fullName.trim(),
-      shortName: teacherForm.shortName.trim(),
+      fullName,
+      shortName: makeTeacherShortName(fullName),
       email: teacherForm.email.trim(),
       phoneNumber: teacherForm.phoneNumber.trim(),
       academicDegreeId: toEntityId(teacherForm.academicDegreeId),
@@ -366,9 +427,16 @@ export function ManagementPage() {
   const submitSecretary = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
+    const fullName = tidyText(secretaryForm.fullName)
+
+    if (!isValidFullName(fullName)) {
+      toast.showError(fullNameValidationMessage)
+      return
+    }
+
     const request: UpsertSecretaryRequest = {
       email: secretaryForm.email.trim(),
-      fullName: secretaryForm.fullName.trim(),
+      fullName,
       specialtyId: toEntityId(secretaryForm.specialtyId),
       isActive: secretaryForm.isActive,
       isSuperSecretary: secretaryForm.isSuperSecretary,
@@ -741,12 +809,14 @@ function TextField({
   onChange,
   type = 'text',
   required = true,
+  readOnly = false,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   type?: string
   required?: boolean
+  readOnly?: boolean
 }) {
   return (
     <label className="grid grid-cols-[210px_minmax(0,1fr)] items-center gap-6 text-xl font-extrabold text-slate-600">
@@ -754,9 +824,10 @@ function TextField({
       <input
         type={type}
         required={required}
+        readOnly={readOnly}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-10 rounded-xl border px-4 outline-none"
+        className={`h-10 rounded-xl border px-4 outline-none ${readOnly ? 'bg-slate-100 text-slate-500' : ''}`}
       />
     </label>
   )
@@ -830,10 +901,16 @@ function TeacherFields({
   positions: TeacherPositionDto[]
   specialties: SpecialtyDto[]
 }) {
+  const handleFullNameChange = (fullName: string) => {
+    const normalizedFullName = normalizeFullNameInput(fullName)
+
+    onChange({ ...value, fullName: normalizedFullName, shortName: makeTeacherShortName(normalizedFullName) })
+  }
+
   return (
     <div className="max-w-[800px] space-y-4">
-      <TextField label="ПІБ" value={value.fullName} onChange={(fullName) => onChange({ ...value, fullName })} />
-      <TextField label="Короткий ПІБ" value={value.shortName} onChange={(shortName) => onChange({ ...value, shortName })} />
+      <TextField label="ПІБ" value={value.fullName} onChange={handleFullNameChange} />
+      <TextField label="Короткий ПІБ" value={value.shortName} onChange={() => undefined} readOnly required={false} />
       <TextField label="Пошта" type="email" value={value.email} onChange={(email) => onChange({ ...value, email })} />
       <TextField label="Телефон" value={value.phoneNumber} onChange={(phoneNumber) => onChange({ ...value, phoneNumber })} />
       <SelectField label="Академічний рівень" value={value.academicDegreeId} onChange={(academicDegreeId) => onChange({ ...value, academicDegreeId })}>
@@ -862,9 +939,13 @@ function SecretaryFields({
   onChange: (value: SecretaryFormState) => void
   specialties: SpecialtyDto[]
 }) {
+  const handleFullNameChange = (fullName: string) => {
+    onChange({ ...value, fullName: normalizeFullNameInput(fullName) })
+  }
+
   return (
     <div className="max-w-[800px] space-y-4">
-      <TextField label="ПІБ" value={value.fullName} onChange={(fullName) => onChange({ ...value, fullName })} />
+      <TextField label="ПІБ" value={value.fullName} onChange={handleFullNameChange} />
       <TextField label="Пошта" type="email" value={value.email} onChange={(email) => onChange({ ...value, email })} />
       <SelectField label="Спеціальність" value={value.specialtyId} onChange={(specialtyId) => onChange({ ...value, specialtyId })}>
         <option value="">Оберіть спеціальність</option>

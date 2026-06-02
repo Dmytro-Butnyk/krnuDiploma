@@ -1,15 +1,17 @@
 import { ChevronDown, ChevronRight, Plus, Trash2, X } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { EntitySchema, SchemaPath } from '../../../../entities/schema/model/types'
 import { cn } from '../../../../shared/lib/cn'
 import { getPathsForEntity, getSourceArrayScalarPaths } from '../../../../shared/lib/paths'
 import { Button } from '../../../../shared/ui/Button'
 import { SearchableSelect } from '../../../../shared/ui/SearchableSelect'
-import { getTableRowTagName, getTableTagPrefix, useConstructorStore } from '../../model/store'
+import { getSourceArrayEntity, getTableRowTagName, getTableTagPrefix, useConstructorStore } from '../../model/store'
 
 type Props = {
   schema?: EntitySchema
 }
+
+const MAX_VISIBLE_MAPPING_PATHS = 200
 
 function ScalarPathList({
   sourceKey,
@@ -24,7 +26,12 @@ function ScalarPathList({
   const toggleExpanded = useConstructorStore((state) => state.toggleExpanded)
   const selectedTag = useConstructorStore((state) => state.selectedTag)
   const mapScalar = useConstructorStore((state) => state.mapScalar)
+  const requiredScalarMappings = useConstructorStore((state) => state.requiredScalarMappings)
   const isExpanded = expandedSources[sourceKey] ?? true
+  const selectedTagIsRequired = selectedTag
+    ? requiredScalarMappings.some((mapping) => mapping.tag === selectedTag)
+    : false
+  const visiblePaths = paths.slice(0, MAX_VISIBLE_MAPPING_PATHS)
 
   return (
     <div className="overflow-hidden rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)]">
@@ -39,11 +46,11 @@ function ScalarPathList({
         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
       {isExpanded && (
-        <ul className="p-2 lg:max-h-72 lg:overflow-auto lg:custom-scrollbar">
-          {paths.map((path) => (
+        <ul className="p-2">
+          {visiblePaths.map((path) => (
             <li key={path.fullPath}>
               <button
-                disabled={!selectedTag}
+                disabled={!selectedTag || selectedTagIsRequired}
                 onClick={() => selectedTag && mapScalar(selectedTag, `${sourceKey}.${path.fullPath}`)}
                 className="group flex w-full items-center justify-between rounded-[12px] px-3 py-2 text-left font-mono text-sm text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -61,6 +68,128 @@ function ScalarPathList({
   )
 }
 
+function RequiredScalarMappingPanel({
+  mapping,
+}: {
+  mapping: { tag: string; path: string; message: string }
+}) {
+  return (
+    <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-5 shadow-[var(--shadow-ui)]">
+      <h4 className="text-lg font-extrabold text-[var(--color-primary)]">{mapping.tag}</h4>
+      <p className="mt-2 text-sm font-bold text-[var(--color-muted)]">
+        Цей тег є обовʼязковим для застосованого сценарію, тому його шлях зафіксований.
+      </p>
+      <div className="mt-5 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)] px-4 py-3 font-mono text-sm font-bold text-[var(--color-primary)]">
+        {mapping.path}
+      </div>
+      <p className="mt-3 text-xs font-semibold text-[var(--color-muted)]">{mapping.message}</p>
+    </div>
+  )
+}
+
+function InputScalarPanel({ tag }: { tag: string }) {
+  const config = useConstructorStore((state) => state.config)
+  const mapInputScalar = useConstructorStore((state) => state.mapInputScalar)
+  const existingInputKey = config.Mapping.Scalars[tag]?.startsWith('Input.')
+    ? config.Mapping.Scalars[tag].slice('Input.'.length)
+    : null
+  const existingLabel = existingInputKey ? config.Inputs[existingInputKey]?.Label : null
+  const [label, setLabel] = useState(existingLabel ?? tag)
+
+  return (
+    <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-5 shadow-[var(--shadow-ui)]">
+      <h4 className="text-lg font-extrabold text-[var(--color-primary)]">{tag}</h4>
+      <p className="mt-2 text-sm font-bold text-[var(--color-muted)]">
+        Це поле користувач заповнить вручну перед генерацією. Значення буде збережено як текст.
+      </p>
+      <label className="mt-5 block">
+        <span className="ui-label mb-2 block">Назва поля у формі генерації</span>
+        <input
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          className="ui-input w-full px-4 py-3 text-sm font-bold"
+          placeholder="Дата підписання"
+        />
+      </label>
+      <Button className="mt-4" onClick={() => mapInputScalar(tag, label)} disabled={!label.trim()}>
+        Застосувати
+      </Button>
+    </div>
+  )
+}
+
+function getPathSearchScore(path: string, query: string) {
+  const normalizedPath = path.toLowerCase()
+  const normalizedQuery = query.trim().toLowerCase()
+  if (!normalizedQuery) return 0
+  if (!normalizedPath.includes(normalizedQuery)) return Number.NEGATIVE_INFINITY
+
+  const segments = normalizedPath.split('.')
+  const bestSegmentScore = segments.reduce((bestScore, segment, index) => {
+    const matchIndex = segment.indexOf(normalizedQuery)
+    if (matchIndex === -1) return bestScore
+
+    let score = 500
+    if (matchIndex === 0) score += 700
+    if (segment === normalizedQuery) score += 300
+    if (index === 0) score += 260
+    if (index === segments.length - 1) score += 40
+    score -= matchIndex * 25
+
+    return Math.max(bestScore, score)
+  }, 0)
+
+  const fullPathMatchIndex = normalizedPath.indexOf(normalizedQuery)
+  let fullPathScore = 400
+  if (fullPathMatchIndex === 0) fullPathScore += 400
+  if (normalizedPath === normalizedQuery) fullPathScore += 300
+  fullPathScore -= fullPathMatchIndex * 10
+  const depthPenalty = (segments.length - 1) * 140
+  const lengthPenalty = normalizedPath.length * 0.5
+
+  return Math.max(bestSegmentScore, fullPathScore) - depthPenalty - lengthPenalty
+}
+
+function getPathCost(path: string) {
+  const segments = path.split('.')
+  return (segments.length - 1) * 100 + path.length * 0.5
+}
+
+function rankSchemaPaths(paths: SchemaPath[], query: string) {
+  const normalizedQuery = query.trim()
+  if (!normalizedQuery) {
+    return [...paths].sort((left, right) => {
+      const costDifference = getPathCost(left.fullPath) - getPathCost(right.fullPath)
+      return costDifference || left.fullPath.localeCompare(right.fullPath)
+    })
+  }
+
+  return paths
+    .map((path, index) => ({
+      path,
+      index,
+      score: getPathSearchScore(path.fullPath, normalizedQuery),
+    }))
+    .filter((item) => Number.isFinite(item.score))
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score
+      const lengthDifference = left.path.fullPath.length - right.path.fullPath.length
+      return lengthDifference || left.index - right.index
+    })
+    .map((item) => item.path)
+}
+
+function rankPathValues(paths: string[], query: string) {
+  return rankSchemaPaths(
+    paths.map((fullPath) => ({ fullPath, isCollection: false as const })),
+    query,
+  ).map((path) => path.fullPath)
+}
+
+function getOptionPathSearchScore(option: { label: string }, query: string) {
+  return getPathSearchScore(option.label, query)
+}
+
 export function MappingStep({ schema = {} }: Props) {
   const mappingMode = useConstructorStore((state) => state.mappingMode)
   const setMappingMode = useConstructorStore((state) => state.setMappingMode)
@@ -76,6 +205,9 @@ export function MappingStep({ schema = {} }: Props) {
   const setNewColumnPath = useConstructorStore((state) => state.setNewColumnPath)
   const searchQuery = useConstructorStore((state) => state.searchQuery)
   const setSearchQuery = useConstructorStore((state) => state.setSearchQuery)
+  const recommendedTableSources = useConstructorStore((state) => state.recommendedTableSources)
+  const requiredScalarMappings = useConstructorStore((state) => state.requiredScalarMappings)
+  const requiredTableSources = useConstructorStore((state) => state.requiredTableSources)
   const tagTypes = useConstructorStore((state) => state.tagTypes)
   const config = useConstructorStore((state) => state.config)
   const unmapScalar = useConstructorStore((state) => state.unmapScalar)
@@ -87,9 +219,15 @@ export function MappingStep({ schema = {} }: Props) {
   const removeColumnFromTable = useConstructorStore((state) => state.removeColumnFromTable)
 
   const scalarTags = useMemo(
-    () => Object.keys(tagTypes).filter((tag) => tagTypes[tag] === 'scalar'),
+    () => Object.keys(tagTypes).filter((tag) => tagTypes[tag] === 'db_scalar' || tagTypes[tag] === 'input_scalar'),
     [tagTypes],
   )
+  const selectedTagKind = selectedTag ? tagTypes[selectedTag] : null
+  const requiredScalarMappingByTag = useMemo(
+    () => new Map(requiredScalarMappings.map((mapping) => [mapping.tag, mapping])),
+    [requiredScalarMappings],
+  )
+  const selectedRequiredScalarMapping = selectedTag ? requiredScalarMappingByTag.get(selectedTag) : null
   const tableColumnTags = useMemo(
     () => Object.keys(tagTypes).filter((tag) => tagTypes[tag] === 'table_column'),
     [tagTypes],
@@ -110,8 +248,7 @@ export function MappingStep({ schema = {} }: Props) {
     () =>
       config.DataSources.flatMap((source) => [
         { value: source.Key, label: `${source.Key} (${source.Entity})` },
-        ...getPathsForEntity(schema, source.Entity)
-          .filter((path) => path.isCollection)
+        ...rankSchemaPaths(getPathsForEntity(schema, source.Entity).filter((path) => path.isCollection), '')
           .map((path) => ({
             value: `${source.Key}.${path.fullPath}`,
             label: `${source.Key}.${path.fullPath}`,
@@ -119,17 +256,38 @@ export function MappingStep({ schema = {} }: Props) {
       ]),
     [config.DataSources, schema],
   )
-  const sourcePathOptions = sourceArrayPaths.map((path) => ({ value: path, label: path }))
+  const availableRecommendedTableSources = recommendedTableSources.filter((recommendation) =>
+    config.DataSources.some((source) => source.Key === recommendation.key),
+  )
+  const requiredSourceEntities = useMemo(
+    () =>
+      requiredTableSources
+        .map((requirement) => ({
+          source: requirement.sourceArray,
+          message: requirement.message,
+          entity: getSourceArrayEntity(schema, config.DataSources, requirement.sourceArray),
+        }))
+        .filter((item): item is { source: string; message: string; entity: string } => Boolean(item.entity)),
+    [config.DataSources, requiredTableSources, schema],
+  )
+  const requiredSourceArrays = useMemo(
+    () => requiredTableSources.map((requirement) => requirement.sourceArray),
+    [requiredTableSources],
+  )
+  const activeTableSourceWarning = activeTable?.SourceArray && !requiredSourceArrays.includes(activeTable.SourceArray)
+    ? requiredSourceEntities.find((item) => (
+        item.entity === getSourceArrayEntity(schema, config.DataSources, activeTable.SourceArray)
+      ))
+    : null
+  const sourcePathOptions = rankPathValues(sourceArrayPaths, '').map((path) => ({ value: path, label: path }))
 
   const getFilteredScalarPaths = (entity: string) => {
     const allPaths = getPathsForEntity(schema, entity).filter((path) => !path.isCollection)
-    if (!searchQuery) return allPaths
-    const query = searchQuery.toLowerCase()
-    return allPaths.filter((path) => path.fullPath.toLowerCase().includes(query))
+    return rankSchemaPaths(allPaths, searchQuery)
   }
 
   return (
-    <div className="custom-scrollbar flex h-full min-h-0 flex-col overflow-y-auto overflow-x-hidden pr-1 lg:overflow-hidden lg:pr-0">
+    <div className="flex min-h-0 flex-col overflow-visible pr-1 lg:pr-0">
       <div className="mb-5 flex shrink-0 flex-wrap items-start justify-between gap-4">
         <div>
           <h3 className="ui-step-title">3 КРОК: МАППІНГ</h3>
@@ -158,11 +316,12 @@ export function MappingStep({ schema = {} }: Props) {
       </div>
 
       {mappingMode === 'scalars' ? (
-        <div className="grid shrink-0 grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[clamp(260px,22%,340px)_minmax(0,1fr)]">
-          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[clamp(260px,22%,340px)_minmax(0,1fr)]">
+          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)]">
             <p className="ui-label mb-3">Оберіть тег</p>
             {scalarTags.map((tag) => {
               const isMapped = Boolean(config.Mapping.Scalars[tag])
+              const requiredScalarMapping = requiredScalarMappingByTag.get(tag)
               return (
                 <button
                   key={tag}
@@ -175,22 +334,29 @@ export function MappingStep({ schema = {} }: Props) {
                   )}
                 >
                   {tag}
+                  {requiredScalarMapping && (
+                    <span className="ml-2 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-extrabold uppercase text-white">
+                      сценарій
+                    </span>
+                  )}
                   {isMapped && (
                     <>
                       <span className="mt-1 block truncate pr-6 text-[11px] font-semibold text-blue-100">
                         {config.Mapping.Scalars[tag]}
                       </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          unmapScalar(tag)
-                        }}
-                        className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-red-100 hover:bg-white hover:text-[var(--color-danger)]"
-                      >
-                        <X size={14} />
-                      </span>
+                      {!requiredScalarMapping && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            unmapScalar(tag)
+                          }}
+                          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-red-100 hover:bg-white hover:text-[var(--color-danger)]"
+                        >
+                          <X size={14} />
+                        </span>
+                      )}
                     </>
                   )}
                 </button>
@@ -198,7 +364,7 @@ export function MappingStep({ schema = {} }: Props) {
             })}
           </div>
 
-          <div className="flex min-h-[240px] flex-col rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-hidden">
+          <div className="flex min-h-[240px] flex-col rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)]">
             <div className="shrink-0 border-b border-[var(--color-bg-lavender)] bg-white p-3">
               <input
                 value={searchQuery}
@@ -207,9 +373,11 @@ export function MappingStep({ schema = {} }: Props) {
                 placeholder="Пошук властивостей"
               />
             </div>
-            <div className="grid content-start gap-3 p-3 lg:min-h-0 lg:flex-1 lg:overflow-auto lg:custom-scrollbar">
+            <div className="grid content-start gap-3 p-3">
               {!selectedTag && <div className="p-10 text-center text-sm text-slate-400">Оберіть тег ліворуч</div>}
-              {selectedTag &&
+              {selectedRequiredScalarMapping && <RequiredScalarMappingPanel mapping={selectedRequiredScalarMapping} />}
+              {selectedTag && !selectedRequiredScalarMapping && selectedTagKind === 'input_scalar' && <InputScalarPanel key={selectedTag} tag={selectedTag} />}
+              {selectedTag && !selectedRequiredScalarMapping && selectedTagKind === 'db_scalar' &&
                 config.DataSources.map((source) => (
                   <ScalarPathList
                     key={source.Key}
@@ -222,8 +390,8 @@ export function MappingStep({ schema = {} }: Props) {
           </div>
         </div>
       ) : (
-        <div className="grid shrink-0 grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[clamp(220px,19%,300px)_minmax(0,1fr)]">
-          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[clamp(220px,19%,300px)_minmax(0,1fr)]">
+          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)]">
             <Button variant="primary" size="pill" className="mb-5 w-full text-base" onClick={createNewTable}>
               <Plus size={16} />
               Створити таблицю
@@ -248,7 +416,7 @@ export function MappingStep({ schema = {} }: Props) {
             ))}
           </div>
 
-          <div className="min-h-[260px] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-5 shadow-[var(--shadow-ui)] lg:min-h-0 lg:overflow-auto lg:custom-scrollbar">
+          <div className="min-h-[260px] rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-5 shadow-[var(--shadow-ui)]">
             {!selectedTable || !activeTable ? (
               <div className="p-10 text-center text-sm text-slate-400">Створіть або оберіть таблицю</div>
             ) : (
@@ -274,12 +442,39 @@ export function MappingStep({ schema = {} }: Props) {
 
                 <div className="mb-5">
                   <span className="ui-label mb-2 block">Джерело колекції</span>
+                  {availableRecommendedTableSources.length > 0 && (
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {availableRecommendedTableSources.map((recommendation) => (
+                        <button
+                          key={recommendation.key}
+                          type="button"
+                          onClick={() => updateTableSourceArray(selectedTable, recommendation.key)}
+                          className={cn(
+                            'rounded-[var(--radius-ui-sm)] border px-3 py-2 text-left text-xs font-extrabold transition',
+                            activeTable.SourceArray === recommendation.key
+                              ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white'
+                              : 'border-[var(--color-primary)] bg-white text-[var(--color-primary)] hover:bg-[var(--color-bg-lavender)]',
+                          )}
+                        >
+                          {recommendation.label}
+                          <span className="ml-2 font-mono opacity-70">{recommendation.key}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   <SearchableSelect
                     value={activeTable.SourceArray}
                     options={sourceArrayOptions}
+                    maxVisibleOptions={MAX_VISIBLE_MAPPING_PATHS}
+                    getOptionSearchScore={getOptionPathSearchScore}
                     placeholder="Виберіть колекцію бази даних"
                     onChange={(value) => updateTableSourceArray(selectedTable, value)}
                   />
+                  {activeTableSourceWarning && (
+                    <div className="mt-3 rounded-[var(--radius-ui-sm)] border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-3 text-xs font-bold text-[var(--color-danger)]">
+                      {activeTableSourceWarning.message}
+                    </div>
+                  )}
                 </div>
 
                 {activeTable.SourceArray && (
@@ -301,6 +496,8 @@ export function MappingStep({ schema = {} }: Props) {
                       <SearchableSelect
                         value={newColumnPath}
                         options={sourcePathOptions}
+                        maxVisibleOptions={MAX_VISIBLE_MAPPING_PATHS}
+                        getOptionSearchScore={getOptionPathSearchScore}
                         placeholder="Поле"
                         onChange={setNewColumnPath}
                       />

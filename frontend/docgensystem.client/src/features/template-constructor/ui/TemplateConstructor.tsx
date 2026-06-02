@@ -1,9 +1,9 @@
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useConstructorSchema } from '../../../entities/schema/api/schemaApi'
 import { cn } from '../../../shared/lib/cn'
 import { Button } from '../../../shared/ui/Button'
-import { getTableRowTagName, useConstructorStore } from '../model/store'
+import { getTableRowTagName, useConstructorStore, validateTemplateConfiguration } from '../model/store'
 import type { TemplateConfiguration } from '../model/types'
 import { DataSourcesStep } from './steps/DataSourcesStep'
 import { MappingStep } from './steps/MappingStep'
@@ -17,8 +17,10 @@ type TemplateConstructorProps = {
   initialConfiguration?: TemplateConfiguration
   sessionKey: string
   isSaving?: boolean
+  isTemplateFileMissing?: boolean
   canBackFromFirstStep?: boolean
   onTemplateNameChange: (name: string) => void
+  onTemplateFileChange?: (file: File) => void
   onCancel: () => void
   onBack: () => void
   onComplete: (configuration: TemplateConfiguration) => void
@@ -33,8 +35,10 @@ export function TemplateConstructor({
   initialConfiguration,
   sessionKey,
   isSaving = false,
+  isTemplateFileMissing = false,
   canBackFromFirstStep = true,
   onTemplateNameChange,
+  onTemplateFileChange,
   onCancel,
   onBack,
   onComplete,
@@ -48,6 +52,10 @@ export function TemplateConstructor({
   const calculateIncludes = useConstructorStore((state) => state.calculateIncludes)
   const config = useConstructorStore((state) => state.config)
   const tagTypes = useConstructorStore((state) => state.tagTypes)
+  const appliedScenarioId = useConstructorStore((state) => state.appliedScenarioId)
+  const requiredScalarMappings = useConstructorStore((state) => state.requiredScalarMappings)
+  const requiredTableSources = useConstructorStore((state) => state.requiredTableSources)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
 
   const schemaKeys = useMemo(() => Object.keys(schema ?? {}), [schema])
   const formattedJson = useMemo(() => JSON.stringify(config, null, 2), [config])
@@ -87,7 +95,15 @@ export function TemplateConstructor({
 
   const handleComplete = () => {
     calculateIncludes(schema)
-    onComplete(useConstructorStore.getState().config)
+    const nextConfig = useConstructorStore.getState().config
+    const errors = validateTemplateConfiguration(nextConfig, schema, {
+      appliedScenarioId,
+      requiredScalarMappings,
+      requiredTableSources,
+    })
+    setValidationErrors(errors)
+    if (errors.length > 0) return
+    onComplete(nextConfig)
   }
 
   return (
@@ -154,7 +170,10 @@ export function TemplateConstructor({
                 <ReviewStep
                   documentName={documentName}
                   templateName={templateName}
+                  validationErrors={validationErrors}
+                  isTemplateFileMissing={isTemplateFileMissing}
                   onTemplateNameChange={onTemplateNameChange}
+                  onTemplateFileChange={onTemplateFileChange}
                   onBack={onBack}
                   onSave={handleComplete}
                   isSaving={isSaving}
@@ -188,9 +207,9 @@ export function TemplateConstructor({
         )}
       </section>
 
-      <aside className="ui-json-panel flex h-fit min-h-0 self-start flex-col p-5 shadow-[var(--shadow-ui)]">
+      <aside className="ui-json-panel sticky top-4 flex max-h-[calc(100vh-2rem)] min-h-0 self-start overflow-hidden p-5 shadow-[var(--shadow-ui)]">
         <h3 className="text-xs font-extrabold uppercase text-[var(--color-success-soft)]">Live JSON</h3>
-        <pre className="json-scrollbar mt-4 max-w-full overflow-x-auto overflow-y-visible whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-[var(--color-success-soft)] [overflow-wrap:anywhere]">
+        <pre className="json-scrollbar mt-4 max-w-full flex-1 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-[var(--color-success-soft)] [overflow-wrap:anywhere]">
           {formattedJson}
         </pre>
       </aside>

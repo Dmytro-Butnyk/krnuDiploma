@@ -16,6 +16,45 @@ export type GenerateDocumentRequest = {
   parameters: Record<string, string>
 }
 
+export type InputFilterConfig = {
+  Property: string
+  Operator: string
+  Input: string
+}
+
+export type GenerationInputDto = {
+  key: string
+  kind: string
+  valueType: string
+  label: string
+  required: boolean
+  entity: string | null
+  dependsOn: string[]
+  filters: InputFilterConfig[]
+  display: string[]
+  description: string[]
+  search: string[]
+  orderBy: string[]
+  maxLength: number | string | null
+  optionsEndpoint: string | null
+}
+
+export type GenerationFormDto = {
+  configurationVersion: number | string
+  inputs: GenerationInputDto[]
+}
+
+export type OptionDto = {
+  value: string
+  label: string
+  description: string | null
+}
+
+export type OptionsResponse = {
+  items: OptionDto[]
+  hasMore: boolean
+}
+
 export type ScanTemplateForTagsResponse = {
   tags: string[]
 }
@@ -29,7 +68,7 @@ export type GetTemplateDetailsResponse = {
   id: ApiId
   name: string
   configurationJson: string | null
-  requiredArguments: string[]
+  generationForm: GenerationFormDto
 }
 
 export type UploadTemplateResponse = {

@@ -1,1 +1,1 @@
-export const generatorUrl = 'https://www.google.com'
+export const generatorUrl = 'http://localhost:5174/templates'

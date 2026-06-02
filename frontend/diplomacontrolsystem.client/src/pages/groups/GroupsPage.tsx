@@ -2333,8 +2333,12 @@ function GroupDialog({
 
     setFile(selectedFile)
   }
-  const handleFileDrop = (event: DragEvent<HTMLLabelElement>) => {
+  const handleFileDrag = (event: DragEvent<HTMLElement>) => {
     event.preventDefault()
+    event.stopPropagation()
+  }
+  const handleFileDrop = (event: DragEvent<HTMLElement>) => {
+    handleFileDrag(event)
     handleSelectedFile(event.dataTransfer.files?.[0] ?? null)
   }
   const mutation = useMutation({
@@ -2384,7 +2388,11 @@ function GroupDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-[#dcecff]/80 px-6 py-16 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-40 overflow-y-auto bg-[#dcecff]/80 px-6 py-16 backdrop-blur-sm"
+      onDragOver={handleFileDrag}
+      onDrop={handleFileDrop}
+    >
       <section className="mx-auto min-h-[620px] max-w-[1280px] rounded-[28px] bg-white/80 p-10 shadow-xl">
         <div className="flex items-start justify-between">
           <h2 className="text-4xl font-bold uppercase text-blue-600">
@@ -2420,7 +2428,7 @@ function GroupDialog({
               </p>
               <div className="mt-8 grid grid-cols-[1fr_80px_1fr] items-center gap-8">
                 <label
-                  onDragOver={(event) => event.preventDefault()}
+                  onDragOver={handleFileDrag}
                   onDrop={handleFileDrop}
                   className="grid min-h-56 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-blue-500 text-center text-xl font-bold text-slate-600"
                 >
@@ -2495,8 +2503,12 @@ function ImportDefenceResultsDialog({
 
     setFile(selectedFile)
   }
-  const handleFileDrop = (event: DragEvent<HTMLLabelElement>) => {
+  const handleFileDrag = (event: DragEvent<HTMLElement>) => {
     event.preventDefault()
+    event.stopPropagation()
+  }
+  const handleFileDrop = (event: DragEvent<HTMLElement>) => {
+    handleFileDrag(event)
     handleSelectedFile(event.dataTransfer.files?.[0] ?? null)
   }
   const mutation = useMutation({
@@ -2525,7 +2537,11 @@ function ImportDefenceResultsDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-40 overflow-y-auto bg-[#dcecff]/80 px-6 py-16 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-40 overflow-y-auto bg-[#dcecff]/80 px-6 py-16 backdrop-blur-sm"
+      onDragOver={handleFileDrag}
+      onDrop={handleFileDrop}
+    >
       <section className="mx-auto min-h-[520px] max-w-[1040px] rounded-[28px] bg-white/80 p-10 shadow-xl">
         <div className="flex items-start justify-between">
           <h2 className="text-4xl font-bold uppercase text-blue-600">Завантаження результатів захисту</h2>
@@ -2542,7 +2558,7 @@ function ImportDefenceResultsDialog({
           </div>
           <div className="grid grid-cols-[1fr_80px_1fr] items-center gap-8">
             <label
-              onDragOver={(event) => event.preventDefault()}
+              onDragOver={handleFileDrag}
               onDrop={handleFileDrop}
               className="grid min-h-56 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-blue-500 text-center text-xl font-bold text-slate-600"
             >
