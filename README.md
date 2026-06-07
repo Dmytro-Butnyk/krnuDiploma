@@ -34,7 +34,7 @@
 
 ## 🛠 Технологічний стек
 
-* **Платформа:** .NET 8/9 (ASP.NET Core Web API).
+* **Платформа:** .NET 10 (ASP.NET Core Web API).
 * **База даних:** Спільна реляційна база даних (PostgreSQL) для обох підсистем.
 * **ORM:** Entity Framework Core.
 * **Frontend:** React.
