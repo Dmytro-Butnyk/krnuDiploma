@@ -2,6 +2,7 @@ using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -30,6 +31,7 @@ public static class GetGroupStudents
     public sealed record GetGroupStudentsResponse(
         int Id,
         string FullName,
+        PersonNameFormsDto NameForms,
         string? SupervisorName,
         PhysicalChecklistDto? PhysicalChecklist,
         ElectronicChecklistDto? ElectronicChecklist);
@@ -105,6 +107,10 @@ public static class GetGroupStudents
                 {
                     s.Id,
                     s.FullName,
+                    NameNominative = s.NameForms.Nominative,
+                    NameGenitive = s.NameForms.Genitive,
+                    NameDative = s.NameForms.Dative,
+                    NameSignature = s.NameForms.Signature,
                     SupervisorName = s.QualificationWork != null && s.QualificationWork.Teacher != null
                         ? s.QualificationWork.Teacher.ShortName
                         : null,
@@ -156,6 +162,11 @@ public static class GetGroupStudents
                 response.Add(new GetGroupStudentsResponse(
                     student.Id,
                     student.FullName,
+                    new PersonNameFormsDto(
+                        student.NameNominative,
+                        student.NameGenitive,
+                        student.NameDative,
+                        student.NameSignature),
                     student.SupervisorName,
                     physicalChecklist,
                     electronicChecklist));

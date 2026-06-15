@@ -3,6 +3,7 @@ using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.Students;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -21,7 +22,8 @@ public static class GetStudentDetails
         string? SupervisorName,
         string PracticeBase,
         int? ReviewerId,
-        string? ReviewerName);
+        string? ReviewerName,
+        IReadOnlyCollection<DefenceQuestionDto> DefenceQuestions);
 
     public sealed record PhysicalChecklistDto(
         bool HasStudentCard,
@@ -69,6 +71,7 @@ public static class GetStudentDetails
         int GroupId,
         string FullName,
         StudentNameDto Name,
+        PersonNameFormsDto NameForms,
         QualificationWorkDto? QualificationWork,
         PhysicalChecklistDto? PhysicalChecklist,
         ElectronicChecklistDto? ElectronicChecklist,
@@ -126,6 +129,10 @@ public static class GetStudentDetails
                     Id = s.Id,
                     GroupId = s.GroupId,
                     FullName = s.FullName,
+                    NameNominative = s.NameForms.Nominative,
+                    NameGenitive = s.NameForms.Genitive,
+                    NameDative = s.NameForms.Dative,
+                    NameSignature = s.NameForms.Signature,
                     QualificationWorkId = s.QualificationWork != null
                         ? (int?)s.QualificationWork.Id
                         : null,
@@ -147,6 +154,11 @@ public static class GetStudentDetails
                     ReviewerName = s.QualificationWork != null && s.QualificationWork.Reviewer != null
                         ? s.QualificationWork.Reviewer.ShortName
                         : null,
+                    DefenceQuestions = s.QualificationWork != null
+                        ? s.QualificationWork.DefenceQuestions
+                            .Select(question => new DefenceQuestionDto(question.AskedBy, question.Text))
+                            .ToList()
+                        : new List<DefenceQuestionDto>(),
                     PlagiarismPercent = s.QualificationWork != null
                         ? (float?)s.QualificationWork.PlagiarismPercent
                         : null,
@@ -223,6 +235,11 @@ public static class GetStudentDetails
                 student.GroupId,
                 student.FullName,
                 new StudentNameDto(name.LastName, name.FirstName, name.MiddleName),
+                new PersonNameFormsDto(
+                    student.NameNominative,
+                    student.NameGenitive,
+                    student.NameDative,
+                    student.NameSignature),
                 MapQualificationWork(student),
                 MapPhysicalChecklist(student),
                 MapElectronicChecklist(student),
@@ -244,7 +261,8 @@ public static class GetStudentDetails
                 student.SupervisorName,
                 student.PracticeBase ?? string.Empty,
                 student.ReviewerId,
-                student.ReviewerName);
+                student.ReviewerName,
+                student.DefenceQuestions);
         }
 
         private static PhysicalChecklistDto? MapPhysicalChecklist(StudentDetailsProjection student)
@@ -331,6 +349,10 @@ public static class GetStudentDetails
         public int Id { get; init; }
         public int GroupId { get; init; }
         public string FullName { get; init; } = string.Empty;
+        public string NameNominative { get; init; } = string.Empty;
+        public string NameGenitive { get; init; } = string.Empty;
+        public string NameDative { get; init; } = string.Empty;
+        public string NameSignature { get; init; } = string.Empty;
         public int? QualificationWorkId { get; init; }
         public string? Topic { get; init; }
         public string? PracticeBase { get; init; }
@@ -338,6 +360,7 @@ public static class GetStudentDetails
         public string? SupervisorName { get; init; }
         public int? ReviewerId { get; init; }
         public string? ReviewerName { get; init; }
+        public IReadOnlyCollection<DefenceQuestionDto> DefenceQuestions { get; init; } = [];
         public float? PlagiarismPercent { get; init; }
         public float? UniquePercent { get; init; }
         public int? SupervisorScore { get; init; }

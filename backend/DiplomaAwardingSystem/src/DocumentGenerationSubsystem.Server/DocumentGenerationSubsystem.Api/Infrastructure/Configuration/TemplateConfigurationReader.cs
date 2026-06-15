@@ -226,75 +226,7 @@ internal static class TemplateConfigurationReader
             }
         }
 
-        var scenarioMappingsResult = ValidateHardcodedScenarioMappings(configuration);
-        if (scenarioMappingsResult.IsFailure)
-        {
-            return scenarioMappingsResult.ErrorDetails;
-        }
-
         return configuration;
-    }
-
-    private static Result ValidateHardcodedScenarioMappings(TemplateConfiguration configuration)
-    {
-        if (!IsGroupDefenceDayExtractScenario(configuration))
-        {
-            return Result.Success();
-        }
-
-        if (configuration.Mapping?.Scalars is null
-            || !configuration.Mapping.Scalars.TryGetValue("DefenceDate", out var defenceDatePath)
-            || !string.Equals(defenceDatePath, "Input.DefenceDate", StringComparison.OrdinalIgnoreCase))
-        {
-            return ErrorDetails.Validation(
-                "DocGen.ScenarioRequiredScalarMissing",
-                "Scenario 'group-defence-day-extract' requires scalar tag 'DefenceDate' mapped to 'Input.DefenceDate'.");
-        }
-
-        if (!configuration.Mapping.Scalars.TryGetValue("ProtocolsNumbers", out var protocolsNumbersPath)
-            || !string.Equals(protocolsNumbersPath, "Computed.ProtocolsNumbers", StringComparison.OrdinalIgnoreCase))
-        {
-            return ErrorDetails.Validation(
-                "DocGen.ScenarioRequiredScalarMissing",
-                "Scenario 'group-defence-day-extract' requires scalar tag 'ProtocolsNumbers' mapped to 'Computed.ProtocolsNumbers'.");
-        }
-
-        if (configuration.Mapping.Tables is null
-            || !configuration.Mapping.Tables.Values.Any(table =>
-                string.Equals(table.SourceArray, "DayStudents", StringComparison.OrdinalIgnoreCase)))
-        {
-            return ErrorDetails.Validation(
-                "DocGen.ScenarioRequiredTableMissing",
-                "Scenario 'group-defence-day-extract' requires a student table mapped to SourceArray 'DayStudents'.");
-        }
-
-        if (configuration.Mapping.Tables.Values.Any(table =>
-                string.Equals(table.SourceArray, "TargetGroup.Students", StringComparison.OrdinalIgnoreCase)))
-        {
-            return ErrorDetails.Validation(
-                "DocGen.ScenarioWrongTableSource",
-                "Use SourceArray 'DayStudents' for the defence-day student table. 'TargetGroup.Students' bypasses the scenario filter by defence date and score.");
-        }
-
-        return Result.Success();
-    }
-
-    private static bool IsGroupDefenceDayExtractScenario(TemplateConfiguration configuration)
-    {
-        var hasDefenceDateInput =
-            configuration.Inputs is not null
-            && configuration.Inputs.TryGetValue("DefenceDate", out var defenceDateInput)
-            && string.Equals(defenceDateInput.Kind, InputKinds.ValueSelect, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(defenceDateInput.Entity, "QualificationWork", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(defenceDateInput.ValuePath, "DefenceDate", StringComparison.OrdinalIgnoreCase);
-
-        var hasDayStudentsSource =
-            configuration.DataSources is not null
-            && configuration.DataSources.Any(source =>
-                string.Equals(source.Key, "DayStudents", StringComparison.OrdinalIgnoreCase)
-                && string.Equals(source.Result, DataSourceResults.Many, StringComparison.OrdinalIgnoreCase));
-
-        return hasDefenceDateInput && hasDayStudentsSource;
     }
 
     private static Result ValidateInput(

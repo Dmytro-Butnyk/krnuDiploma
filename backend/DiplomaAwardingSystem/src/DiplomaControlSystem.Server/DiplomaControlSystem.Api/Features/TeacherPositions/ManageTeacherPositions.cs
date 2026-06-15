@@ -15,8 +15,20 @@ namespace DiplomaControlSystem.Api.Features.TeacherPositions;
 
 public static class ManageTeacherPositions
 {
-    public sealed record TeacherPositionDto(int Id, string FullName, string ShortName, bool IsActive);
-    public sealed record UpsertTeacherPositionRequest(string FullName, string ShortName, bool? IsActive);
+    public sealed record TeacherPositionDto(
+        int Id,
+        string FullName,
+        string ShortName,
+        string GenitiveFullName,
+        string GenitiveShortName,
+        bool IsActive);
+
+    public sealed record UpsertTeacherPositionRequest(
+        string FullName,
+        string ShortName,
+        string? GenitiveFullName,
+        string? GenitiveShortName,
+        bool? IsActive);
 
     internal sealed class Validator : AbstractValidator<UpsertTeacherPositionRequest>
     {
@@ -24,6 +36,8 @@ public static class ManageTeacherPositions
         {
             RuleFor(x => x.FullName).NotEmpty().MaximumLength(256);
             RuleFor(x => x.ShortName).NotEmpty().MaximumLength(256);
+            RuleFor(x => x.GenitiveFullName).MaximumLength(256);
+            RuleFor(x => x.GenitiveShortName).MaximumLength(256);
         }
     }
 
@@ -123,7 +137,12 @@ public static class ManageTeacherPositions
                 return ErrorDetails.Conflict("TeacherPosition.AlreadyExists", "Teacher position with the same name already exists.");
             }
 
-            var position = new TeacherPosition(fullName, shortName) { IsActive = request.IsActive ?? true };
+            var position = new TeacherPosition(fullName, shortName)
+            {
+                GenitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName),
+                GenitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName),
+                IsActive = request.IsActive ?? true
+            };
             await context.TeacherPositions.AddAsync(position, ct);
             await context.SaveChangesAsync(ct);
             return Map(position);
@@ -152,6 +171,8 @@ public static class ManageTeacherPositions
 
             position.FullName = fullName;
             position.ShortName = shortName;
+            position.GenitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName);
+            position.GenitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName);
             position.IsActive = request.IsActive ?? position.IsActive;
             await context.SaveChangesAsync(ct);
             return Map(position);
@@ -178,7 +199,18 @@ public static class ManageTeacherPositions
 
         private static TeacherPositionDto Map(TeacherPosition position)
         {
-            return new TeacherPositionDto(position.Id, position.FullName, position.ShortName, position.IsActive);
+            return new TeacherPositionDto(
+                position.Id,
+                position.FullName,
+                position.ShortName,
+                position.GenitiveFullName,
+                position.GenitiveShortName,
+                position.IsActive);
+        }
+
+        private static string NormalizeOptional(string? value, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
         }
     }
 }

@@ -6,6 +6,7 @@ namespace Core.Domain.Entities.StudyGroup;
 public sealed class Student : BaseEntity
 {
     public string FullName { get; set; }
+    public PersonNameForms NameForms { get; set; }
     
     // N-to-1 with Group
     public int GroupId { get; set; }
@@ -20,11 +21,16 @@ public sealed class Student : BaseEntity
     // 1-to-1 with PhysicalComponentsChecklist
     public PhysicalComponentsChecklist? PhysicalComponentsChecklist { get; set; }
 
-    private Student() { FullName = string.Empty; }
+    private Student()
+    {
+        FullName = string.Empty;
+        NameForms = PersonNameForms.FromDefault(string.Empty);
+    }
     
     public Student(string fullName, int groupId)
     {
-        FullName = fullName;
+        FullName = fullName.Trim();
+        NameForms = PersonNameForms.FromDefault(FullName);
         GroupId = groupId;
     }
 }

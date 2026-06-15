@@ -14,6 +14,28 @@ public sealed class StudentConfiguration : IEntityTypeConfiguration<Student>
         
         builder.Property(s => s.FullName).IsRequired().HasMaxLength(256);
 
+        builder.OwnsOne(
+            s => s.NameForms,
+            nameForms =>
+            {
+                nameForms.Property(n => n.Nominative)
+                    .HasColumnName("NameNominative")
+                    .IsRequired()
+                    .HasMaxLength(256);
+                nameForms.Property(n => n.Genitive)
+                    .HasColumnName("NameGenitive")
+                    .IsRequired()
+                    .HasMaxLength(256);
+                nameForms.Property(n => n.Dative)
+                    .HasColumnName("NameDative")
+                    .IsRequired()
+                    .HasMaxLength(256);
+                nameForms.Property(n => n.Signature)
+                    .HasColumnName("NameSignature")
+                    .IsRequired()
+                    .HasMaxLength(256);
+            });
+
         builder.HasIndex(s => new { s.GroupId, s.FullName });
 
         // 1-to-1: Student (Principal) <-> QualificationWork (Dependent)

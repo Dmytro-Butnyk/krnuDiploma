@@ -2,6 +2,7 @@ using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.Students;
 using FluentValidation;
@@ -17,9 +18,10 @@ public static class AddStudent
     public sealed record AddStudentRequest(
         string LastName,
         string FirstName,
-        string MiddleName);
+        string MiddleName,
+        PersonNameFormsDto? NameForms);
 
-    public sealed record AddStudentResponse(int StudentId, string FullName, int GroupId);
+    public sealed record AddStudentResponse(int StudentId, string FullName, PersonNameFormsDto NameForms, int GroupId);
 
     internal sealed class Validator : AbstractValidator<AddStudentRequest>
     {
@@ -36,6 +38,11 @@ public static class AddStudent
             RuleFor(x => x.MiddleName)
                 .NotEmpty()
                 .MaximumLength(100);
+
+            RuleFor(x => x.NameForms!.Nominative).MaximumLength(256).When(x => x.NameForms is not null);
+            RuleFor(x => x.NameForms!.Genitive).MaximumLength(256).When(x => x.NameForms is not null);
+            RuleFor(x => x.NameForms!.Dative).MaximumLength(256).When(x => x.NameForms is not null);
+            RuleFor(x => x.NameForms!.Signature).MaximumLength(256).When(x => x.NameForms is not null);
         }
     }
 
@@ -122,11 +129,13 @@ public static class AddStudent
             }
 
             var student = StudentDraftFactory.Create(fullName);
+            student.NameForms = request.NameForms?.ToDomain(fullName)
+                ?? Core.Domain.Entities.PersonNameForms.FromDefault(fullName);
             group.Students.Add(student);
 
             await context.SaveChangesAsync(ct);
 
-            return new AddStudentResponse(student.Id, student.FullName, group.Id);
+            return new AddStudentResponse(student.Id, student.FullName, PersonNameFormsDto.From(student.NameForms), group.Id);
         }
     }
 }

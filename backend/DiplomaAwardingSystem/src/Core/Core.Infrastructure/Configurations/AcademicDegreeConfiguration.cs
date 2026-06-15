@@ -12,6 +12,8 @@ public sealed class AcademicDegreeConfiguration : IEntityTypeConfiguration<Acade
         
         builder.Property(a => a.FullName).IsRequired().HasMaxLength(256);
         builder.Property(a => a.ShortName).IsRequired().HasMaxLength(50);
+        builder.Property(a => a.GenitiveFullName).IsRequired().HasMaxLength(256);
+        builder.Property(a => a.GenitiveShortName).IsRequired().HasMaxLength(50);
         builder.Property(a => a.IsActive).IsRequired();
 
         builder.HasMany(a => a.Teachers)

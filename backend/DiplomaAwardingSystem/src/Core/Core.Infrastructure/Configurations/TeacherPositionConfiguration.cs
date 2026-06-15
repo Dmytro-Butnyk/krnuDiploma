@@ -12,6 +12,8 @@ public sealed class TeacherPositionConfiguration : IEntityTypeConfiguration<Teac
 
         builder.Property(tp => tp.FullName).IsRequired().HasMaxLength(256);
         builder.Property(tp => tp.ShortName).IsRequired().HasMaxLength(256);
+        builder.Property(tp => tp.GenitiveFullName).IsRequired().HasMaxLength(256);
+        builder.Property(tp => tp.GenitiveShortName).IsRequired().HasMaxLength(256);
         builder.Property(tp => tp.IsActive).IsRequired();
 
         builder.HasMany(tp => tp.Teachers)

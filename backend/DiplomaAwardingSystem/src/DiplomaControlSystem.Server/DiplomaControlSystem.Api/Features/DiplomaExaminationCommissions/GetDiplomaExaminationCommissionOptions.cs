@@ -2,6 +2,7 @@ using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using DiplomaControlSystem.Api.Contracts.DiplomaExaminationCommissions;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using FluentValidation;
@@ -110,6 +111,7 @@ public static class GetDiplomaExaminationCommissionOptions
                 .Select(head => new CommissionHeadDto(
                     head.Id,
                     head.FullName,
+                    PersonNameFormsDto.From(head.NameForms),
                     head.Position,
                     head.Company,
                     head.Specialty,

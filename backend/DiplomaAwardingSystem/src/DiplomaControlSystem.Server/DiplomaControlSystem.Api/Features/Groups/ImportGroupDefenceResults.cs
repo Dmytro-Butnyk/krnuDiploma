@@ -200,7 +200,7 @@ public static partial class ImportGroupDefenceResults
             }
 
             var parsedDatesByName = parsedDatesResult.Value!;
-            var supervisorIdsByName = await GetImportTeacherIdsByNameAsync(group.SpecialtyId, ct);
+            var supervisorIdsByName = await GetImportTeacherIdsByNameAsync(ct);
             var plagiarismImported = 0;
             var scoresImported = 0;
             var defenceDatesImported = 0;
@@ -260,24 +260,23 @@ public static partial class ImportGroupDefenceResults
                 defenceDatesImported);
         }
 
-        private async Task<Dictionary<string, int>> GetImportTeacherIdsByNameAsync(int groupSpecialtyId, CancellationToken ct)
+        private async Task<Dictionary<string, int>> GetImportTeacherIdsByNameAsync(CancellationToken ct)
         {
             var teachers = await context.Teachers
                 .AsNoTracking()
                 .Where(teacher => teacher.IsActive)
-                .Select(teacher => new { teacher.Id, teacher.FullName, teacher.ShortName, teacher.SpecialtyId })
+                .Select(teacher => new { teacher.Id, teacher.FullName, teacher.ShortName })
                 .ToListAsync(ct);
 
             var teacherNames = teachers
                 .SelectMany(teacher => new[]
                 {
-                    new { teacher.Id, teacher.SpecialtyId, Name = teacher.ShortName },
-                    new { teacher.Id, teacher.SpecialtyId, Name = teacher.FullName }
+                    new { teacher.Id, Name = teacher.ShortName },
+                    new { teacher.Id, Name = teacher.FullName }
                 })
                 .SelectMany(teacher => GetTeacherLookupKeys(teacher.Name).Select(key => new
                 {
                     teacher.Id,
-                    teacher.SpecialtyId,
                     Name = key
                 }))
                 .Where(teacher => !string.IsNullOrWhiteSpace(teacher.Name));
@@ -293,16 +292,6 @@ public static partial class ImportGroupDefenceResults
                 if (distinctTeachers.Count == 1)
                 {
                     teacherIdsByName[nameGroup.Key] = distinctTeachers[0].Id;
-                    continue;
-                }
-
-                var otherSpecialtyTeachers = distinctTeachers
-                    .Where(teacher => teacher.SpecialtyId != groupSpecialtyId)
-                    .ToList();
-
-                if (otherSpecialtyTeachers.Count == 1)
-                {
-                    teacherIdsByName[nameGroup.Key] = otherSpecialtyTeachers[0].Id;
                 }
             }
 

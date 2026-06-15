@@ -1,5 +1,6 @@
 using Core.Domain.Entities.TeacherStaff;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 using Microsoft.EntityFrameworkCore;
 using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
@@ -60,6 +61,7 @@ internal static class DiplomaExaminationCommissionMappingSupport
         return new CommissionHeadDto(
             head.Id,
             head.FullName,
+            PersonNameFormsDto.From(head.NameForms),
             head.Position,
             head.Company,
             head.Specialty,

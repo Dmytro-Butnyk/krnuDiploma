@@ -3,6 +3,7 @@ using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Entities.TeacherStaff;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.CommissionHeads;
 using FluentValidation;
@@ -17,6 +18,7 @@ public static class CreateCommissionHead
 {
     public sealed record CreateCommissionHeadRequest(
         string FullName,
+        PersonNameFormsDto? NameForms,
         string Position,
         string Company,
         string Specialty) : ICommissionHeadRequest;
@@ -100,7 +102,11 @@ public static class CreateCommissionHead
                 normalized.FullName,
                 normalized.Position,
                 normalized.Company,
-                normalized.Specialty);
+                normalized.Specialty)
+            {
+                NameForms = request.NameForms?.ToDomain(normalized.FullName)
+                    ?? Core.Domain.Entities.PersonNameForms.FromDefault(normalized.FullName)
+            };
 
             await context.CommissionHeads.AddAsync(commissionHead, ct);
             await context.SaveChangesAsync(ct);

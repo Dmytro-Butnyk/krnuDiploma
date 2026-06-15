@@ -11,6 +11,11 @@ internal sealed class CommissionHeadRequestValidator<TRequest> : AbstractValidat
             .NotEmpty()
             .MaximumLength(256);
 
+        RuleFor(x => x.NameForms!.Nominative).MaximumLength(256).When(x => x.NameForms is not null);
+        RuleFor(x => x.NameForms!.Genitive).MaximumLength(256).When(x => x.NameForms is not null);
+        RuleFor(x => x.NameForms!.Dative).MaximumLength(256).When(x => x.NameForms is not null);
+        RuleFor(x => x.NameForms!.Signature).MaximumLength(256).When(x => x.NameForms is not null);
+
         RuleFor(x => x.Position)
             .NotEmpty()
             .MaximumLength(256);

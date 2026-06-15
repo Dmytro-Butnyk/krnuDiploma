@@ -19,6 +19,7 @@ public sealed class QualificationWork : BaseEntity
     public string PracticeBase { get; set; }
     public bool HasDiplomaWithHonors { get; set; }
     public DateOnly? DefenceDate { get; set; }
+    public ICollection<DefenceQuestion> DefenceQuestions { get; init; } = new List<DefenceQuestion>();
 
     // 1-to-1 with Student
     public int StudentId { get; set; }

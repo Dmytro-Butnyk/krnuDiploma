@@ -1,4 +1,5 @@
 using Core.Domain.Entities.ArchiveGroup;
+using Core.Domain.Entities;
 using Core.Domain.Entities.StudyGroup;
 
 namespace Core.Domain.Entities.TeacherStaff;
@@ -7,6 +8,7 @@ public sealed class Teacher : BaseEntity
 {
     public string FullName { get; set; }
     public string ShortName { get; set; }
+    public PersonNameForms NameForms { get; set; }
     public string Email { get; set; }
     public string PhoneNumber { get; set; }
     public bool IsActive { get; set; }
@@ -27,6 +29,7 @@ public sealed class Teacher : BaseEntity
     {
         FullName = string.Empty;
         ShortName = string.Empty;
+        NameForms = PersonNameForms.FromDefault(string.Empty);
         Email = string.Empty;
         PhoneNumber = string.Empty;
     }
@@ -40,8 +43,9 @@ public sealed class Teacher : BaseEntity
         int teacherPositionId,
         int specialtyId)
     {
-        FullName = fullName;
-        ShortName = shortName;
+        FullName = fullName.Trim();
+        ShortName = shortName.Trim();
+        NameForms = PersonNameForms.FromDefault(FullName, ShortName);
         Email = email;
         PhoneNumber = phoneNumber;
         AcademicDegreeId = academicDegreeId;

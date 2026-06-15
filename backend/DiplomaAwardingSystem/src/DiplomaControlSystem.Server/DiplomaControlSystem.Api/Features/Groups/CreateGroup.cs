@@ -200,7 +200,7 @@ public static partial class CreateGroup
 
             var importedStudents = studentsImportResult.Value!;
             var studentsCount = importedStudents.Count;
-            var supervisorIdsByShortName = await GetUniqueTeacherIdsByShortNameAsync(secretary.SpecialtyId, ct);
+            var supervisorIdsByShortName = await GetUniqueTeacherIdsByShortNameAsync(ct);
             var supervisorsMatched = 0;
             var supervisorsMissing = 0;
             var supervisorsUnspecified = 0;
@@ -264,13 +264,11 @@ public static partial class CreateGroup
         }
 
         private async Task<Dictionary<string, int>> GetUniqueTeacherIdsByShortNameAsync(
-            int specialtyId,
             CancellationToken ct)
         {
             var teachers = await context.Teachers
                 .AsNoTracking()
                 .Where(t => t.IsActive)
-                .Where(t => t.SpecialtyId == specialtyId)
                 .Select(t => new { t.Id, t.ShortName })
                 .ToListAsync(ct);
 

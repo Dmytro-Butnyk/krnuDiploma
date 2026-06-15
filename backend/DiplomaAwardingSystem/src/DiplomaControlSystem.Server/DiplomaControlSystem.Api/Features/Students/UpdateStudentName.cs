@@ -2,6 +2,7 @@ using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.Students;
 using FluentValidation;
@@ -17,9 +18,10 @@ public static class UpdateStudentName
     public sealed record UpdateStudentNameRequest(
         string LastName,
         string FirstName,
-        string MiddleName);
+        string MiddleName,
+        PersonNameFormsDto? NameForms);
 
-    public sealed record UpdateStudentNameResponse(int StudentId, string FullName);
+    public sealed record UpdateStudentNameResponse(int StudentId, string FullName, PersonNameFormsDto NameForms);
 
     internal sealed class Validator : AbstractValidator<UpdateStudentNameRequest>
     {
@@ -36,6 +38,11 @@ public static class UpdateStudentName
             RuleFor(x => x.MiddleName)
                 .NotEmpty()
                 .MaximumLength(100);
+
+            RuleFor(x => x.NameForms!.Nominative).MaximumLength(256).When(x => x.NameForms is not null);
+            RuleFor(x => x.NameForms!.Genitive).MaximumLength(256).When(x => x.NameForms is not null);
+            RuleFor(x => x.NameForms!.Dative).MaximumLength(256).When(x => x.NameForms is not null);
+            RuleFor(x => x.NameForms!.Signature).MaximumLength(256).When(x => x.NameForms is not null);
         }
     }
 
@@ -102,10 +109,12 @@ public static class UpdateStudentName
 
             var name = StudentNameParser.Build(request.LastName, request.FirstName, request.MiddleName);
             student.FullName = name.FullName;
+            student.NameForms = request.NameForms?.ToDomain(student.FullName)
+                ?? Core.Domain.Entities.PersonNameForms.FromDefault(student.FullName);
 
             await context.SaveChangesAsync(ct);
 
-            return new UpdateStudentNameResponse(student.Id, student.FullName);
+            return new UpdateStudentNameResponse(student.Id, student.FullName, PersonNameFormsDto.From(student.NameForms));
         }
     }
 }

@@ -12,6 +12,27 @@ public sealed class TeacherConfiguration : IEntityTypeConfiguration<Teacher>
         
         builder.Property(t => t.FullName).IsRequired().HasMaxLength(256);
         builder.Property(t => t.ShortName).IsRequired().HasMaxLength(256);
+        builder.OwnsOne(
+            t => t.NameForms,
+            nameForms =>
+            {
+                nameForms.Property(n => n.Nominative)
+                    .HasColumnName("NameNominative")
+                    .IsRequired()
+                    .HasMaxLength(256);
+                nameForms.Property(n => n.Genitive)
+                    .HasColumnName("NameGenitive")
+                    .IsRequired()
+                    .HasMaxLength(256);
+                nameForms.Property(n => n.Dative)
+                    .HasColumnName("NameDative")
+                    .IsRequired()
+                    .HasMaxLength(256);
+                nameForms.Property(n => n.Signature)
+                    .HasColumnName("NameSignature")
+                    .IsRequired()
+                    .HasMaxLength(256);
+            });
         builder.Property(t => t.Email).IsRequired().HasMaxLength(150);
         builder.Property(t => t.PhoneNumber).HasMaxLength(50);
         builder.Property(t => t.IsActive).IsRequired();

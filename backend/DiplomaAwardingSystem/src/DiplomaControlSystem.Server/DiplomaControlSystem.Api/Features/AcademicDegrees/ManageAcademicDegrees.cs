@@ -15,8 +15,20 @@ namespace DiplomaControlSystem.Api.Features.AcademicDegrees;
 
 public static class ManageAcademicDegrees
 {
-    public sealed record AcademicDegreeDto(int Id, string FullName, string ShortName, bool IsActive);
-    public sealed record UpsertAcademicDegreeRequest(string FullName, string ShortName, bool? IsActive);
+    public sealed record AcademicDegreeDto(
+        int Id,
+        string FullName,
+        string ShortName,
+        string GenitiveFullName,
+        string GenitiveShortName,
+        bool IsActive);
+
+    public sealed record UpsertAcademicDegreeRequest(
+        string FullName,
+        string ShortName,
+        string? GenitiveFullName,
+        string? GenitiveShortName,
+        bool? IsActive);
 
     internal sealed class Validator : AbstractValidator<UpsertAcademicDegreeRequest>
     {
@@ -24,6 +36,8 @@ public static class ManageAcademicDegrees
         {
             RuleFor(x => x.FullName).NotEmpty().MaximumLength(256);
             RuleFor(x => x.ShortName).NotEmpty().MaximumLength(50);
+            RuleFor(x => x.GenitiveFullName).MaximumLength(256);
+            RuleFor(x => x.GenitiveShortName).MaximumLength(50);
         }
     }
 
@@ -123,7 +137,12 @@ public static class ManageAcademicDegrees
                 return ErrorDetails.Conflict("AcademicDegree.AlreadyExists", "Academic degree with the same name already exists.");
             }
 
-            var degree = new AcademicDegree(fullName, shortName) { IsActive = request.IsActive ?? true };
+            var degree = new AcademicDegree(fullName, shortName)
+            {
+                GenitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName),
+                GenitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName),
+                IsActive = request.IsActive ?? true
+            };
             await context.AcademicDegrees.AddAsync(degree, ct);
             await context.SaveChangesAsync(ct);
             return Map(degree);
@@ -152,6 +171,8 @@ public static class ManageAcademicDegrees
 
             degree.FullName = fullName;
             degree.ShortName = shortName;
+            degree.GenitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName);
+            degree.GenitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName);
             degree.IsActive = request.IsActive ?? degree.IsActive;
             await context.SaveChangesAsync(ct);
             return Map(degree);
@@ -178,7 +199,18 @@ public static class ManageAcademicDegrees
 
         private static AcademicDegreeDto Map(AcademicDegree degree)
         {
-            return new AcademicDegreeDto(degree.Id, degree.FullName, degree.ShortName, degree.IsActive);
+            return new AcademicDegreeDto(
+                degree.Id,
+                degree.FullName,
+                degree.ShortName,
+                degree.GenitiveFullName,
+                degree.GenitiveShortName,
+                degree.IsActive);
+        }
+
+        private static string NormalizeOptional(string? value, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
         }
     }
 }

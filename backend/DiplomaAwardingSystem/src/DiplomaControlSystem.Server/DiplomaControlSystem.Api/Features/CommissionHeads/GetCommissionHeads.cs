@@ -61,6 +61,7 @@ public static class GetCommissionHeads
                 .Select(head => new CommissionHeadDto(
                     head.Id,
                     head.FullName,
+                    Contracts.Common.PersonNameFormsDto.From(head.NameForms),
                     head.Position,
                     head.Company,
                     head.Specialty,

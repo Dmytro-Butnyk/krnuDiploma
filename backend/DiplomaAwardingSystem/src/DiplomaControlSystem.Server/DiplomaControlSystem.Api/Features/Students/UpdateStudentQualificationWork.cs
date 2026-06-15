@@ -98,8 +98,7 @@ public static class UpdateStudentQualificationWork
                 return accessResult.ErrorDetails;
             }
 
-            var access = accessResult.Value!;
-            var teacherValidationResult = await ValidateTeachersAsync(request, access, ct);
+            var teacherValidationResult = await ValidateTeachersAsync(request, ct);
             if (teacherValidationResult.IsFailure)
             {
                 return teacherValidationResult.ErrorDetails;
@@ -134,21 +133,20 @@ public static class UpdateStudentQualificationWork
 
         private async Task<Result> ValidateTeachersAsync(
             UpdateStudentQualificationWorkRequest request,
-            StudentAccessContext access,
             CancellationToken ct)
         {
             if (request.SupervisorId is not null)
             {
                 var supervisorExists = await context.Teachers
                     .AnyAsync(
-                        t => t.Id == request.SupervisorId && t.IsActive && t.SpecialtyId == access.GroupSpecialtyId,
+                        t => t.Id == request.SupervisorId && t.IsActive,
                         ct);
 
                 if (!supervisorExists)
                 {
                     return ErrorDetails.Validation(
                         "QualificationWork.SupervisorInvalid",
-                        "Supervisor must belong to student group specialty.");
+                        "Supervisor must be an active teacher.");
                 }
             }
 
@@ -156,14 +154,14 @@ public static class UpdateStudentQualificationWork
             {
                 var reviewerExists = await context.Teachers
                     .AnyAsync(
-                        t => t.Id == request.ReviewerId && t.IsActive && t.SpecialtyId != access.GroupSpecialtyId,
+                        t => t.Id == request.ReviewerId && t.IsActive,
                         ct);
 
                 if (!reviewerExists)
                 {
                     return ErrorDetails.Validation(
                         "QualificationWork.ReviewerInvalid",
-                        "Reviewer must not belong to student group specialty.");
+                        "Reviewer must be an active teacher.");
                 }
             }
 

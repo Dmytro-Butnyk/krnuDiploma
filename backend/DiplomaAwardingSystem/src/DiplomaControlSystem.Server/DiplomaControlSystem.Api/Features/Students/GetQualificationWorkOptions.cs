@@ -14,6 +14,7 @@ public static class GetQualificationWorkOptions
     public sealed record TeacherOptionDto(int Id, string FullName, string ShortName);
 
     public sealed record GetQualificationWorkOptionsResponse(
+        IReadOnlyCollection<TeacherOptionDto> Teachers,
         IReadOnlyCollection<TeacherOptionDto> Supervisors,
         IReadOnlyCollection<TeacherOptionDto> Reviewers);
 
@@ -59,24 +60,14 @@ public static class GetQualificationWorkOptions
                 return accessResult.ErrorDetails;
             }
 
-            var access = accessResult.Value!;
-            var supervisors = await context.Teachers
+            var teachers = await context.Teachers
                 .AsNoTracking()
                 .Where(t => t.IsActive)
-                .Where(t => t.SpecialtyId == access.GroupSpecialtyId)
                 .OrderBy(t => t.ShortName)
                 .Select(t => new TeacherOptionDto(t.Id, t.FullName, t.ShortName))
                 .ToListAsync(ct);
 
-            var reviewers = await context.Teachers
-                .AsNoTracking()
-                .Where(t => t.IsActive)
-                .Where(t => t.SpecialtyId != access.GroupSpecialtyId)
-                .OrderBy(t => t.ShortName)
-                .Select(t => new TeacherOptionDto(t.Id, t.FullName, t.ShortName))
-                .ToListAsync(ct);
-
-            return new GetQualificationWorkOptionsResponse(supervisors, reviewers);
+            return new GetQualificationWorkOptionsResponse(teachers, teachers, teachers);
         }
     }
 }

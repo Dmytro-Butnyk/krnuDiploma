@@ -3,6 +3,7 @@ using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Entities.TeacherStaff;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using DiplomaControlSystem.Api.Infrastructure.Access;
 using DiplomaControlSystem.Api.Infrastructure.Auth;
 using FluentValidation;
@@ -19,6 +20,7 @@ public static class ManageTeachers
         int Id,
         string FullName,
         string ShortName,
+        PersonNameFormsDto NameForms,
         string Email,
         string PhoneNumber,
         int AcademicDegreeId,
@@ -32,6 +34,7 @@ public static class ManageTeachers
     public sealed record UpsertTeacherRequest(
         string FullName,
         string ShortName,
+        PersonNameFormsDto? NameForms,
         string Email,
         string PhoneNumber,
         int AcademicDegreeId,
@@ -45,6 +48,10 @@ public static class ManageTeachers
         {
             RuleFor(x => x.FullName).NotEmpty().MaximumLength(256);
             RuleFor(x => x.ShortName).NotEmpty().MaximumLength(256);
+            RuleFor(x => x.NameForms!.Nominative).MaximumLength(256).When(x => x.NameForms is not null);
+            RuleFor(x => x.NameForms!.Genitive).MaximumLength(256).When(x => x.NameForms is not null);
+            RuleFor(x => x.NameForms!.Dative).MaximumLength(256).When(x => x.NameForms is not null);
+            RuleFor(x => x.NameForms!.Signature).MaximumLength(256).When(x => x.NameForms is not null);
             RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(150);
             RuleFor(x => x.PhoneNumber).MaximumLength(50);
             RuleFor(x => x.AcademicDegreeId).GreaterThan(0);
@@ -146,6 +153,7 @@ public static class ManageTeachers
                     t.Id,
                     t.FullName,
                     t.ShortName,
+                    PersonNameFormsDto.From(t.NameForms),
                     t.Email,
                     t.PhoneNumber,
                     t.AcademicDegreeId,
@@ -187,7 +195,9 @@ public static class ManageTeachers
                 request.TeacherPositionId,
                 request.SpecialtyId)
             {
-                IsActive = request.IsActive ?? true
+                IsActive = request.IsActive ?? true,
+                NameForms = request.NameForms?.ToDomain(request.FullName, request.ShortName)
+                    ?? Core.Domain.Entities.PersonNameForms.FromDefault(request.FullName, request.ShortName)
             };
 
             await context.Teachers.AddAsync(teacher, ct);
@@ -223,6 +233,8 @@ public static class ManageTeachers
 
             teacher.FullName = request.FullName.Trim();
             teacher.ShortName = request.ShortName.Trim();
+            teacher.NameForms = request.NameForms?.ToDomain(teacher.FullName, teacher.ShortName)
+                ?? Core.Domain.Entities.PersonNameForms.FromDefault(teacher.FullName, teacher.ShortName);
             teacher.Email = email;
             teacher.PhoneNumber = request.PhoneNumber.Trim();
             teacher.AcademicDegreeId = request.AcademicDegreeId;
@@ -282,6 +294,7 @@ public static class ManageTeachers
                     t.Id,
                     t.FullName,
                     t.ShortName,
+                    PersonNameFormsDto.From(t.NameForms),
                     t.Email,
                     t.PhoneNumber,
                     t.AcademicDegreeId,

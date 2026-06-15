@@ -1,4 +1,5 @@
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using Microsoft.EntityFrameworkCore;
 using static DiplomaControlSystem.Api.Contracts.CommissionHeads.CommissionHeadContracts;
 
@@ -44,6 +45,7 @@ internal static class CommissionHeadRequestSupport
         return new CommissionHeadDto(
             head.Id,
             head.FullName,
+            PersonNameFormsDto.From(head.NameForms),
             head.Position,
             head.Company,
             head.Specialty,

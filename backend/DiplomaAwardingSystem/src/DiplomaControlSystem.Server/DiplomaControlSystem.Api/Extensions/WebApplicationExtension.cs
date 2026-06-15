@@ -51,6 +51,7 @@ public static class WebApplicationExtension
         GetQualificationWorkOptions.Endpoint.MapEndpoint(apiGroup);
         GetStudentDetails.Endpoint.MapEndpoint(apiGroup);
         UpdateDefenceResults.Endpoint.MapEndpoint(apiGroup);
+        UpdateDefenceQuestions.Endpoint.MapEndpoint(apiGroup);
         UpdateElectronicChecklist.Endpoint.MapEndpoint(apiGroup);
         UpdatePhysicalChecklist.Endpoint.MapEndpoint(apiGroup);
         UpdateQualificationWorkCharacteristics.Endpoint.MapEndpoint(apiGroup);
