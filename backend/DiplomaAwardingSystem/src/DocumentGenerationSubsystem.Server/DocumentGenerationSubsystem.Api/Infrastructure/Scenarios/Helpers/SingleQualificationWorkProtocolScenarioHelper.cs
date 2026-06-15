@@ -1,6 +1,8 @@
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Entities.ArchiveGroup;
+using Core.Domain.Entities.StudyGroup;
 using Core.Domain.Entities.TeacherStaff;
+using Core.Domain.Enums;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
 using DocumentGenerationSubsystem.Api.Infrastructure.Configuration;
@@ -80,12 +82,18 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
 
         var qualificationWork = student.QualificationWork;
         var commission = student.Group?.DiplomaExaminationCommission;
+        var startTime = GetOptionalParameter(context, "MeetingStartTime");
+        var endTime = GetOptionalParameter(context, "MeetingEndTime");
+        var questionRows = BuildQuestionRows(qualificationWork);
         var computed = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
         {
             ["StudentNameNominative"] = student.NameForms.Nominative,
             ["StudentNameGenitive"] = student.NameForms.Genitive,
             ["StudentNameDative"] = student.NameForms.Dative,
             ["StudentSignatureName"] = student.NameForms.Signature,
+            ["EducationLevel"] = FormatEducationLevel(student.Group?.EducationLevel),
+            ["QualificationWorkKindGenitive"] = FormatQualificationWorkKindGenitive(student.Group?.EducationLevel),
+            ["SpecialtyLine"] = BuildSpecialtyLine(student.Group?.Specialty),
             ["SupervisorLine"] = BuildTeacherWorkLine(qualificationWork?.Teacher),
             ["ReviewerLine"] = BuildReviewerLine(qualificationWork?.Reviewer),
             ["CommissionHeadPresentLine"] = BuildCommissionHeadPresentLine(commission?.CommissionHead),
@@ -96,9 +104,20 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
             ["FirstMemberSignatureName"] = commission?.FirstMemberTeacher?.NameForms.Signature ?? string.Empty,
             ["SecondMemberSignatureName"] = commission?.SecondMemberTeacher?.NameForms.Signature ?? string.Empty,
             ["ThirdMemberSignatureName"] = commission?.ThirdMemberTeacher?.NameForms.Signature ?? string.Empty,
-            ["SecretarySignatureName"] = commission?.Secretary?.FullName ?? string.Empty,
-            ["DefenceQuestions"] = BuildQuestionRows(qualificationWork)
+            ["SecretarySignatureName"] = BuildSignatureName(commission?.Secretary?.FullName),
+            ["MeetingStartHour"] = ParseHour(startTime),
+            ["MeetingStartMinute"] = ParseMinute(startTime),
+            ["MeetingEndHour"] = ParseHour(endTime),
+            ["MeetingEndMinute"] = ParseMinute(endTime),
+            ["DefenceQuestions"] = questionRows
         };
+
+        for (var i = 0; i < questionRows.Count; i++)
+        {
+            var number = i + 1;
+            computed[$"Question{number}AskedBy"] = questionRows[i]["AskedBy"];
+            computed[$"Question{number}Text"] = questionRows[i]["Text"];
+        }
 
         return computed;
     }
@@ -130,6 +149,13 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
             : ErrorDetails.Validation(
                 "DocGen.ComputedInputTypeMismatch",
                 $"Scenario helper input '{inputKey}' has unexpected value type.");
+    }
+
+    private static string? GetOptionalParameter(DocumentScenarioContext context, string inputKey)
+    {
+        return context.Parameters.TryGetValue(inputKey, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value.Trim()
+            : null;
     }
 
     private static string BuildTeacherPresentLine(Teacher? teacher)
@@ -181,6 +207,75 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
         return JoinNonEmpty(head.Position, head.Company, "/ " + head.NameForms.Nominative);
     }
 
+    private static string BuildSpecialtyLine(Specialty? specialty)
+    {
+        return specialty is null ? string.Empty : JoinNonEmptyWithSpace(specialty.Code, specialty.Name);
+    }
+
+    private static string FormatEducationLevel(EducationLevel? educationLevel)
+    {
+        return educationLevel switch
+        {
+            Core.Domain.Enums.EducationLevel.Bachelor => "бакалавр",
+            Core.Domain.Enums.EducationLevel.Master => "магістр",
+            _ => string.Empty
+        };
+    }
+
+    private static string FormatQualificationWorkKindGenitive(EducationLevel? educationLevel)
+    {
+        return educationLevel switch
+        {
+            Core.Domain.Enums.EducationLevel.Bachelor => "випускної роботи бакалавра",
+            Core.Domain.Enums.EducationLevel.Master => "кваліфікаційної роботи магістра",
+            _ => "кваліфікаційної роботи"
+        };
+    }
+
+    private static string BuildSignatureName(string? fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return string.Empty;
+        }
+
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length < 2
+            ? fullName.Trim()
+            : string.Concat(parts[1], " ", parts[0].ToUpperInvariant());
+    }
+
+    private static string ParseHour(string? value)
+    {
+        return TryParseTimeParts(value, out var hour, out _) ? hour : string.Empty;
+    }
+
+    private static string ParseMinute(string? value)
+    {
+        return TryParseTimeParts(value, out _, out var minute) ? minute : string.Empty;
+    }
+
+    private static bool TryParseTimeParts(string? value, out string hour, out string minute)
+    {
+        hour = string.Empty;
+        minute = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var parts = value.Trim().Split([':', '.', ' '], StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+        {
+            return false;
+        }
+
+        hour = parts[0];
+        minute = parts.Length > 1 ? parts[1] : "00";
+        return true;
+    }
+
     private static List<Dictionary<string, object>> BuildQuestionRows(QualificationWork? qualificationWork)
     {
         var rows = new List<Dictionary<string, object>>();
@@ -204,6 +299,15 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
     {
         return string.Join(
             ", ",
+            values
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!.Trim()));
+    }
+
+    private static string JoinNonEmptyWithSpace(params string?[] values)
+    {
+        return string.Join(
+            " ",
             values
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value!.Trim()));

@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import type { EducationLevel, EntityId } from '../../groups/api/types'
 import {
+  getCommissionHeads,
   getDiplomaExaminationCommissionOptions,
   getDiplomaExaminationCommissions,
 } from '../api/commissionsApi'
@@ -10,6 +11,7 @@ export const commissionQueryKeys = {
   details: () => [...commissionQueryKeys.all, 'detail'] as const,
   detail: (secretaryEmail: string, educationLevel: EducationLevel, defenseYear: string) =>
     [...commissionQueryKeys.details(), secretaryEmail, educationLevel, defenseYear] as const,
+  heads: (secretaryEmail: string) => [...commissionQueryKeys.all, 'heads', secretaryEmail] as const,
   options: (
     secretaryEmail: string,
     commissionId?: EntityId,
@@ -31,6 +33,14 @@ export function commissionOptionsQuery(
   return queryOptions({
     queryKey: commissionQueryKeys.options(secretaryEmail, commissionId),
     queryFn: () => getDiplomaExaminationCommissionOptions(secretaryEmail, commissionId),
+    enabled: Boolean(secretaryEmail),
+  })
+}
+
+export function commissionHeadsQuery(secretaryEmail: string) {
+  return queryOptions({
+    queryKey: commissionQueryKeys.heads(secretaryEmail),
+    queryFn: () => getCommissionHeads(secretaryEmail),
     enabled: Boolean(secretaryEmail),
   })
 }

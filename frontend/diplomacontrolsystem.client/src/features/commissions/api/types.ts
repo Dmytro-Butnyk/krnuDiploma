@@ -1,4 +1,4 @@
-import type { EducationLevel, EntityId, GroupDto } from '../../groups/api/types'
+import type { EducationLevel, EntityId, GroupDto, PersonNameFormsDto } from '../../groups/api/types'
 
 export interface TeacherDto {
   id: EntityId
@@ -14,6 +14,7 @@ export interface SecretaryDto {
 export interface CommissionHeadDto {
   id: EntityId
   fullName: string
+  nameForms: PersonNameFormsDto
   position: string
   company: string
   specialty: string
@@ -49,10 +50,13 @@ export interface GetDiplomaExaminationCommissionOptionsResponse {
 export interface CreateCommissionHeadRequest {
   secretaryEmail: string
   fullName: string
+  nameForms?: PersonNameFormsDto | null
   position: string
   company: string
   specialty: string
 }
+
+export type UpdateCommissionHeadRequest = CreateCommissionHeadRequest
 
 export interface CreateDiplomaExaminationCommissionRequest {
   secretaryEmail: string

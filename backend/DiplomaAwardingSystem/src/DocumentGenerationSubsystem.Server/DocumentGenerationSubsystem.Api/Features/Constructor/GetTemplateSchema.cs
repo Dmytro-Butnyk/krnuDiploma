@@ -106,6 +106,8 @@ internal sealed class EntitySchemaProvider : IEntitySchemaProvider
                             && !p.IsForeignKey()
                             && registration.AllowsProperty(p.Name))
                 .Select(p => p.Name)
+                .Concat(GetOwnedScalarPaths(entityType, registration))
+                .Distinct(StringComparer.Ordinal)
                 .ToArray();
 
             var keyScalars = entityType.FindPrimaryKey()?.Properties
@@ -184,5 +186,31 @@ internal sealed class EntitySchemaProvider : IEntitySchemaProvider
                                             && !preferred.Contains(scalar, StringComparer.Ordinal)))
             .Distinct(StringComparer.Ordinal)
             .ToArray();
+    }
+
+    private static List<string> GetOwnedScalarPaths(
+        Microsoft.EntityFrameworkCore.Metadata.IEntityType entityType,
+        DocumentGenerationAllowedEntities.EntityRegistration registration)
+    {
+        var scalarPaths = new List<string>();
+        foreach (var navigation in entityType.GetNavigations())
+        {
+            if (!navigation.TargetEntityType.IsOwned() || navigation.IsCollection)
+            {
+                continue;
+            }
+
+            foreach (var property in navigation.TargetEntityType.GetProperties())
+            {
+                if (property.IsShadowProperty() || property.IsForeignKey() || !registration.AllowsProperty(property.Name))
+                {
+                    continue;
+                }
+
+                scalarPaths.Add($"{navigation.Name}.{property.Name}");
+            }
+        }
+
+        return scalarPaths;
     }
 }

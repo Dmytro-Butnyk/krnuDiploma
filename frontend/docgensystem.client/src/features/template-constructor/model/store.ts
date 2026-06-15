@@ -21,6 +21,7 @@ import type {
 
 const initialConfig: TemplateConfiguration = {
   ConfigurationVersion: 2,
+  ScenarioCode: null,
   Inputs: {},
   Mapping: { Tables: {}, Scalars: {} },
   DataSources: [],
@@ -84,6 +85,7 @@ function normalizeConfiguration(config: TemplateConfiguration): TemplateConfigur
   return {
     ...config,
     ConfigurationVersion: 2,
+    ScenarioCode: config.ScenarioCode ?? null,
     Inputs: config.Inputs ?? {},
     Mapping: {
       ...config.Mapping,
@@ -704,6 +706,7 @@ persist(
       },
       config: {
         ...state.config,
+        ScenarioCode: scenario.id,
         Inputs: {
           ...state.config.Inputs,
           ...scenario.inputs,
@@ -778,6 +781,7 @@ persist(
         ),
         config: {
           ...state.config,
+          ScenarioCode: null,
           Inputs: inputs,
           DataSources: state.config.DataSources.filter((source) => !removedDataSourceKeys.has(source.Key)),
           Mapping: {

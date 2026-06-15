@@ -93,6 +93,7 @@ export type TableMappingConfig = {
 
 export type TemplateConfiguration = {
   ConfigurationVersion: 2
+  ScenarioCode?: string | null
   Inputs: Record<string, InputConfig>
   Mapping: {
     Tables: Record<string, TableMappingConfig>
@@ -127,6 +128,7 @@ export type ConstructorScenario = {
   recommendedTableSources: ScenarioTableSource[]
   requiredScalarMappings: ScenarioScalarMapping[]
   requiredTableSources: ScenarioTableRequirement[]
+  helperKeys: string[]
 }
 
 export type ConstructorStep = 1 | 2 | 3 | 4

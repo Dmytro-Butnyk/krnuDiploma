@@ -3,7 +3,17 @@ import { CheckCircle2, RotateCcw, ShieldCheck, Trash2, UserPlus, X } from 'lucid
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../features/auth/model/useAuth'
-import type { EntityId } from '../../features/groups/api/types'
+import {
+  createCommissionHead,
+  deleteCommissionHead,
+  updateCommissionHead,
+} from '../../features/commissions/api/commissionsApi'
+import type { CommissionHeadDto } from '../../features/commissions/api/types'
+import {
+  commissionHeadsQuery,
+  commissionQueryKeys,
+} from '../../features/commissions/model/commissionsQueries'
+import type { EntityId, PersonNameFormsDto } from '../../features/groups/api/types'
 import {
   createAcademicDegree,
   createSecretary,
@@ -48,11 +58,13 @@ import { getApiErrorMessage } from '../../shared/api/errorMessage'
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
 import { useToast } from '../../shared/ui/toast/ToastContext'
 
-type CatalogTab = 'degrees' | 'positions' | 'specialties'
+type CatalogTab = 'degrees' | 'positions' | 'specialties' | 'commission-heads'
 type PanelMode =
   | 'details'
   | 'lookup-create'
   | 'lookup-edit'
+  | 'commission-head-create'
+  | 'commission-head-edit'
   | 'specialty-create'
   | 'specialty-edit'
   | 'teacher-create'
@@ -63,7 +75,17 @@ type PanelMode =
 interface LookupFormState {
   fullName: string
   shortName: string
+  genitiveFullName: string
+  genitiveShortName: string
   isActive: boolean
+}
+
+interface CommissionHeadFormState {
+  fullName: string
+  nameForms: PersonNameFormsDto
+  position: string
+  company: string
+  specialty: string
 }
 
 interface SpecialtyFormState {
@@ -83,6 +105,7 @@ interface SecretaryFormState {
 interface TeacherFormState {
   fullName: string
   shortName: string
+  nameForms: PersonNameFormsDto
   email: string
   phoneNumber: string
   academicDegreeId: string
@@ -98,17 +121,44 @@ interface ConfirmState {
   onConfirm: () => void
 }
 
+type SidebarItem = AcademicDegreeDto | TeacherPositionDto | SpecialtyDto | CommissionHeadDto
+
 const tabs: Array<{ value: CatalogTab; label: string }> = [
   { value: 'degrees', label: 'Ступені' },
   { value: 'positions', label: 'Посади' },
   { value: 'specialties', label: 'Спеціальності' },
+  { value: 'commission-heads', label: 'Голови ДЕК' },
 ]
 
 const emptyLookupForm: LookupFormState = {
   fullName: '',
   shortName: '',
+  genitiveFullName: '',
+  genitiveShortName: '',
   isActive: true,
 }
+
+const emptyNameForms: PersonNameFormsDto = {
+  nominative: '',
+  genitive: '',
+  dative: '',
+  signature: '',
+}
+
+const emptyCommissionHeadForm: CommissionHeadFormState = {
+  fullName: '',
+  nameForms: emptyNameForms,
+  position: '',
+  company: '',
+  specialty: '',
+}
+
+const nameFormFields: Array<{ key: keyof PersonNameFormsDto; label: string }> = [
+  { key: 'nominative', label: 'Називний відмінок' },
+  { key: 'genitive', label: 'Родовий відмінок' },
+  { key: 'dative', label: 'Давальний відмінок' },
+  { key: 'signature', label: 'Підпис' },
+]
 
 const emptySpecialtyForm: SpecialtyFormState = {
   code: '',
@@ -125,6 +175,48 @@ function idEquals(left: EntityId, right: EntityId | string | undefined) {
 
 function tidyText(value: string) {
   return value.trim().replace(/\s+/g, ' ')
+}
+
+function makeDefaultNameForms(fullName: string, signature = fullName): PersonNameFormsDto {
+  return {
+    nominative: fullName,
+    genitive: fullName,
+    dative: fullName,
+    signature,
+  }
+}
+
+function normalizeNameForms(
+  nameForms: PersonNameFormsDto | null | undefined,
+  fallbackFullName: string,
+  fallbackSignature = fallbackFullName,
+): PersonNameFormsDto {
+  const fallback = makeDefaultNameForms(fallbackFullName, fallbackSignature)
+
+  return {
+    nominative: nameForms?.nominative ?? fallback.nominative,
+    genitive: nameForms?.genitive ?? fallback.genitive,
+    dative: nameForms?.dative ?? fallback.dative,
+    signature: nameForms?.signature ?? fallback.signature,
+  }
+}
+
+function cleanNameForms(nameForms: PersonNameFormsDto): PersonNameFormsDto {
+  return {
+    nominative: tidyText(nameForms.nominative),
+    genitive: tidyText(nameForms.genitive),
+    dative: tidyText(nameForms.dative),
+    signature: tidyText(nameForms.signature),
+  }
+}
+
+function validateNameForms(nameForms: PersonNameFormsDto, toast: ReturnType<typeof useToast>) {
+  if (Object.values(cleanNameForms(nameForms)).some((value) => value.length > 256)) {
+    toast.showError('Форми ПІБ для документів мають бути не довші за 256 символів.')
+    return false
+  }
+
+  return true
 }
 
 function normalizeFullNameInput(value: string) {
@@ -176,6 +268,22 @@ function lookupLabel(item: AcademicDegreeDto | TeacherPositionDto) {
   return item.shortName || item.fullName
 }
 
+function sidebarLabel(item: SidebarItem) {
+  if ('company' in item) {
+    return item.fullName
+  }
+
+  if ('shortName' in item) {
+    return lookupLabel(item)
+  }
+
+  return item.code
+}
+
+function isSidebarItemInactive(item: SidebarItem) {
+  return 'isDeleted' in item ? item.isDeleted : !item.isActive
+}
+
 function itemStatus(isActive: boolean) {
   return isActive ? 'Активний' : 'Архів'
 }
@@ -205,12 +313,25 @@ function makeTeacherForm(
   return {
     fullName,
     shortName: makeTeacherShortName(fullName),
+    nameForms: normalizeNameForms(teacher?.nameForms, fullName, teacher?.shortName ?? makeTeacherShortName(fullName)),
     email: teacher?.email ?? '',
     phoneNumber: teacher?.phoneNumber ?? '',
     academicDegreeId: String(teacher?.academicDegreeId ?? degreeId ?? ''),
     teacherPositionId: String(teacher?.teacherPositionId ?? positionId ?? ''),
     specialtyId: String(teacher?.specialtyId ?? specialtyId ?? ''),
     isActive: teacher?.isActive ?? true,
+  }
+}
+
+function makeCommissionHeadForm(commissionHead: CommissionHeadDto | null): CommissionHeadFormState {
+  const fullName = commissionHead?.fullName ?? ''
+
+  return {
+    fullName,
+    nameForms: normalizeNameForms(commissionHead?.nameForms, fullName),
+    position: commissionHead?.position ?? '',
+    company: commissionHead?.company ?? '',
+    specialty: commissionHead?.specialty ?? '',
   }
 }
 
@@ -225,7 +346,9 @@ function isLookupTab(tab: CatalogTab): tab is 'degrees' | 'positions' {
 }
 
 function normalizeCatalogTab(value: string | null): CatalogTab {
-  return value === 'degrees' || value === 'positions' || value === 'specialties' ? value : 'specialties'
+  return value === 'degrees' || value === 'positions' || value === 'specialties' || value === 'commission-heads'
+    ? value
+    : 'specialties'
 }
 
 export function ManagementPage() {
@@ -242,7 +365,9 @@ export function ManagementPage() {
   const [selectedSpecialtyId, setSelectedSpecialtyId] = useState<EntityId | undefined>()
   const [selectedTeacherId, setSelectedTeacherId] = useState<EntityId | undefined>()
   const [selectedSecretaryId, setSelectedSecretaryId] = useState<EntityId | undefined>()
+  const [selectedCommissionHeadId, setSelectedCommissionHeadId] = useState<EntityId | undefined>()
   const [lookupForm, setLookupForm] = useState<LookupFormState>(emptyLookupForm)
+  const [commissionHeadForm, setCommissionHeadForm] = useState<CommissionHeadFormState>(emptyCommissionHeadForm)
   const [specialtyForm, setSpecialtyForm] = useState<SpecialtyFormState>(emptySpecialtyForm)
   const [teacherForm, setTeacherForm] = useState<TeacherFormState>(() => makeTeacherForm(null, undefined, undefined, undefined))
   const [secretaryForm, setSecretaryForm] = useState<SecretaryFormState>(() => makeSecretaryForm(null, undefined))
@@ -252,14 +377,17 @@ export function ManagementPage() {
   const positionsQuery = useQuery(teacherPositionsQuery())
   const specialtiesQueryResult = useQuery(specialtiesQuery())
   const secretariesQueryResult = useQuery(secretariesQuery())
+  const commissionHeadsQueryResult = useQuery(commissionHeadsQuery(secretary?.email ?? ''))
 
   const degrees = useMemo(() => degreesQuery.data ?? [], [degreesQuery.data])
   const positions = useMemo(() => positionsQuery.data ?? [], [positionsQuery.data])
   const specialties = useMemo(() => specialtiesQueryResult.data ?? [], [specialtiesQueryResult.data])
   const secretaries = useMemo(() => secretariesQueryResult.data ?? [], [secretariesQueryResult.data])
+  const commissionHeads = useMemo(() => commissionHeadsQueryResult.data ?? [], [commissionHeadsQueryResult.data])
   const effectiveSelectedDegreeId = selectedDegreeId ?? degrees[0]?.id
   const effectiveSelectedPositionId = selectedPositionId ?? positions[0]?.id
   const effectiveSelectedSpecialtyId = selectedSpecialtyId ?? specialties[0]?.id
+  const effectiveSelectedCommissionHeadId = selectedCommissionHeadId ?? commissionHeads[0]?.id
   const teachersQueryResult = useQuery(teachersQuery(effectiveSelectedSpecialtyId))
   const teachers = useMemo(() => teachersQueryResult.data ?? [], [teachersQueryResult.data])
   const selectedDegree = degrees.find((degree) => idEquals(degree.id, effectiveSelectedDegreeId))
@@ -267,7 +395,8 @@ export function ManagementPage() {
   const selectedSpecialty = specialties.find((specialty) => idEquals(specialty.id, effectiveSelectedSpecialtyId))
   const selectedTeacher = teachers.find((teacher) => idEquals(teacher.id, selectedTeacherId))
   const selectedSecretary = secretaries.find((item) => idEquals(item.id, selectedSecretaryId))
-  const currentLookupItem = activeTab === 'degrees' ? selectedDegree : selectedPosition
+  const selectedCommissionHead = commissionHeads.find((head) => idEquals(head.id, effectiveSelectedCommissionHeadId))
+  const currentLookupItem = activeTab === 'degrees' ? selectedDegree : activeTab === 'positions' ? selectedPosition : undefined
   const specialtySecretaries = useMemo(
     () => secretaries.filter((item) => selectedSpecialty && idEquals(item.specialtyId, selectedSpecialty.id)),
     [secretaries, selectedSpecialty],
@@ -279,6 +408,7 @@ export function ManagementPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: managementQueryKeys.all }),
         queryClient.invalidateQueries({ queryKey: managementQueryKeys.teachers(effectiveSelectedSpecialtyId) }),
+        queryClient.invalidateQueries({ queryKey: commissionQueryKeys.all }),
       ])
       toast.showSuccess()
       setPanelMode('details')
@@ -301,6 +431,13 @@ export function ManagementPage() {
       return
     }
 
+    if (activeTab === 'commission-heads') {
+      setSelectedCommissionHeadId(undefined)
+      setCommissionHeadForm(emptyCommissionHeadForm)
+      setPanelMode('commission-head-create')
+      return
+    }
+
     setSpecialtyForm(emptySpecialtyForm)
     setPanelMode('specialty-create')
   }
@@ -309,9 +446,17 @@ export function ManagementPage() {
     setLookupForm({
       fullName: item.fullName,
       shortName: item.shortName,
+      genitiveFullName: item.genitiveFullName,
+      genitiveShortName: item.genitiveShortName,
       isActive: item.isActive,
     })
     setPanelMode('lookup-edit')
+  }
+
+  const beginCommissionHeadEdit = (item: CommissionHeadDto) => {
+    setSelectedCommissionHeadId(item.id)
+    setCommissionHeadForm(makeCommissionHeadForm(item))
+    setPanelMode('commission-head-edit')
   }
 
   const beginSpecialtyEdit = (specialty: SpecialtyDto) => {
@@ -353,7 +498,18 @@ export function ManagementPage() {
     const request = {
       fullName: lookupForm.fullName.trim(),
       shortName: lookupForm.shortName.trim(),
+      genitiveFullName: lookupForm.genitiveFullName.trim() || null,
+      genitiveShortName: lookupForm.genitiveShortName.trim() || null,
       isActive: lookupForm.isActive,
+    }
+
+    if (request.genitiveFullName && request.genitiveFullName.length > 256) {
+      toast.showError('Повна назва у родовому відмінку має бути не довшою за 256 символів.')
+      return
+    }
+    if (request.genitiveShortName && request.genitiveShortName.length > 50) {
+      toast.showError('Коротка назва у родовому відмінку має бути не довшою за 50 символів.')
+      return
     }
 
     if (panelMode === 'lookup-create') {
@@ -403,9 +559,16 @@ export function ManagementPage() {
       return
     }
 
+    const shortName = makeTeacherShortName(fullName)
+    const nameForms = cleanNameForms(normalizeNameForms(teacherForm.nameForms, fullName, shortName))
+    if (!validateNameForms(nameForms, toast)) {
+      return
+    }
+
     const request: UpsertTeacherRequest = {
       fullName,
-      shortName: makeTeacherShortName(fullName),
+      shortName,
+      nameForms,
       email: teacherForm.email.trim(),
       phoneNumber: teacherForm.phoneNumber.trim(),
       academicDegreeId: toEntityId(teacherForm.academicDegreeId),
@@ -421,6 +584,48 @@ export function ManagementPage() {
 
     if (selectedTeacher) {
       runMutation.mutate(() => updateTeacher(selectedTeacher.id, request))
+    }
+  }
+
+  const submitCommissionHead = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const fullName = tidyText(commissionHeadForm.fullName)
+    if (!isValidFullName(fullName)) {
+      toast.showError(fullNameValidationMessage)
+      return
+    }
+
+    const nameForms = cleanNameForms(normalizeNameForms(commissionHeadForm.nameForms, fullName))
+    if (!validateNameForms(nameForms, toast)) {
+      return
+    }
+
+    const request = {
+      fullName,
+      nameForms,
+      position: tidyText(commissionHeadForm.position),
+      company: tidyText(commissionHeadForm.company),
+      specialty: tidyText(commissionHeadForm.specialty),
+      secretaryEmail: secretary?.email ?? '',
+    }
+
+    if (!request.position || !request.company || !request.specialty) {
+      toast.showError('Заповніть посаду, підприємство та спеціальність голови ДЕК.')
+      return
+    }
+    if ([request.position, request.company, request.specialty].some((value) => value.length > 256)) {
+      toast.showError('Посада, підприємство та спеціальність мають бути не довші за 256 символів.')
+      return
+    }
+
+    if (panelMode === 'commission-head-create') {
+      runMutation.mutate(() => createCommissionHead(request))
+      return
+    }
+
+    if (selectedCommissionHead) {
+      runMutation.mutate(() => updateCommissionHead(selectedCommissionHead.id, request))
     }
   }
 
@@ -488,6 +693,15 @@ export function ManagementPage() {
     })
   }
 
+  const confirmDeleteCommissionHead = (item: CommissionHeadDto) => {
+    setConfirmState({
+      title: 'Видалення голови ДЕК',
+      message: <>Ви впевнені, що хочете видалити голову ДЕК <strong>{item.fullName}</strong>?</>,
+      confirmLabel: 'Видалити',
+      onConfirm: () => runMutation.mutate(() => deleteCommissionHead(item.id, secretary?.email ?? '')),
+    })
+  }
+
   const confirmDeleteSecretary = (item: SecretaryDto, hardDelete = false) => {
     setConfirmState({
       title: hardDelete ? 'Повне видалення секретаря' : 'Видалення секретаря',
@@ -498,8 +712,19 @@ export function ManagementPage() {
   }
 
   const title = tabs.find((tab) => tab.value === activeTab)?.label ?? ''
-  const listItems = activeTab === 'degrees' ? degrees : activeTab === 'positions' ? positions : specialties
-  const isLoading = degreesQuery.isLoading || positionsQuery.isLoading || specialtiesQueryResult.isLoading
+  const listItems: SidebarItem[] =
+    activeTab === 'degrees'
+      ? degrees
+      : activeTab === 'positions'
+        ? positions
+        : activeTab === 'commission-heads'
+          ? commissionHeads
+          : specialties
+  const isLoading =
+    degreesQuery.isLoading ||
+    positionsQuery.isLoading ||
+    specialtiesQueryResult.isLoading ||
+    commissionHeadsQueryResult.isLoading
 
   return (
     <div className="space-y-14">
@@ -510,7 +735,7 @@ export function ManagementPage() {
             onClick={beginCreate}
             className="h-16 w-full rounded-full bg-blue-600 px-8 text-3xl font-bold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
           >
-            + Додати {activeTab === 'degrees' ? 'ступінь' : activeTab === 'positions' ? 'посаду' : 'спеціальність'}
+            + Додати {activeTab === 'degrees' ? 'ступінь' : activeTab === 'positions' ? 'посаду' : activeTab === 'commission-heads' ? 'голову ДЕК' : 'спеціальність'}
           </button>
 
           <section className="min-h-[520px] rounded-[22px] bg-slate-50/70 px-8 py-10 shadow-sm">
@@ -524,8 +749,10 @@ export function ManagementPage() {
                     ? idEquals(item.id, effectiveSelectedDegreeId)
                     : activeTab === 'positions'
                       ? idEquals(item.id, effectiveSelectedPositionId)
-                      : idEquals(item.id, effectiveSelectedSpecialtyId)
-                const label = 'shortName' in item ? lookupLabel(item) : item.code
+                      : activeTab === 'commission-heads'
+                        ? idEquals(item.id, effectiveSelectedCommissionHeadId)
+                        : idEquals(item.id, effectiveSelectedSpecialtyId)
+                const label = sidebarLabel(item)
 
                 return (
                   <button
@@ -536,6 +763,8 @@ export function ManagementPage() {
                         setSelectedDegreeId(item.id)
                       } else if (activeTab === 'positions') {
                         setSelectedPositionId(item.id)
+                      } else if (activeTab === 'commission-heads') {
+                        setSelectedCommissionHeadId(item.id)
                       } else {
                         setSelectedSpecialtyId(item.id)
                       }
@@ -547,7 +776,7 @@ export function ManagementPage() {
                     ].join(' ')}
                   >
                     <span>{label}</span>
-                    {!item.isActive && <span className="text-sm font-bold uppercase opacity-75">архів</span>}
+                    {isSidebarItemInactive(item) && <span className="text-sm font-bold uppercase opacity-75">архів</span>}
                   </button>
                 )
               })}
@@ -558,6 +787,8 @@ export function ManagementPage() {
         <section className="min-h-[620px] rounded-[22px] bg-slate-50/78 px-10 py-10 shadow-sm">
           {isLookupTab(activeTab) ? (
             renderLookupPanel()
+          ) : activeTab === 'commission-heads' ? (
+            renderCommissionHeadPanel()
           ) : (
             renderSpecialtyPanel()
           )}
@@ -616,9 +847,58 @@ export function ManagementPage() {
           rows={[
             ['Повна назва', currentLookupItem.fullName],
             ['Коротка назва', currentLookupItem.shortName],
+            ['Повна назва у родовому', currentLookupItem.genitiveFullName],
+            ['Коротка назва у родовому', currentLookupItem.genitiveShortName],
             ['Стан', itemStatus(currentLookupItem.isActive)],
           ]}
           statusActive={currentLookupItem.isActive}
+        />
+      </div>
+    )
+  }
+
+  function renderCommissionHeadPanel() {
+    if (panelMode === 'commission-head-create' || panelMode === 'commission-head-edit') {
+      return (
+        <form onSubmit={submitCommissionHead} className="flex h-full min-h-[540px] flex-col">
+          <PanelHeader
+            title={panelMode === 'commission-head-create' ? 'Додати голову ДЕК' : selectedCommissionHead?.fullName || 'Змінити голову ДЕК'}
+            onClose={() => setPanelMode('details')}
+          />
+          <CommissionHeadFields value={commissionHeadForm} onChange={setCommissionHeadForm} />
+          <FormFooter>
+            {panelMode === 'commission-head-edit' && selectedCommissionHead && (
+              <DangerButton onClick={() => confirmDeleteCommissionHead(selectedCommissionHead)} />
+            )}
+            <SubmitButton label={panelMode === 'commission-head-create' ? 'Додати' : 'Зберегти зміни'} />
+          </FormFooter>
+        </form>
+      )
+    }
+
+    if (!selectedCommissionHead) {
+      return <EmptyPanel title="Голови ДЕК" />
+    }
+
+    return (
+      <div>
+        <PanelHeader title={selectedCommissionHead.fullName}>
+          <ActionButton label="Видалити" tone="danger" icon={<Trash2 size={22} />} onClick={() => confirmDeleteCommissionHead(selectedCommissionHead)} />
+          <ActionButton label="Змінити" onClick={() => beginCommissionHeadEdit(selectedCommissionHead)} />
+        </PanelHeader>
+        <ReadonlyRows
+          rows={[
+            ['ПІБ', selectedCommissionHead.fullName],
+            ['Називний відмінок', selectedCommissionHead.nameForms.nominative],
+            ['Родовий відмінок', selectedCommissionHead.nameForms.genitive],
+            ['Давальний відмінок', selectedCommissionHead.nameForms.dative],
+            ['Підпис', selectedCommissionHead.nameForms.signature],
+            ['Посада', selectedCommissionHead.position],
+            ['Підприємство', selectedCommissionHead.company],
+            ['Спеціальність', selectedCommissionHead.specialty],
+            ['Стан', selectedCommissionHead.isDeleted ? 'Архів' : 'Активний'],
+          ]}
+          statusActive={!selectedCommissionHead.isDeleted}
         />
       </div>
     )
@@ -873,7 +1153,61 @@ function LookupFields({ value, onChange }: { value: LookupFormState; onChange: (
     <div className="max-w-[760px] space-y-5">
       <TextField label="Повна назва" value={value.fullName} onChange={(fullName) => onChange({ ...value, fullName })} />
       <TextField label="Коротка назва" value={value.shortName} onChange={(shortName) => onChange({ ...value, shortName })} />
+      <TextField label="Повна назва у родовому" value={value.genitiveFullName} onChange={(genitiveFullName) => onChange({ ...value, genitiveFullName })} required={false} />
+      <TextField label="Коротка назва у родовому" value={value.genitiveShortName} onChange={(genitiveShortName) => onChange({ ...value, genitiveShortName })} required={false} />
       <CheckboxField label="Активний запис" checked={value.isActive} onChange={(isActive) => onChange({ ...value, isActive })} />
+    </div>
+  )
+}
+
+function NameFormsFields({
+  value,
+  onChange,
+}: {
+  value: PersonNameFormsDto
+  onChange: (value: PersonNameFormsDto) => void
+}) {
+  return (
+    <div className="space-y-4 rounded-xl border border-slate-200 bg-white/45 p-5">
+      <h2 className="text-sm font-extrabold uppercase text-slate-500">Форми ПІБ для документів</h2>
+      {nameFormFields.map((field) => (
+        <TextField
+          key={field.key}
+          label={field.label}
+          value={value[field.key]}
+          onChange={(nextValue) => onChange({ ...value, [field.key]: nextValue })}
+          required={false}
+        />
+      ))}
+    </div>
+  )
+}
+
+function CommissionHeadFields({
+  value,
+  onChange,
+}: {
+  value: CommissionHeadFormState
+  onChange: (value: CommissionHeadFormState) => void
+}) {
+  const handleFullNameChange = (fullName: string) => {
+    const normalizedFullName = normalizeFullNameInput(fullName)
+    const nextShortName = normalizedFullName
+
+    onChange({
+      ...value,
+      fullName: normalizedFullName,
+      nameForms: normalizeNameForms(value.nameForms, normalizedFullName, nextShortName),
+    })
+  }
+
+  return (
+    <div className="max-w-[800px] space-y-4">
+      <TextField label="ПІБ" value={value.fullName} onChange={handleFullNameChange} />
+      <NameFormsFields value={value.nameForms} onChange={(nameForms) => onChange({ ...value, nameForms })} />
+      <TextField label="Посада" value={value.position} onChange={(position) => onChange({ ...value, position })} />
+      <TextField label="Підприємство" value={value.company} onChange={(company) => onChange({ ...value, company })} />
+      <TextField label="Спеціальність" value={value.specialty} onChange={(specialty) => onChange({ ...value, specialty })} />
     </div>
   )
 }
@@ -903,14 +1237,21 @@ function TeacherFields({
 }) {
   const handleFullNameChange = (fullName: string) => {
     const normalizedFullName = normalizeFullNameInput(fullName)
+    const shortName = makeTeacherShortName(normalizedFullName)
 
-    onChange({ ...value, fullName: normalizedFullName, shortName: makeTeacherShortName(normalizedFullName) })
+    onChange({
+      ...value,
+      fullName: normalizedFullName,
+      shortName,
+      nameForms: normalizeNameForms(value.nameForms, normalizedFullName, shortName),
+    })
   }
 
   return (
     <div className="max-w-[800px] space-y-4">
       <TextField label="ПІБ" value={value.fullName} onChange={handleFullNameChange} />
       <TextField label="Короткий ПІБ" value={value.shortName} onChange={() => undefined} readOnly required={false} />
+      <NameFormsFields value={value.nameForms} onChange={(nameForms) => onChange({ ...value, nameForms })} />
       <TextField label="Пошта" type="email" value={value.email} onChange={(email) => onChange({ ...value, email })} />
       <TextField label="Телефон" value={value.phoneNumber} onChange={(phoneNumber) => onChange({ ...value, phoneNumber })} />
       <SelectField label="Академічний рівень" value={value.academicDegreeId} onChange={(academicDegreeId) => onChange({ ...value, academicDegreeId })}>

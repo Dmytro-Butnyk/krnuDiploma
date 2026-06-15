@@ -1,6 +1,13 @@
 export type EntityId = number | string
 export type EducationLevel = 'Bachelor' | 'Master'
 
+export interface PersonNameFormsDto {
+  nominative: string
+  genitive: string
+  dative: string
+  signature: string
+}
+
 export interface GroupDto {
   id: EntityId
   name: string
@@ -33,6 +40,7 @@ export interface ElectronicChecklistDto {
 export interface GroupStudentResponse {
   id: EntityId
   fullName: string
+  nameForms: PersonNameFormsDto
   supervisorName: string | null
   physicalChecklist: PhysicalChecklistDto | null
   electronicChecklist: ElectronicChecklistDto | null
@@ -150,6 +158,12 @@ export interface QualificationWorkDto {
   practiceBase: string
   reviewerId: EntityId | null
   reviewerName: string | null
+  defenceQuestions: DefenceQuestionDto[]
+}
+
+export interface DefenceQuestionDto {
+  askedBy: string
+  text: string
 }
 
 export interface DefenceInfoDto {
@@ -189,6 +203,7 @@ export interface StudentDetailsResponse {
   groupId: EntityId
   fullName: string
   name: StudentNameDto
+  nameForms: PersonNameFormsDto
   qualificationWork: QualificationWorkDto | null
   physicalChecklist: PhysicalChecklistDto | null
   electronicChecklist: ElectronicChecklistDto | null
@@ -204,11 +219,14 @@ export interface TeacherOptionDto {
 }
 
 export interface QualificationWorkOptionsResponse {
+  teachers: TeacherOptionDto[]
   supervisors: TeacherOptionDto[]
   reviewers: TeacherOptionDto[]
 }
 
-export type UpdateStudentNameRequest = AddStudentRequest
+export interface UpdateStudentNameRequest extends AddStudentRequest {
+  nameForms?: PersonNameFormsDto | null
+}
 
 export interface UpdateStudentQualificationWorkRequest {
   secretaryEmail: string
@@ -227,3 +245,4 @@ export type UpdatePhysicalChecklistRequest = PhysicalChecklistDto & { secretaryE
 export type UpdateElectronicChecklistRequest = ElectronicChecklistDto & { secretaryEmail: string }
 export type UpdateDefenceResultsRequest = DefenceResultsDto & { secretaryEmail: string }
 export type UpdateQualificationWorkCharacteristicsRequest = CharacteristicsDto & { secretaryEmail: string }
+export type UpdateDefenceQuestionsRequest = { secretaryEmail: string; questions: DefenceQuestionDto[] }

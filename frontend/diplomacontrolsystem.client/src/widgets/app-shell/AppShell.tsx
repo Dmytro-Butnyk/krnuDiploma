@@ -13,6 +13,7 @@ const managementNavItems = [
   { to: '/management?tab=degrees', value: 'degrees', label: 'Ступені' },
   { to: '/management?tab=positions', value: 'positions', label: 'Посади' },
   { to: '/management?tab=specialties', value: 'specialties', label: 'Спеціальності' },
+  { to: '/management?tab=commission-heads', value: 'commission-heads', label: 'Голови ДЕК' },
 ]
 
 export function AppShell() {

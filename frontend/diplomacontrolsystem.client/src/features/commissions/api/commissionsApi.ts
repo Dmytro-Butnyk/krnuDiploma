@@ -6,6 +6,7 @@ import type {
   CreateDiplomaExaminationCommissionRequest,
   DiplomaExaminationCommissionResponse,
   GetDiplomaExaminationCommissionOptionsResponse,
+  UpdateCommissionHeadRequest,
   UpdateDiplomaExaminationCommissionRequest,
 } from './types'
 
@@ -43,10 +44,31 @@ export function getDiplomaExaminationCommissionOptions(
   )
 }
 
+export function getCommissionHeads(_secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<CommissionHeadDto[]>('/api/commission-heads')
+}
+
 export function createCommissionHead(request: CreateCommissionHeadRequest) {
   return apiRequest<CommissionHeadDto>('/api/commission-heads', {
     method: 'POST',
     body: withoutSecretaryEmail(request),
+  })
+}
+
+export function updateCommissionHead(commissionHeadId: EntityId, request: UpdateCommissionHeadRequest) {
+  return apiRequest<CommissionHeadDto>(`/api/commission-heads/${commissionHeadId}`, {
+    method: 'PUT',
+    body: withoutSecretaryEmail(request),
+  })
+}
+
+export function deleteCommissionHead(commissionHeadId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<void>(`/api/commission-heads/${commissionHeadId}`, {
+    method: 'DELETE',
   })
 }
 

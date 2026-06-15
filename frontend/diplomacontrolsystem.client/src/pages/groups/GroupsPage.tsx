@@ -24,6 +24,7 @@ import {
   deleteGroup,
   deleteStudent,
   importGroupDefenceResults,
+  updateDefenceQuestions,
   updateDefenceResults,
   updateElectronicChecklist,
   updateGroup,
@@ -36,6 +37,7 @@ import {
 import type {
   AcademicYearOverviewResponse,
   CharacteristicsDto,
+  DefenceQuestionDto,
   EducationLevel,
   ElectronicChecklistDto,
   EntityId,
@@ -43,6 +45,7 @@ import type {
   GroupDto,
   GroupStudentResponse,
   NationalGrade,
+  PersonNameFormsDto,
   PhysicalChecklistDto,
   CreateGroupResponse,
   PreviousYearStatisticsDto,
@@ -133,8 +136,55 @@ const emptyCharacteristics: CharacteristicsDto = {
   isDefendedAtEnterprise: false,
 }
 
+const emptyNameForms: PersonNameFormsDto = {
+  nominative: '',
+  genitive: '',
+  dative: '',
+  signature: '',
+}
+
+const nameFormFields: Array<{ key: keyof PersonNameFormsDto; label: string }> = [
+  { key: 'nominative', label: 'Називний відмінок' },
+  { key: 'genitive', label: 'Родовий відмінок' },
+  { key: 'dative', label: 'Давальний відмінок' },
+  { key: 'signature', label: 'Підпис' },
+]
+
 function asString(id: EntityId | undefined) {
   return id === undefined ? '' : String(id)
+}
+
+function makeDefaultNameForms(fullName: string, signature = fullName): PersonNameFormsDto {
+  return {
+    nominative: fullName,
+    genitive: fullName,
+    dative: fullName,
+    signature,
+  }
+}
+
+function normalizeNameForms(
+  nameForms: PersonNameFormsDto | null | undefined,
+  fallbackFullName: string,
+  fallbackSignature = fallbackFullName,
+): PersonNameFormsDto {
+  const fallback = makeDefaultNameForms(fallbackFullName, fallbackSignature)
+
+  return {
+    nominative: nameForms?.nominative ?? fallback.nominative,
+    genitive: nameForms?.genitive ?? fallback.genitive,
+    dative: nameForms?.dative ?? fallback.dative,
+    signature: nameForms?.signature ?? fallback.signature,
+  }
+}
+
+function cleanNameForms(nameForms: PersonNameFormsDto): PersonNameFormsDto {
+  return {
+    nominative: tidyText(nameForms.nominative),
+    genitive: tidyText(nameForms.genitive),
+    dative: tidyText(nameForms.dative),
+    signature: tidyText(nameForms.signature),
+  }
 }
 
 function makePath(path: string, educationLevel: EducationLevel) {
@@ -863,7 +913,10 @@ function ChecklistTable({
               return (
                 <tr key={student.id} className={checklistComplete ? '' : 'text-red-500'}>
                   <td className="py-5">{index + 1}</td>
-                  <td className="break-words px-1">{student.fullName}</td>
+                  <td className="break-words px-1">
+                    <span className="block">{student.fullName}</span>
+                    <span className="mt-1 block text-[11px] text-slate-400">{student.nameForms.signature}</span>
+                  </td>
                   <td className="text-slate-500">{student.supervisorName ?? 'Не призначено'}</td>
                   {items.map((item) => (
                     <td key={item.key}>
@@ -947,7 +1000,10 @@ function AdmissionScreen({
                 return (
                   <tr key={student.id} className={studentAdmitted ? '' : 'text-red-500'}>
                     <td className="py-5">{index + 1}</td>
-                    <td>{student.fullName}</td>
+                    <td>
+                      <span className="block">{student.fullName}</span>
+                      <span className="mt-1 block text-xs text-slate-400">{student.nameForms.signature}</span>
+                    </td>
                     <td className="text-slate-500">{student.supervisorName ?? 'Не призначено'}</td>
                     <td className="text-green-500">
                       {countChecked(student.physicalChecklist, physicalItems.map((item) => item.key))}/
@@ -1270,6 +1326,7 @@ interface StudentFormState {
   lastName: string
   firstName: string
   middleName: string
+  nameForms: PersonNameFormsDto
   topic: string
   supervisorId: string
   practiceBase: string
@@ -1285,6 +1342,7 @@ interface StudentFormState {
   ectsGrade: EctsGrade
   nationalGrade: NationalGrade
   hasDiplomaWithHonors: boolean
+  defenceQuestions: DefenceQuestionDto[]
   characteristics: CharacteristicsDto
 }
 
@@ -1341,11 +1399,21 @@ function displayNationalGrade(value: NationalGrade) {
   return labels[value]
 }
 
-  function studentFormFromDetails(details: StudentDetailsResponse): StudentFormState {
+function cleanDefenceQuestions(questions: DefenceQuestionDto[]): DefenceQuestionDto[] {
+  return questions
+    .map((question) => ({
+      askedBy: tidyText(question.askedBy),
+      text: question.text.trim(),
+    }))
+    .filter((question) => question.askedBy || question.text)
+}
+
+function studentFormFromDetails(details: StudentDetailsResponse): StudentFormState {
   return {
     lastName: details.name.lastName,
     firstName: details.name.firstName,
     middleName: details.name.middleName,
+    nameForms: normalizeNameForms(details.nameForms, details.fullName),
     topic: details.qualificationWork?.topic ?? '',
     supervisorId: asString(details.qualificationWork?.supervisorId ?? undefined),
     practiceBase: details.qualificationWork?.practiceBase ?? '',
@@ -1361,6 +1429,7 @@ function displayNationalGrade(value: NationalGrade) {
       ectsGrade: normalizeEctsGrade(details.defenceResults?.ectsGrade),
       nationalGrade: normalizeNationalGrade(details.defenceResults?.nationalGrade),
     hasDiplomaWithHonors: details.defenceResults?.hasDiplomaWithHonors ?? false,
+    defenceQuestions: details.qualificationWork?.defenceQuestions ?? [],
     characteristics: details.characteristics ?? emptyCharacteristics,
   }
 }
@@ -1449,12 +1518,26 @@ function StudentDetailsPanel({
   const saveMutation = useMutation({
     mutationFn: async ({ details, current }: { details: StudentDetailsResponse; current: StudentFormState }) => {
       const original = studentFormFromDetails(details)
+      const originalNameForms = cleanNameForms(original.nameForms)
+      const currentNameForms = cleanNameForms(current.nameForms)
+      const originalDefenceQuestions = cleanDefenceQuestions(original.defenceQuestions)
+      const currentDefenceQuestions = cleanDefenceQuestions(current.defenceQuestions)
       const requests: Array<Promise<unknown>> = []
 
       if (
         hasChanged(
-          { lastName: original.lastName, firstName: original.firstName, middleName: original.middleName },
-          { lastName: current.lastName, firstName: current.firstName, middleName: current.middleName },
+          {
+            lastName: original.lastName,
+            firstName: original.firstName,
+            middleName: original.middleName,
+            nameForms: originalNameForms,
+          },
+          {
+            lastName: current.lastName,
+            firstName: current.firstName,
+            middleName: current.middleName,
+            nameForms: currentNameForms,
+          },
         )
       ) {
         requests.push(
@@ -1463,6 +1546,7 @@ function StudentDetailsPanel({
             lastName: current.lastName,
             firstName: current.firstName,
             middleName: current.middleName,
+            nameForms: currentNameForms,
           }),
         )
       }
@@ -1549,6 +1633,10 @@ function StudentDetailsPanel({
         requests.push(updateQualificationWorkCharacteristics(studentId, { secretaryEmail, ...current.characteristics }))
       }
 
+      if (hasChanged(originalDefenceQuestions, currentDefenceQuestions)) {
+        requests.push(updateDefenceQuestions(studentId, { secretaryEmail, questions: currentDefenceQuestions }))
+      }
+
       await Promise.all(requests)
     },
     onSuccess: async () => {
@@ -1578,6 +1666,26 @@ function StudentDetailsPanel({
   const selectedGroupStudentsPath = makePath(`/groups/${defenseYear}/${group.id}`, educationLevel)
   const updateForm = (patch: Partial<StudentFormState>) =>
     setDraftForm((current) => (current ? { ...current, ...patch } : { ...form, ...patch }))
+  const teacherOptions = optionsQuery.data?.teachers ?? optionsQuery.data?.supervisors ?? []
+  const reviewerOptions = optionsQuery.data?.teachers ?? optionsQuery.data?.reviewers ?? []
+  const updateNameForms = (patch: Partial<PersonNameFormsDto>) =>
+    updateForm({ nameForms: { ...form.nameForms, ...patch } })
+  const updateDefenceQuestion = (index: number, patch: Partial<DefenceQuestionDto>) =>
+    updateForm({
+      defenceQuestions: form.defenceQuestions.map((question, currentIndex) =>
+        currentIndex === index ? { ...question, ...patch } : question,
+      ),
+    })
+  const addDefenceQuestion = () => {
+    if (form.defenceQuestions.length >= 5) {
+      showError('Можна додати не більше 5 питань захисту.')
+      return
+    }
+
+    updateForm({ defenceQuestions: [...form.defenceQuestions, { askedBy: '', text: '' }] })
+  }
+  const removeDefenceQuestion = (index: number) =>
+    updateForm({ defenceQuestions: form.defenceQuestions.filter((_, currentIndex) => currentIndex !== index) })
   const updateScoreForm = (patch: Partial<Pick<StudentFormState, 'supervisorScore' | 'reviewerScore' | 'commissionScore'>>) => {
     const nextCommissionScore = patch.commissionScore ?? form.commissionScore
 
@@ -1611,6 +1719,30 @@ function StudentDetailsPanel({
       return
     }
 
+    if (Object.values(cleanNameForms(form.nameForms)).some((value) => value.length > 256)) {
+      showError('Форми ПІБ для документів мають бути не довші за 256 символів.')
+      return
+    }
+
+    if (form.supervisorId && form.reviewerId && form.supervisorId === form.reviewerId) {
+      showError('Керівник і рецензент не можуть бути одним і тим самим викладачем.')
+      return
+    }
+
+    const defenceQuestions = cleanDefenceQuestions(form.defenceQuestions)
+    if (defenceQuestions.length > 5) {
+      showError('Можна додати не більше 5 питань захисту.')
+      return
+    }
+    if (defenceQuestions.some((question) => !question.text)) {
+      showError('Текст кожного питання захисту є обов’язковим.')
+      return
+    }
+    if (defenceQuestions.some((question) => question.askedBy.length > 256 || question.text.length > 1000)) {
+      showError('Автор питання має бути не довшим за 256 символів, текст питання має бути не довшим за 1000 символів.')
+      return
+    }
+
     saveMutation.mutate({ details, current: form })
   }
 
@@ -1638,7 +1770,8 @@ function StudentDetailsPanel({
                     : 'text-slate-500 hover:bg-white',
                 ].join(' ')}
               >
-                {student.fullName}
+                <span className="block">{student.fullName}</span>
+                <span className="mt-1 block text-xs opacity-75">{student.nameForms.signature}</span>
               </Link>
             ))}
           </div>
@@ -1686,6 +1819,18 @@ function StudentDetailsPanel({
             <InputField label="Прізвище" value={form.lastName} disabled={!isEditing} onChange={(lastName) => updateForm({ lastName: normalizeStudentNamePart(lastName) })} />
             <InputField label="Ім’я" value={form.firstName} disabled={!isEditing} onChange={(firstName) => updateForm({ firstName: normalizeStudentNamePart(firstName) })} />
             <InputField label="По-батькові" value={form.middleName} disabled={!isEditing} onChange={(middleName) => updateForm({ middleName: normalizeStudentNamePart(middleName) })} />
+            <div className="space-y-3 rounded-xl border border-slate-200 bg-white/45 p-4">
+              <h3 className="text-xs font-bold uppercase text-slate-500">Форми ПІБ для документів</h3>
+              {nameFormFields.map((field) => (
+                <InputField
+                  key={field.key}
+                  label={field.label}
+                  value={form.nameForms[field.key]}
+                  disabled={!isEditing}
+                  onChange={(value) => updateNameForms({ [field.key]: normalizeCyrillicText(value) })}
+                />
+              ))}
+            </div>
             <TextAreaField label="Тема роботи" value={form.topic} disabled={!isEditing} onChange={(topic) => updateForm({ topic })} />
             <label className="grid grid-cols-[170px_1fr] items-center gap-5 text-sm font-bold text-slate-600">
               <span>Керівник роботи</span>
@@ -1696,7 +1841,7 @@ function StudentDetailsPanel({
                 className="h-9 rounded-lg border border-slate-300 bg-transparent px-3 outline-none focus:border-blue-500 disabled:text-slate-500"
               >
                 <option value="">Не призначено</option>
-                {optionsQuery.data?.supervisors.map((teacher) => (
+                {teacherOptions.map((teacher) => (
                   <option key={teacher.id} value={teacher.id}>
                     {teacher.shortName}
                   </option>
@@ -1713,7 +1858,7 @@ function StudentDetailsPanel({
                 className="h-9 rounded-lg border border-slate-300 bg-transparent px-3 outline-none focus:border-blue-500 disabled:text-slate-500"
               >
                 <option value="">Не призначено</option>
-                {optionsQuery.data?.reviewers.map((teacher) => (
+                {reviewerOptions.map((teacher) => (
                   <option key={teacher.id} value={teacher.id}>
                     {teacher.shortName}
                   </option>
@@ -1756,6 +1901,12 @@ function StudentDetailsPanel({
           <section className="space-y-3">
             <h2 className="text-sm font-bold uppercase text-slate-500">Інформація про захист</h2>
             <InputField label="Дата захисту" value={form.defenceDate} disabled={!isEditing} type="date" onChange={(defenceDate) => updateForm({ defenceDate })} />
+            <DefenceQuestionsEditor
+              questions={form.defenceQuestions}
+              onAdd={addDefenceQuestion}
+              onRemove={removeDefenceQuestion}
+              onChange={updateDefenceQuestion}
+            />
           </section>
 
           <section className="space-y-3">
@@ -1863,6 +2014,9 @@ function StudentCollapsedSections({ details, form }: { details: StudentDetailsRe
           <ReadOnlyRow label="Прізвище" value={form.lastName} />
           <ReadOnlyRow label="Ім’я" value={form.firstName} />
           <ReadOnlyRow label="По-батькові" value={form.middleName} />
+          {nameFormFields.map((field) => (
+            <ReadOnlyRow key={field.key} label={field.label} value={form.nameForms[field.key]} />
+          ))}
           <ReadOnlyRow label="Тема роботи" value={form.topic} />
           <ReadOnlyRow label="Керівник роботи" value={details.qualificationWork?.supervisorName} />
           <ReadOnlyRow label="База практики" value={form.practiceBase} />
@@ -1899,7 +2053,12 @@ function StudentCollapsedSections({ details, form }: { details: StudentDetailsRe
     {
       key: 'defence',
       title: 'Інформація про захист',
-      content: <ReadOnlyRow label="Дата захисту" value={formatDateOnly(form.defenceDate)} />,
+      content: (
+        <div className="grid gap-5">
+          <ReadOnlyRow label="Дата захисту" value={formatDateOnly(form.defenceDate)} />
+          <ReadOnlyDefenceQuestions questions={form.defenceQuestions} />
+        </div>
+      ),
     },
     {
       key: 'results',
@@ -1996,6 +2155,84 @@ function ReadOnlyChecklist<T extends object>({
           onChange={() => undefined}
         />
       ))}
+    </div>
+  )
+}
+
+function ReadOnlyDefenceQuestions({ questions }: { questions: DefenceQuestionDto[] }) {
+  const visibleQuestions = cleanDefenceQuestions(questions)
+
+  if (visibleQuestions.length === 0) {
+    return <ReadOnlyRow label="Питання захисту" value={null} />
+  }
+
+  return (
+    <div className="grid grid-cols-[170px_1fr] items-start gap-5 text-sm font-bold text-slate-600">
+      <span>Питання захисту</span>
+      <div className="space-y-2">
+        {visibleQuestions.map((question, index) => (
+          <div key={`${question.askedBy}-${question.text}-${index}`} className="rounded-lg border border-slate-200 px-3 py-2 text-slate-500">
+            <p>{index + 1}. {question.text}</p>
+            {question.askedBy && <p className="mt-1 text-xs text-slate-400">Поставив: {question.askedBy}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DefenceQuestionsEditor({
+  questions,
+  onAdd,
+  onRemove,
+  onChange,
+}: {
+  questions: DefenceQuestionDto[]
+  onAdd: () => void
+  onRemove: (index: number) => void
+  onChange: (index: number, patch: Partial<DefenceQuestionDto>) => void
+}) {
+  return (
+    <div className="grid grid-cols-[170px_1fr] items-start gap-5 text-sm font-bold text-slate-600">
+      <span className="pt-2">Питання захисту</span>
+      <div className="space-y-3">
+        {questions.map((question, index) => (
+          <div key={index} className="space-y-2 rounded-xl border border-slate-200 bg-white/45 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-bold uppercase text-slate-500">Питання {index + 1}</span>
+              <button
+                type="button"
+                onClick={() => onRemove(index)}
+                className="text-xs font-bold text-red-500 transition hover:text-red-600"
+              >
+                Видалити
+              </button>
+            </div>
+            <input
+              value={question.askedBy}
+              onChange={(event) => onChange(index, { askedBy: normalizeCyrillicText(event.target.value) })}
+              placeholder="Хто поставив питання"
+              className="h-9 w-full rounded-lg border border-slate-300 bg-transparent px-3 outline-none transition focus:border-blue-500"
+            />
+            <textarea
+              value={question.text}
+              rows={3}
+              maxLength={1000}
+              onChange={(event) => onChange(index, { text: event.target.value })}
+              placeholder="Текст питання"
+              className="min-h-20 w-full resize-y rounded-lg border border-slate-300 bg-transparent px-3 py-2 outline-none transition focus:border-blue-500"
+            />
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={onAdd}
+          disabled={questions.length >= 5}
+          className="h-9 rounded-full border-2 border-blue-600 px-5 text-sm font-bold text-blue-600 transition hover:bg-blue-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-blue-600"
+        >
+          Додати питання
+        </button>
+      </div>
     </div>
   )
 }
@@ -2786,14 +3023,18 @@ function AddCommissionHeadDialog({
 }) {
   const { showError, showSuccess } = useToast()
   const [fullName, setFullName] = useState('')
+  const [nameForms, setNameForms] = useState<PersonNameFormsDto>(emptyNameForms)
   const [position, setPosition] = useState('')
   const [company, setCompany] = useState('')
   const [specialty, setSpecialty] = useState('')
+  const normalizedFullName = tidyText(fullName)
+  const cleanedNameForms = cleanNameForms(normalizeNameForms(nameForms, normalizedFullName))
   const mutation = useMutation({
     mutationFn: () =>
       createCommissionHead({
         secretaryEmail,
-        fullName: tidyText(fullName),
+        fullName: normalizedFullName,
+        nameForms: cleanedNameForms,
         position: tidyText(position),
         company: tidyText(company),
         specialty: tidyText(specialty),
@@ -2811,6 +3052,10 @@ function AddCommissionHeadDialog({
     }
     if (!isValidFullName(fullName)) {
       showError('ПІБ має містити прізвище, ім’я та по батькові кирилицею, кожне з великої літери.')
+      return
+    }
+    if (Object.values(cleanedNameForms).some((value) => value.length > 256)) {
+      showError('Форми ПІБ для документів мають бути не довші за 256 символів.')
       return
     }
     if (![position, specialty].every(isCyrillicText)) {
@@ -2841,6 +3086,21 @@ function AddCommissionHeadDialog({
               className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-lg font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
             />
           </label>
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-white/60 p-4">
+            <h3 className="text-center text-sm font-bold uppercase text-slate-500">Форми ПІБ для документів</h3>
+            {nameFormFields.map((field) => (
+              <label key={field.key} className="block space-y-2 text-sm font-bold text-slate-500">
+                <span>{field.label}</span>
+                <input
+                  value={nameForms[field.key]}
+                  onChange={(event) => setNameForms((current) => ({ ...current, [field.key]: normalizeCyrillicText(event.target.value) }))}
+                  onBlur={() => setNameForms((current) => ({ ...current, [field.key]: tidyText(current[field.key]) }))}
+                  placeholder={cleanedNameForms[field.key]}
+                  className="h-10 w-full rounded-xl border border-slate-300 bg-transparent px-4 text-center text-base font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
+                />
+              </label>
+            ))}
+          </div>
           <label className="block space-y-3 text-center text-xl font-medium text-slate-500">
             <span>Введіть посаду</span>
             <input

@@ -1,9 +1,11 @@
-import type { EntityId } from '../../groups/api/types'
+import type { EntityId, PersonNameFormsDto } from '../../groups/api/types'
 
 export interface AcademicDegreeDto {
   id: EntityId
   fullName: string
   shortName: string
+  genitiveFullName: string
+  genitiveShortName: string
   isActive: boolean
 }
 
@@ -11,6 +13,8 @@ export interface TeacherPositionDto {
   id: EntityId
   fullName: string
   shortName: string
+  genitiveFullName: string
+  genitiveShortName: string
   isActive: boolean
 }
 
@@ -36,6 +40,7 @@ export interface TeacherDto {
   id: EntityId
   fullName: string
   shortName: string
+  nameForms: PersonNameFormsDto
   email: string
   phoneNumber: string
   academicDegreeId: EntityId
@@ -50,6 +55,8 @@ export interface TeacherDto {
 export interface UpsertAcademicDegreeRequest {
   fullName: string
   shortName: string
+  genitiveFullName: string | null
+  genitiveShortName: string | null
   isActive: boolean | null
 }
 
@@ -72,6 +79,7 @@ export interface UpsertSecretaryRequest {
 export interface UpsertTeacherRequest {
   fullName: string
   shortName: string
+  nameForms?: PersonNameFormsDto | null
   email: string
   phoneNumber: string
   academicDegreeId: EntityId

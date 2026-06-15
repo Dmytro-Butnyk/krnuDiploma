@@ -16,6 +16,7 @@ import type {
   UpdateGroupRequest,
   UpdateGroupResponse,
   UpdateDefenceResultsRequest,
+  UpdateDefenceQuestionsRequest,
   UpdateElectronicChecklistRequest,
   UpdatePhysicalChecklistRequest,
   UpdateQualificationWorkCharacteristicsRequest,
@@ -175,6 +176,13 @@ export function updateStudentDefence(studentId: EntityId, request: UpdateStudent
 
 export function updateDefenceResults(studentId: EntityId, request: UpdateDefenceResultsRequest) {
   return apiRequest(`/api/students/${studentId}/defence-results`, {
+    method: 'PATCH',
+    body: withoutSecretaryEmail(request),
+  })
+}
+
+export function updateDefenceQuestions(studentId: EntityId, request: UpdateDefenceQuestionsRequest) {
+  return apiRequest(`/api/students/${studentId}/qualification-work/defence-questions`, {
     method: 'PATCH',
     body: withoutSecretaryEmail(request),
   })
