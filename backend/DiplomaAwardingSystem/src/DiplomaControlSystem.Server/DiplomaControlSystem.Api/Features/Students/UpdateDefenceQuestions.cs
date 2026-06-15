@@ -1,4 +1,5 @@
 using Core.Api.Extensions;
+using Core.Domain.Entities.ArchiveGroup;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
@@ -32,7 +33,7 @@ public static class UpdateDefenceQuestions
 
             RuleForEach(x => x.Questions).ChildRules(question =>
             {
-                question.RuleFor(x => x.AskedBy).MaximumLength(256);
+                question.RuleFor(x => x.AskedBy).NotEmpty().MaximumLength(256);
                 question.RuleFor(x => x.Text).NotEmpty().MaximumLength(1000);
             });
         }
@@ -71,7 +72,8 @@ public static class UpdateDefenceQuestions
 
     private sealed class Handler(
         DbDocGenContext context,
-        StudentAccessService studentAccessService) : IScopedService
+        StudentAccessService studentAccessService,
+        DefenceQuestionAuthorOptionsProvider defenceQuestionAuthorOptionsProvider) : IScopedService
     {
         public async Task<Result<UpdateDefenceQuestionsResponse>> HandleAsync(
             int studentId,
@@ -82,6 +84,13 @@ public static class UpdateDefenceQuestions
             if (accessResult.IsFailure)
             {
                 return accessResult.ErrorDetails;
+            }
+
+            var authorOptions = await defenceQuestionAuthorOptionsProvider.GetByStudentIdAsync(studentId, ct);
+            var questionsResult = MapQuestions(request.Questions, authorOptions);
+            if (questionsResult.IsFailure)
+            {
+                return questionsResult.ErrorDetails;
             }
 
             var student = await context.Students
@@ -95,9 +104,9 @@ public static class UpdateDefenceQuestions
 
             var qualificationWork = StudentDiplomaDataInitializer.EnsureQualificationWork(student);
             qualificationWork.DefenceQuestions.Clear();
-            foreach (var question in request.Questions)
+            foreach (var question in questionsResult.Value!)
             {
-                qualificationWork.DefenceQuestions.Add(question.ToDomain());
+                qualificationWork.DefenceQuestions.Add(question);
             }
 
             await context.SaveChangesAsync(ct);
@@ -105,6 +114,37 @@ public static class UpdateDefenceQuestions
             return new UpdateDefenceQuestionsResponse(
                 student.Id,
                 qualificationWork.DefenceQuestions.Select(DefenceQuestionDto.From).ToList());
+        }
+
+        private static Result<IReadOnlyCollection<DefenceQuestion>> MapQuestions(
+            IReadOnlyCollection<DefenceQuestionDto> questions,
+            IReadOnlyCollection<DefenceQuestionAuthorOptionDto> authorOptions)
+        {
+            if (questions.Count > 0 && authorOptions.Count == 0)
+            {
+                return ErrorDetails.Validation(
+                    "DefenceQuestion.AuthorOptionsUnavailable",
+                    "Student group does not have a diploma examination commission with question author options.");
+            }
+
+            var mappedQuestions = new List<DefenceQuestion>(questions.Count);
+            foreach (var question in questions)
+            {
+                var authorShortName = DefenceQuestionAuthorOptionsProvider.GetCanonicalShortName(
+                    authorOptions,
+                    question.AskedBy);
+
+                if (authorShortName is null)
+                {
+                    return ErrorDetails.Validation(
+                        "DefenceQuestion.AuthorInvalid",
+                        "Question author must be selected from the student group commission.");
+                }
+
+                mappedQuestions.Add(new DefenceQuestion(authorShortName, question.Text.Trim()));
+            }
+
+            return mappedQuestions;
         }
     }
 }

@@ -2,7 +2,9 @@ using Core.Api.Extensions;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.ResultPattern;
 using Core.Infrastructure;
+using DiplomaControlSystem.Api.Contracts.Common;
 using DiplomaControlSystem.Api.Infrastructure.Access;
+using DiplomaControlSystem.Api.Infrastructure.Students;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +18,8 @@ public static class GetQualificationWorkOptions
     public sealed record GetQualificationWorkOptionsResponse(
         IReadOnlyCollection<TeacherOptionDto> Teachers,
         IReadOnlyCollection<TeacherOptionDto> Supervisors,
-        IReadOnlyCollection<TeacherOptionDto> Reviewers);
+        IReadOnlyCollection<TeacherOptionDto> Reviewers,
+        IReadOnlyCollection<DefenceQuestionAuthorOptionDto> DefenceQuestionAuthors);
 
     internal static class Endpoint
     {
@@ -48,7 +51,8 @@ public static class GetQualificationWorkOptions
 
     private sealed class Handler(
         DbDocGenContext context,
-        StudentAccessService studentAccessService) : IScopedService
+        StudentAccessService studentAccessService,
+        DefenceQuestionAuthorOptionsProvider defenceQuestionAuthorOptionsProvider) : IScopedService
     {
         public async Task<Result<GetQualificationWorkOptionsResponse>> HandleAsync(
             int studentId,
@@ -67,7 +71,13 @@ public static class GetQualificationWorkOptions
                 .Select(t => new TeacherOptionDto(t.Id, t.FullName, t.ShortName))
                 .ToListAsync(ct);
 
-            return new GetQualificationWorkOptionsResponse(teachers, teachers, teachers);
+            var defenceQuestionAuthors = await defenceQuestionAuthorOptionsProvider.GetByStudentIdAsync(studentId, ct);
+
+            return new GetQualificationWorkOptionsResponse(
+                teachers,
+                teachers,
+                teachers,
+                defenceQuestionAuthors);
         }
     }
 }

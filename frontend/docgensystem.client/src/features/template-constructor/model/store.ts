@@ -220,6 +220,7 @@ type StoreState = {
   newColumnPath: string
   searchQuery: string
   expandedSources: Record<string, boolean>
+  templateTags: string[]
   tagTypes: Record<string, TagKind>
   newInput: NewInputDraft
   newSource: NewDataSourceDraft
@@ -584,6 +585,7 @@ persist(
   newColumnPath: '',
   searchQuery: '',
   expandedSources: {},
+  templateTags: [],
   tagTypes: {},
   newInput: createDefaultInput(),
   newSource: createDefaultDataSource(),
@@ -596,7 +598,7 @@ persist(
         tags.forEach((tag) => {
           nextTags[tag] = isReservedNumberTag(tag) ? 'reserved' : nextTags[tag] ?? 'db_scalar'
         })
-        return { tagTypes: nextTags }
+        return { templateTags: tags, tagTypes: nextTags }
       }
 
       return {
@@ -618,6 +620,7 @@ persist(
         newColumnPath: '',
         searchQuery: '',
         expandedSources: Object.fromEntries((config?.DataSources ?? []).map((source) => [source.Key, true])),
+        templateTags: tags,
         tagTypes: Object.fromEntries(
           tags.map((tag) => [
             tag,
@@ -640,7 +643,7 @@ persist(
       tags.forEach((tag) => {
         nextTags[tag] = isReservedNumberTag(tag) ? 'reserved' : nextTags[tag] ?? 'db_scalar'
       })
-      return { tagTypes: nextTags }
+      return { templateTags: tags, tagTypes: nextTags }
     }),
   setStep: (step) => set({ currentStep: step }),
   nextStep: () => {
@@ -650,15 +653,16 @@ persist(
   previousStep: () => set((state) => ({ currentStep: coerceStep(state.currentStep - 1) })),
   setDataSetupMode: (dataSetupMode) => set({ dataSetupMode }),
   applyScenario: (scenario) => {
-    const { config, tagTypes } = get()
+    const { config, templateTags } = get()
     const conflictKeys = getScenarioConflictKeys(scenario, config)
     const requiredScalarMappings = getRequiredScalarMappings(scenario)
     const requiredTableSources = getRequiredTableSources(scenario)
     const requiredScalarMappingEntries = getRequiredScalarMappingEntries(requiredScalarMappings)
     const requiredScalarTags = requiredScalarMappings.map((mapping) => mapping.tag)
+    const templateTagSet = new Set(templateTags)
     const missingRequiredTags = requiredScalarMappings
       .map((mapping) => mapping.tag)
-      .filter((tag) => !tagTypes[tag] || tagTypes[tag] === 'reserved')
+      .filter((tag) => !templateTagSet.has(tag))
     const conflictingScalarMappings = requiredScalarMappings
       .filter((mapping) => config.Mapping.Scalars[mapping.tag] && config.Mapping.Scalars[mapping.tag] !== mapping.path)
       .map((mapping) => mapping.tag)
@@ -1291,6 +1295,7 @@ persist(
       newColumnPath: '',
       searchQuery: '',
       expandedSources: {},
+      templateTags: [],
       tagTypes: {},
       config: initialConfig,
       constructorSessionKey: null,
@@ -1320,6 +1325,7 @@ persist(
       newColumnPath: state.newColumnPath,
       searchQuery: state.searchQuery,
       expandedSources: state.expandedSources,
+      templateTags: state.templateTags,
       tagTypes: state.tagTypes,
       newInput: state.newInput,
       newSource: state.newSource,

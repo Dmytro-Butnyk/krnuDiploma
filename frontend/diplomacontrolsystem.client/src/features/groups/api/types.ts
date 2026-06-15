@@ -159,11 +159,18 @@ export interface QualificationWorkDto {
   reviewerId: EntityId | null
   reviewerName: string | null
   defenceQuestions: DefenceQuestionDto[]
+  defenceQuestionAuthorOptions?: DefenceQuestionAuthorOptionDto[]
 }
 
 export interface DefenceQuestionDto {
   askedBy: string
   text: string
+}
+
+export interface DefenceQuestionAuthorOptionDto {
+  shortName: string
+  fullName: string
+  role: string
 }
 
 export interface DefenceInfoDto {
@@ -222,6 +229,7 @@ export interface QualificationWorkOptionsResponse {
   teachers: TeacherOptionDto[]
   supervisors: TeacherOptionDto[]
   reviewers: TeacherOptionDto[]
+  defenceQuestionAuthors?: DefenceQuestionAuthorOptionDto[]
 }
 
 export interface UpdateStudentNameRequest extends AddStudentRequest {

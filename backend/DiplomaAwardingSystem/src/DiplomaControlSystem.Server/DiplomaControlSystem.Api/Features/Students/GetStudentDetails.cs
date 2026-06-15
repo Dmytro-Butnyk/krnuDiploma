@@ -23,7 +23,8 @@ public static class GetStudentDetails
         string PracticeBase,
         int? ReviewerId,
         string? ReviewerName,
-        IReadOnlyCollection<DefenceQuestionDto> DefenceQuestions);
+        IReadOnlyCollection<DefenceQuestionDto> DefenceQuestions,
+        IReadOnlyCollection<DefenceQuestionAuthorOptionDto> DefenceQuestionAuthorOptions);
 
     public sealed record PhysicalChecklistDto(
         bool HasStudentCard,
@@ -109,7 +110,8 @@ public static class GetStudentDetails
 
     private sealed class Handler(
         DbDocGenContext context,
-        StudentAccessService studentAccessService) : IScopedService
+        StudentAccessService studentAccessService,
+        DefenceQuestionAuthorOptionsProvider defenceQuestionAuthorOptionsProvider) : IScopedService
     {
         public async Task<Result<GetStudentDetailsResponse>> HandleAsync(
             int studentId,
@@ -223,10 +225,15 @@ public static class GetStudentDetails
                     "Student was not found.");
             }
 
-            return MapResponse(student);
+            var defenceQuestionAuthorOptions = await defenceQuestionAuthorOptionsProvider
+                .GetByStudentIdAsync(studentId, ct);
+
+            return MapResponse(student, defenceQuestionAuthorOptions);
         }
 
-        private static GetStudentDetailsResponse MapResponse(StudentDetailsProjection student)
+        private static GetStudentDetailsResponse MapResponse(
+            StudentDetailsProjection student,
+            IReadOnlyCollection<DefenceQuestionAuthorOptionDto> defenceQuestionAuthorOptions)
         {
             var name = StudentNameParser.Parse(student.FullName);
 
@@ -240,7 +247,7 @@ public static class GetStudentDetails
                     student.NameGenitive,
                     student.NameDative,
                     student.NameSignature),
-                MapQualificationWork(student),
+                MapQualificationWork(student, defenceQuestionAuthorOptions),
                 MapPhysicalChecklist(student),
                 MapElectronicChecklist(student),
                 MapDefenceInfo(student),
@@ -248,7 +255,9 @@ public static class GetStudentDetails
                 MapCharacteristics(student));
         }
 
-        private static QualificationWorkDto? MapQualificationWork(StudentDetailsProjection student)
+        private static QualificationWorkDto? MapQualificationWork(
+            StudentDetailsProjection student,
+            IReadOnlyCollection<DefenceQuestionAuthorOptionDto> defenceQuestionAuthorOptions)
         {
             if (student.QualificationWorkId is null)
             {
@@ -262,7 +271,8 @@ public static class GetStudentDetails
                 student.PracticeBase ?? string.Empty,
                 student.ReviewerId,
                 student.ReviewerName,
-                student.DefenceQuestions);
+                student.DefenceQuestions,
+                defenceQuestionAuthorOptions);
         }
 
         private static PhysicalChecklistDto? MapPhysicalChecklist(StudentDetailsProjection student)

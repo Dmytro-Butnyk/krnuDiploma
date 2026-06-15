@@ -1,3 +1,4 @@
+using System.Globalization;
 using Core.Domain.DependencyInjectionInterfaces;
 using Core.Domain.Entities.ArchiveGroup;
 using Core.Domain.Entities.StudyGroup;
@@ -13,6 +14,8 @@ namespace DocumentGenerationSubsystem.Api.Infrastructure.Scenarios.Helpers;
 public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContext dbContext)
     : IDocumentScenarioHelper, IScopedService
 {
+    private static readonly CultureInfo UkrainianCulture = CultureInfo.GetCultureInfo("uk-UA");
+
     public string Key => "SingleQualificationWorkProtocol";
 
     public async Task<Result<IReadOnlyDictionary<string, object>>> BuildAsync(
@@ -91,6 +94,7 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
             ["StudentNameGenitive"] = student.NameForms.Genitive,
             ["StudentNameDative"] = student.NameForms.Dative,
             ["StudentSignatureName"] = student.NameForms.Signature,
+            ["MeetingDate"] = FormatDayMonth(qualificationWork?.DefenceDate),
             ["EducationLevel"] = FormatEducationLevel(student.Group?.EducationLevel),
             ["QualificationWorkKindGenitive"] = FormatQualificationWorkKindGenitive(student.Group?.EducationLevel),
             ["SpecialtyLine"] = BuildSpecialtyLine(student.Group?.Specialty),
@@ -167,8 +171,8 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
 
         return JoinNonEmpty(
             teacher.NameForms.Nominative,
-            teacher.AcademicDegree?.ShortName,
-            teacher.TeacherPosition?.FullName);
+            FormatDegreeOrPosition(teacher.AcademicDegree?.ShortName),
+            FormatDegreeOrPosition(teacher.TeacherPosition?.FullName));
     }
 
     private static string BuildTeacherWorkLine(Teacher? teacher)
@@ -179,8 +183,8 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
         }
 
         return JoinNonEmpty(
-            teacher.TeacherPosition?.GenitiveShortName,
-            teacher.AcademicDegree?.GenitiveShortName,
+            FormatDegreeOrPosition(teacher.TeacherPosition?.GenitiveShortName),
+            FormatDegreeOrPosition(teacher.AcademicDegree?.GenitiveShortName),
             teacher.NameForms.Genitive);
     }
 
@@ -191,9 +195,9 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
             return string.Empty;
         }
 
-        return "рецензент - " + JoinNonEmpty(
-            teacher.AcademicDegree?.ShortName,
-            teacher.TeacherPosition?.FullName,
+        return JoinNonEmpty(
+            FormatDegreeOrPosition(teacher.AcademicDegree?.ShortName),
+            FormatDegreeOrPosition(teacher.TeacherPosition?.FullName),
             teacher.NameForms.Nominative);
     }
 
@@ -204,12 +208,51 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
             return string.Empty;
         }
 
-        return JoinNonEmpty(head.Position, head.Company, "/ " + head.NameForms.Nominative);
+        return JoinNonEmpty(head.Position, head.Company, head.NameForms.Nominative);
     }
 
     private static string BuildSpecialtyLine(Specialty? specialty)
     {
         return specialty is null ? string.Empty : JoinNonEmptyWithSpace(specialty.Code, specialty.Name);
+    }
+
+    private static string FormatDayMonth(DateOnly? date)
+    {
+        return date?.ToString("dd.MM", UkrainianCulture) ?? string.Empty;
+    }
+
+    private static string? FormatDegreeOrPosition(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        if (IsNotAssigned(trimmed))
+        {
+            return null;
+        }
+
+        var firstSeparatorIndex = trimmed.IndexOf(' ', StringComparison.Ordinal);
+        var firstWord = firstSeparatorIndex < 0 ? trimmed : trimmed[..firstSeparatorIndex];
+        if (IsAbbreviation(firstWord))
+        {
+            return trimmed;
+        }
+
+        return char.ToLower(trimmed[0], UkrainianCulture) + trimmed[1..];
+    }
+
+    private static bool IsNotAssigned(string value)
+    {
+        return string.Equals(value, "Не призначено", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsAbbreviation(string value)
+    {
+        return value.Contains('.', StringComparison.Ordinal)
+            || value.Count(char.IsUpper) > 1;
     }
 
     private static string FormatEducationLevel(EducationLevel? educationLevel)

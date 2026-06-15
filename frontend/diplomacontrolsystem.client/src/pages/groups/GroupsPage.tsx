@@ -37,6 +37,7 @@ import {
 import type {
   AcademicYearOverviewResponse,
   CharacteristicsDto,
+  DefenceQuestionAuthorOptionDto,
   DefenceQuestionDto,
   EducationLevel,
   ElectronicChecklistDto,
@@ -1408,6 +1409,10 @@ function cleanDefenceQuestions(questions: DefenceQuestionDto[]): DefenceQuestion
     .filter((question) => question.askedBy || question.text)
 }
 
+function formatDefenceQuestionAuthorOption(option: DefenceQuestionAuthorOptionDto) {
+  return option.role ? `${option.shortName} (${option.role})` : option.shortName
+}
+
 function studentFormFromDetails(details: StudentDetailsResponse): StudentFormState {
   return {
     lastName: details.name.lastName,
@@ -1668,6 +1673,10 @@ function StudentDetailsPanel({
     setDraftForm((current) => (current ? { ...current, ...patch } : { ...form, ...patch }))
   const teacherOptions = optionsQuery.data?.teachers ?? optionsQuery.data?.supervisors ?? []
   const reviewerOptions = optionsQuery.data?.teachers ?? optionsQuery.data?.reviewers ?? []
+  const defenceQuestionAuthorOptions =
+    details.qualificationWork?.defenceQuestionAuthorOptions?.length
+      ? details.qualificationWork.defenceQuestionAuthorOptions
+      : optionsQuery.data?.defenceQuestionAuthors ?? []
   const updateNameForms = (patch: Partial<PersonNameFormsDto>) =>
     updateForm({ nameForms: { ...form.nameForms, ...patch } })
   const updateDefenceQuestion = (index: number, patch: Partial<DefenceQuestionDto>) =>
@@ -1682,7 +1691,12 @@ function StudentDetailsPanel({
       return
     }
 
-    updateForm({ defenceQuestions: [...form.defenceQuestions, { askedBy: '', text: '' }] })
+    updateForm({
+      defenceQuestions: [
+        ...form.defenceQuestions,
+        { askedBy: defenceQuestionAuthorOptions[0]?.shortName ?? '', text: '' },
+      ],
+    })
   }
   const removeDefenceQuestion = (index: number) =>
     updateForm({ defenceQuestions: form.defenceQuestions.filter((_, currentIndex) => currentIndex !== index) })
@@ -1736,6 +1750,10 @@ function StudentDetailsPanel({
     }
     if (defenceQuestions.some((question) => !question.text)) {
       showError('Текст кожного питання захисту є обов’язковим.')
+      return
+    }
+    if (defenceQuestions.some((question) => !question.askedBy)) {
+      showError('Оберіть автора для кожного питання захисту.')
       return
     }
     if (defenceQuestions.some((question) => question.askedBy.length > 256 || question.text.length > 1000)) {
@@ -1903,6 +1921,7 @@ function StudentDetailsPanel({
             <InputField label="Дата захисту" value={form.defenceDate} disabled={!isEditing} type="date" onChange={(defenceDate) => updateForm({ defenceDate })} />
             <DefenceQuestionsEditor
               questions={form.defenceQuestions}
+              authorOptions={defenceQuestionAuthorOptions}
               onAdd={addDefenceQuestion}
               onRemove={removeDefenceQuestion}
               onChange={updateDefenceQuestion}
@@ -2183,11 +2202,13 @@ function ReadOnlyDefenceQuestions({ questions }: { questions: DefenceQuestionDto
 
 function DefenceQuestionsEditor({
   questions,
+  authorOptions,
   onAdd,
   onRemove,
   onChange,
 }: {
   questions: DefenceQuestionDto[]
+  authorOptions: DefenceQuestionAuthorOptionDto[]
   onAdd: () => void
   onRemove: (index: number) => void
   onChange: (index: number, patch: Partial<DefenceQuestionDto>) => void
@@ -2208,12 +2229,18 @@ function DefenceQuestionsEditor({
                 Видалити
               </button>
             </div>
-            <input
+            <select
               value={question.askedBy}
-              onChange={(event) => onChange(index, { askedBy: normalizeCyrillicText(event.target.value) })}
-              placeholder="Хто поставив питання"
+              onChange={(event) => onChange(index, { askedBy: event.target.value })}
               className="h-9 w-full rounded-lg border border-slate-300 bg-transparent px-3 outline-none transition focus:border-blue-500"
-            />
+            >
+              <option value="">Оберіть автора питання</option>
+              {authorOptions.map((option) => (
+                <option key={`${option.role}-${option.shortName}`} value={option.shortName}>
+                  {formatDefenceQuestionAuthorOption(option)}
+                </option>
+              ))}
+            </select>
             <textarea
               value={question.text}
               rows={3}
