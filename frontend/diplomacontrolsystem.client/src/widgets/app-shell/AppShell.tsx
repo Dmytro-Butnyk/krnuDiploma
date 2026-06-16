@@ -6,7 +6,7 @@ import { ConfirmDialog } from '../../shared/ui/ConfirmDialog'
 
 const navItems = [
   { to: '/groups', label: 'Групи' },
-  { to: '/generator', label: 'Генератор' },
+  { to: '/document-generator/templates', label: 'Генерація документів' },
 ]
 
 const managementNavItems = [
@@ -22,6 +22,7 @@ export function AppShell() {
   const navigate = useNavigate()
   const [isLogoutOpen, setIsLogoutOpen] = useState(false)
   const isManagementPage = location.pathname.startsWith('/management')
+  const isDocumentGeneratorPage = location.pathname.startsWith('/document-generator')
   const managementTab = new URLSearchParams(location.search).get('tab') ?? 'specialties'
 
   const confirmLogout = () => {
@@ -66,7 +67,8 @@ export function AppShell() {
                 to={item.to}
                 className={({ isActive }) =>
                   [
-                    'grid h-16 min-w-48 place-items-center text-3xl font-bold transition',
+                    'grid h-16 place-items-center text-3xl font-bold transition',
+                    item.to.startsWith('/document-generator') ? 'min-w-80 px-8' : 'min-w-48 px-6',
                     index > 0 ? 'border-l border-slate-300/45' : '',
                     isActive
                       ? 'rounded-full border-l-0 bg-blue-600 text-white shadow-sm'
@@ -113,7 +115,7 @@ export function AppShell() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-[1280px] px-9 pb-14">
+      <main className={['mx-auto w-full px-9 pb-14', isDocumentGeneratorPage ? 'max-w-[1680px]' : 'max-w-[1280px]'].join(' ')}>
         <Outlet />
       </main>
 
