@@ -1,16 +1,19 @@
 import {
   ArrowLeft,
   CheckCircle2,
+  Download,
   FileText,
   Loader2,
   MoreVertical,
   Plus,
+  Search,
   UploadCloud,
   X,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState, type Dispatch, type DragEvent, type SetStateAction } from 'react'
 import {
+  fetchTemplateFile,
   fetchGenerationInputOptions,
   useDeleteTemplate,
   useGenerateDocument,
@@ -200,6 +203,8 @@ export function TemplatesPage() {
   const [generationParams, setGenerationParams] = useState<Record<string, string>>(restoredPageState.generationParams)
   const [isGenerationFormOpen, setIsGenerationFormOpen] = useState(restoredPageState.isGenerationFormOpen)
   const [generatedBlob, setGeneratedBlob] = useState<Blob | null>(null)
+  const [templateSearchQuery, setTemplateSearchQuery] = useState('')
+  const [downloadingTemplateId, setDownloadingTemplateId] = useState<string | number | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -294,6 +299,12 @@ export function TemplatesPage() {
   )
   const generationInputs = generationFormQuery.data?.inputs ?? detailsQuery.data?.generationForm?.inputs ?? []
   const canGenerate = generationInputs.every((input) => !input.required || Boolean(generationParams[input.key]?.trim()))
+  const filteredTemplates = useMemo(() => {
+    const query = templateSearchQuery.trim().toLowerCase()
+    if (!query) return templatesQuery.data ?? []
+
+    return (templatesQuery.data ?? []).filter((template) => template.name.toLowerCase().includes(query))
+  }, [templateSearchQuery, templatesQuery.data])
 
   const showError = (error: unknown, fallback?: string) => {
     setErrorText(getApiErrorMessage(error, fallback))
@@ -441,6 +452,20 @@ export function TemplatesPage() {
     } catch (error) {
       setDialog(null)
       showError(error, 'Не вдалося згенерувати документ.')
+    }
+  }
+
+  const handleDownloadTemplate = async (template: TemplateListItemDto) => {
+    setErrorText(null)
+    setDownloadingTemplateId(template.id)
+
+    try {
+      const blob = await fetchTemplateFile(template.id)
+      downloadBlob(blob, /\.docx$/i.test(template.name) ? template.name : `${template.name}.docx`)
+    } catch (error) {
+      showError(error, 'Не вдалося завантажити шаблон.')
+    } finally {
+      setDownloadingTemplateId(null)
     }
   }
 
@@ -604,6 +629,20 @@ export function TemplatesPage() {
                 >
                   Згенерувати документ
                 </Button>
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="justify-start"
+                  onClick={() => void handleDownloadTemplate(selectedTemplate)}
+                  disabled={downloadingTemplateId === selectedTemplate.id}
+                >
+                  {downloadingTemplateId === selectedTemplate.id ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Download size={18} />
+                  )}
+                  Завантажити шаблон
+                </Button>
               </div>
 
               {!detailsQuery.isLoading && !selectedConfigurationState.isSupported && (
@@ -637,14 +676,27 @@ export function TemplatesPage() {
         )}
 
         {mode === 'list' && (
-          <div className="grid min-h-0 w-full max-w-[1040px] flex-1 content-start gap-[clamp(10px,1vh,16px)] overflow-y-auto overflow-x-hidden pr-1 custom-scrollbar">
+          <div className="flex min-h-0 w-full max-w-[1040px] flex-1 flex-col gap-4">
+            <label className="relative block w-full max-w-[760px] shrink-0">
+              <Search
+                size={20}
+                className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[var(--color-primary)]"
+              />
+              <input
+                value={templateSearchQuery}
+                onChange={(event) => setTemplateSearchQuery(event.target.value)}
+                className="ui-input w-full px-14 py-4 text-lg font-bold text-[var(--color-primary)] placeholder:text-[var(--color-muted)]"
+                placeholder="Пошук шаблонів"
+              />
+            </label>
+            <div className="grid min-h-0 flex-1 content-start gap-[clamp(10px,1vh,16px)] overflow-y-auto overflow-x-hidden pr-1 custom-scrollbar">
             {templatesQuery.isLoading && (
               <div className="flex h-32 items-center justify-center text-[var(--color-primary)]">
                 <Loader2 className="mr-2 animate-spin" size={18} />
                 Завантаження шаблонів
               </div>
             )}
-            {templatesQuery.data?.map((template) => (
+            {filteredTemplates.map((template) => (
               <TemplateRow
                 key={template.id}
                 template={template}
@@ -673,6 +725,12 @@ export function TemplatesPage() {
                 Шаблонів ще немає. Натисніть “Додати шаблон”, щоб завантажити перший документ.
               </div>
             )}
+            {!templatesQuery.isLoading && templatesQuery.data && templatesQuery.data.length > 0 && filteredTemplates.length === 0 && (
+              <div className="rounded-xl bg-white p-8 text-sm font-bold text-slate-500 shadow-sm ring-1 ring-blue-100">
+                Шаблонів за цим пошуком не знайдено.
+              </div>
+            )}
+            </div>
           </div>
         )}
       </section>
@@ -1088,14 +1146,14 @@ function TemplateRow({
       </button>
 
       {isMenuOpen && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-20 flex w-[min(250px,100%)] flex-col gap-2 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white p-2 shadow-[var(--shadow-ui-strong)] xl:left-[calc(100%+16px)] xl:right-auto xl:top-0 xl:w-[250px]">
+        <div className="relative z-20 mt-2 ml-auto flex w-[min(250px,100%)] flex-col gap-2 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white p-2 shadow-[var(--shadow-ui-strong)]">
           <button className="rounded-[12px] px-3 py-2 text-center text-xs font-bold text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)]" onClick={onGenerate}>
             Згенерувати документ
           </button>
           <button className="rounded-[12px] px-3 py-2 text-center text-xs font-bold text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)]" onClick={onConfigure}>
             Змінити конфігурацію
           </button>
-          <button className="rounded-[12px] bg-[var(--color-primary)] px-3 py-2 text-center text-xs font-bold text-white transition hover:bg-[var(--color-primary-hover)]" onClick={onDelete}>
+          <button className="rounded-[12px] bg-[var(--color-danger)] px-3 py-2 text-center text-xs font-bold text-white transition hover:bg-red-500 active:bg-red-600" onClick={onDelete}>
             Видалити
           </button>
         </div>

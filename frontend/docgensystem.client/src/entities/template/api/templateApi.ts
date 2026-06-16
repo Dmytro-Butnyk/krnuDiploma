@@ -21,7 +21,7 @@ function appendNullableText(formData: FormData, key: string, value: ApiId | stri
   formData.append(key, value === null ? 'null' : String(value))
 }
 
-async function fetchTemplateFile(id: ApiId) {
+export async function fetchTemplateFile(id: ApiId) {
   const response = await apiClient.get<Blob>(`/api/documents/templates/${id}/file`, {
     responseType: 'blob',
     headers: {

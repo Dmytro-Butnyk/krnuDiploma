@@ -34,7 +34,7 @@ function ScalarPathList({
   const visiblePaths = paths.slice(0, MAX_VISIBLE_MAPPING_PATHS)
 
   return (
-    <div className="overflow-hidden rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)]">
+    <div className="flex min-h-[220px] flex-1 flex-col overflow-hidden rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)]">
       <button
         className="flex w-full items-center justify-between bg-[var(--color-bg-lavender)] px-4 py-3 text-left text-sm font-extrabold text-[var(--color-primary)] transition hover:bg-[var(--color-primary-hover)] hover:text-white active:bg-[var(--color-primary)]"
         onClick={() => toggleExpanded(sourceKey)}
@@ -46,16 +46,16 @@ function ScalarPathList({
         {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
       </button>
       {isExpanded && (
-        <ul className="p-2">
+        <ul className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-2">
           {visiblePaths.map((path) => (
             <li key={path.fullPath}>
               <button
                 disabled={!selectedTag || selectedTagIsRequired}
                 onClick={() => selectedTag && mapScalar(selectedTag, `${sourceKey}.${path.fullPath}`)}
-                className="group flex w-full items-center justify-between rounded-[12px] px-3 py-2 text-left font-mono text-sm text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                className="group flex w-full items-start justify-between gap-3 rounded-[12px] px-3 py-2 text-left font-mono text-sm text-[var(--color-text)] transition hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <span>{path.fullPath}</span>
-                <span className="text-xs font-extrabold text-[var(--color-primary)] opacity-0 transition group-hover:opacity-100 group-active:text-white">
+                <span className="min-w-0 flex-1 whitespace-normal break-words [overflow-wrap:anywhere]">{path.fullPath}</span>
+                <span className="shrink-0 text-xs font-extrabold text-[var(--color-primary)] opacity-0 transition group-hover:opacity-100 group-active:text-white">
                   Звʼязати
                 </span>
               </button>
@@ -79,7 +79,7 @@ function RequiredScalarMappingPanel({
       <p className="mt-2 text-sm font-bold text-[var(--color-muted)]">
         Цей тег є обовʼязковим для застосованого сценарію, тому його шлях зафіксований.
       </p>
-      <div className="mt-5 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)] px-4 py-3 font-mono text-sm font-bold text-[var(--color-primary)]">
+      <div className="mt-5 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-[var(--color-bg-lavender)] px-4 py-3 font-mono text-sm font-bold text-[var(--color-primary)] whitespace-normal break-words [overflow-wrap:anywhere]">
         {mapping.path}
       </div>
       <p className="mt-3 text-xs font-semibold text-[var(--color-muted)]">{mapping.message}</p>
@@ -316,9 +316,10 @@ export function MappingStep({ schema = {} }: Props) {
       </div>
 
       {mappingMode === 'scalars' ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[clamp(260px,22%,340px)_minmax(0,1fr)]">
-          <div className="rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)]">
+        <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[clamp(260px,22%,340px)_minmax(0,1fr)]">
+          <div className="flex min-h-[360px] max-h-[min(140vh,1100px)] flex-col rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white p-4 shadow-[var(--shadow-ui)]">
             <p className="ui-label mb-3">Оберіть тег</p>
+            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto pr-1">
             {scalarTags.map((tag) => {
               const isMapped = Boolean(config.Mapping.Scalars[tag])
               const requiredScalarMapping = requiredScalarMappingByTag.get(tag)
@@ -327,7 +328,7 @@ export function MappingStep({ schema = {} }: Props) {
                   key={tag}
                   onClick={() => setSelectedTag(tag)}
                   className={cn(
-                    'relative mb-2 w-full rounded-[var(--radius-ui-sm)] border p-3 text-left text-sm font-extrabold transition',
+                    'relative mb-2 w-full whitespace-normal break-words rounded-[var(--radius-ui-sm)] border p-3 text-left text-sm font-extrabold transition [overflow-wrap:anywhere]',
                     selectedTag === tag || isMapped
                       ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary)]'
                       : 'border-[var(--color-primary)] bg-white text-[var(--color-primary)] hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white',
@@ -341,7 +342,7 @@ export function MappingStep({ schema = {} }: Props) {
                   )}
                   {isMapped && (
                     <>
-                      <span className="mt-1 block truncate pr-6 text-[11px] font-semibold text-blue-100">
+                      <span className="mt-1 block whitespace-normal break-words pr-6 text-[11px] font-semibold text-blue-100 [overflow-wrap:anywhere]">
                         {config.Mapping.Scalars[tag]}
                       </span>
                       {!requiredScalarMapping && (
@@ -362,9 +363,10 @@ export function MappingStep({ schema = {} }: Props) {
                 </button>
               )
             })}
+            </div>
           </div>
 
-          <div className="flex min-h-[240px] flex-col rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)]">
+          <div className="flex min-h-[360px] max-h-[min(140vh,1100px)] flex-col overflow-hidden rounded-[var(--radius-ui-md)] border border-[var(--color-bg-lavender)] bg-white shadow-[var(--shadow-ui)]">
             <div className="shrink-0 border-b border-[var(--color-bg-lavender)] bg-white p-3">
               <input
                 value={searchQuery}
@@ -373,7 +375,7 @@ export function MappingStep({ schema = {} }: Props) {
                 placeholder="Пошук властивостей"
               />
             </div>
-            <div className="grid content-start gap-3 p-3">
+            <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
               {!selectedTag && <div className="p-10 text-center text-sm text-slate-400">Оберіть тег ліворуч</div>}
               {selectedRequiredScalarMapping && <RequiredScalarMappingPanel mapping={selectedRequiredScalarMapping} />}
               {selectedTag && !selectedRequiredScalarMapping && selectedTagKind === 'input_scalar' && <InputScalarPanel key={selectedTag} tag={selectedTag} />}
@@ -409,7 +411,7 @@ export function MappingStep({ schema = {} }: Props) {
                 )}
               >
                 {tableName}
-                <span className="mt-1 block truncate text-[11px] font-semibold opacity-70">
+                <span className="mt-1 block whitespace-normal break-words text-[11px] font-semibold opacity-70 [overflow-wrap:anywhere]">
                   {table.SourceArray || 'Джерело не вибрано'}
                 </span>
               </button>
@@ -510,17 +512,17 @@ export function MappingStep({ schema = {} }: Props) {
                       {Object.entries(activeTable.RowMapping).map(([tag, path]) => (
                         <li
                           key={tag}
-                          className="flex items-center justify-between rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white p-3 text-sm shadow-[var(--shadow-ui)]"
+                          className="flex items-start justify-between gap-3 rounded-[var(--radius-ui-sm)] border border-[var(--color-bg-lavender)] bg-white p-3 text-sm shadow-[var(--shadow-ui)]"
                         >
-                          <span className="min-w-0">
+                          <span className="min-w-0 flex-1 whitespace-normal break-words [overflow-wrap:anywhere]">
                             <span className="rounded-[10px] bg-[var(--color-bg-lavender)] px-2 py-1 font-mono font-extrabold text-[var(--color-primary)]">
                               {tag}
                             </span>
                             <span className="mx-2 text-slate-400">→</span>
-                            <span className="font-mono text-[var(--color-muted)]">{path}</span>
+                            <span className="font-mono text-[var(--color-muted)] break-words [overflow-wrap:anywhere]">{path}</span>
                           </span>
                           <button
-                            className="flex h-8 w-8 items-center justify-center rounded text-[var(--color-danger)] transition hover:bg-[var(--color-danger-soft)]"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-[var(--color-danger)] transition hover:bg-[var(--color-danger-soft)]"
                             onClick={() => removeColumnFromTable(selectedTable, tag)}
                             title="Видалити колонку"
                           >

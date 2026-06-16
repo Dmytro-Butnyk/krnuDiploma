@@ -68,7 +68,7 @@ export function SearchableSelect({
           }}
           onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
           placeholder={placeholder}
-          className="min-h-[48px] w-full rounded-[var(--radius-ui-sm)] bg-transparent px-4 py-2 text-base font-medium text-[var(--color-text)] outline-none placeholder:text-[var(--color-muted)]"
+          className="min-h-[48px] w-full min-w-0 rounded-[var(--radius-ui-sm)] bg-transparent px-4 py-2 text-base font-medium text-[var(--color-text)] outline-none placeholder:text-[var(--color-muted)]"
         />
         <ChevronDown size={18} className="mr-4 shrink-0 text-[var(--color-muted)]" />
       </div>
@@ -80,7 +80,7 @@ export function SearchableSelect({
               key={option.value}
               type="button"
               className={cn(
-                'block w-full rounded-[14px] px-4 py-3 text-left text-base font-bold transition',
+                'block w-full whitespace-normal break-words rounded-[14px] px-4 py-3 text-left text-base font-bold transition [overflow-wrap:anywhere]',
                 option.value === value
                   ? 'bg-[var(--color-primary-hover)] text-white hover:bg-[var(--color-primary-hover)] active:bg-[var(--color-primary)]'
                   : 'text-[var(--color-text)] hover:bg-[var(--color-bg-lavender)] active:bg-[var(--color-primary)] active:text-white',
