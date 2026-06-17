@@ -371,10 +371,36 @@ public static partial class ImportGroupDefenceResults
             }
 
             var trimmed = value.Trim();
-            var formats = new[] { "d.M", "dd.MM", "d.M.", "dd.MM.", "d/M", "dd/MM" };
+            var fullDateFormats = new[]
+            {
+                "d.M.yyyy",
+                "dd.MM.yyyy",
+                "d.M.yyyy.",
+                "dd.MM.yyyy.",
+                "d/M/yyyy",
+                "dd/MM/yyyy",
+                "d.M.yy",
+                "dd.MM.yy",
+                "d.M.yy.",
+                "dd.MM.yy.",
+                "d/M/yy",
+                "dd/MM/yy"
+            };
+
             if (DateTime.TryParseExact(
                     trimmed,
-                    formats,
+                    fullDateFormats,
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var parsedFullDate))
+            {
+                return CreateDate(parsedFullDate.Day, parsedFullDate.Month, defenceYear);
+            }
+
+            var dayMonthFormats = new[] { "d.M", "dd.MM", "d.M.", "dd.MM.", "d/M", "dd/MM" };
+            if (DateTime.TryParseExact(
+                    trimmed,
+                    dayMonthFormats,
                     CultureInfo.InvariantCulture,
                     DateTimeStyles.None,
                     out var parsedDayMonth))
@@ -392,7 +418,7 @@ public static partial class ImportGroupDefenceResults
 
             return ErrorDetails.Validation(
                 "DefenceResultImport.DefenceDateInvalid",
-                "Defence date must be in day.month format.");
+                "Defence date must be in day.month or day.month.year format.");
         }
 
         private static Result<DateOnly?> CreateDate(int day, int month, int year)

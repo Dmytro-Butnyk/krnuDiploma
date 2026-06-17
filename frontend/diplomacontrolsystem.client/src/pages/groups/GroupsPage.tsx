@@ -237,8 +237,14 @@ function isPastAcademicYear(year: string) {
   return startYear !== null && startYear < currentUkraineYear()
 }
 
-function activeYears(years: AcademicYearOverviewResponse[]) {
-  return years.filter((year) => !isArchivedDefenseYear(year.defenseYear))
+function defenseYearSortValue(year: AcademicYearOverviewResponse) {
+  const defenseYear = Number(year.defenseYear)
+
+  return Number.isFinite(defenseYear) ? defenseYear : academicStartYear(year.year) ?? Number.NEGATIVE_INFINITY
+}
+
+function latestYears(years: AcademicYearOverviewResponse[], count = 3) {
+  return [...years].sort((left, right) => defenseYearSortValue(right) - defenseYearSortValue(left)).slice(0, count)
 }
 
 function countChecked<T extends object>(value: T | null, keys: Array<keyof T>) {
@@ -540,11 +546,15 @@ function YearTabs({
   activeDefenseYear: string
   educationLevel: EducationLevel
 }) {
-  const visibleYears = activeYears(years)
+  const visibleYears = latestYears(years)
 
   return (
-    <div className="flex h-16 items-center gap-4 rounded-[18px] bg-white/70 px-6 shadow-sm">
-      <Link to={makePath('/groups', educationLevel)} aria-label="Назад до років" className="text-slate-500">
+    <div className="grid h-16 grid-cols-[34px_repeat(3,minmax(0,1fr))] items-center gap-2 rounded-[18px] bg-white/70 px-4 shadow-sm">
+      <Link
+        to={makePath('/groups', educationLevel)}
+        aria-label="Назад до років"
+        className="grid place-items-center text-slate-500"
+      >
         <ArrowLeft size={34} />
       </Link>
       {visibleYears.map((year) => (
@@ -552,7 +562,7 @@ function YearTabs({
           key={year.defenseYear}
           to={makePath(`/groups/${year.defenseYear}`, educationLevel)}
           className={[
-            'rounded-full px-5 py-2 text-lg font-bold transition',
+            'min-w-0 truncate rounded-full px-2 py-2 text-center text-base font-bold transition',
             year.defenseYear === activeDefenseYear
               ? 'border border-blue-600 bg-white text-blue-600'
               : 'text-slate-500 hover:bg-white',
@@ -980,8 +990,7 @@ function ChecklistTable({
                 <tr key={student.id} className={checklistComplete ? '' : 'text-red-500'}>
                   <td className="py-5">{index + 1}</td>
                   <td className="break-words px-1">
-                    <span className="block">{student.fullName}</span>
-                    <span className="mt-1 block text-[11px] text-slate-400">{student.nameForms.signature}</span>
+                    {student.fullName}
                   </td>
                   <td className="text-slate-500">{student.supervisorName ?? 'Не призначено'}</td>
                   {items.map((item) => (
@@ -1067,8 +1076,7 @@ function AdmissionScreen({
                   <tr key={student.id} className={studentAdmitted ? '' : 'text-red-500'}>
                     <td className="py-5">{index + 1}</td>
                     <td>
-                      <span className="block">{student.fullName}</span>
-                      <span className="mt-1 block text-xs text-slate-400">{student.nameForms.signature}</span>
+                      {student.fullName}
                     </td>
                     <td className="text-slate-500">{student.supervisorName ?? 'Не призначено'}</td>
                     <td className="text-green-500">
@@ -2131,8 +2139,7 @@ function StudentDetailsPanel({
                     : 'text-slate-500 hover:bg-white',
                 ].join(' ')}
               >
-                <span className="block">{student.fullName}</span>
-                <span className="mt-1 block text-xs opacity-75">{student.nameForms.signature}</span>
+                {student.fullName}
               </Link>
             ))}
           </div>

@@ -12,6 +12,7 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
     private const int MaxStudentsCount = 500;
     private const int TopicMaxLength = 500;
     private const int PracticeBaseMaxLength = 256;
+    private static readonly CultureInfo UkrainianCulture = CultureInfo.GetCultureInfo("uk-UA");
 
     static StudentImportReader()
     {
@@ -120,6 +121,14 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
                 string.Create(CultureInfo.InvariantCulture, $"Students count cannot exceed {MaxStudentsCount}."));
         }
 
+        var invalidFullName = rows.FirstOrDefault(row => !HasRequiredStudentNameParts(row.FullName));
+        if (invalidFullName is not null)
+        {
+            return ErrorDetails.Validation(
+                "StudentImport.StudentFullNameInvalid",
+                string.Create(CultureInfo.InvariantCulture, $"Student full name must contain last name, first name, and middle name: {invalidFullName.FullName}."));
+        }
+
         var duplicates = FindDuplicates(rows.Select(row => row.FullName));
         if (duplicates.Count > 0)
         {
@@ -172,7 +181,7 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
                 continue;
             }
 
-            var fullName = NormalizeCellValue(reader.GetValue(columns.StudentFullNameColumnIndex));
+            var fullName = NormalizeStudentFullName(reader.GetValue(columns.StudentFullNameColumnIndex));
             if (!string.IsNullOrWhiteSpace(fullName))
             {
                 students.Add(new StudentImportRow(
@@ -239,6 +248,41 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
     {
         var text = Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
         return WhitespaceRegex().Replace(text, " ");
+    }
+
+    private static string NormalizeStudentFullName(object? value)
+    {
+        var fullName = NormalizeCellValue(value);
+        return string.Join(
+            ' ',
+            fullName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Select(NormalizeNamePart));
+    }
+
+    private static string NormalizeNamePart(string value)
+    {
+        return string.Join(
+            '-',
+            value
+                .Split('-', StringSplitOptions.None)
+                .Select(NormalizeHyphenatedNamePart));
+    }
+
+    private static string NormalizeHyphenatedNamePart(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return value;
+        }
+
+        var lowerValue = value.ToLower(UkrainianCulture);
+        return char.ToUpper(lowerValue[0], UkrainianCulture) + lowerValue[1..];
+    }
+
+    private static bool HasRequiredStudentNameParts(string value)
+    {
+        return value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 3;
     }
 
     private static string NormalizeHeaderValue(object? value)

@@ -132,15 +132,20 @@ public static class ManageTeacherPositions
 
             var fullName = request.FullName.Trim();
             var shortName = request.ShortName.Trim();
-            if (await context.TeacherPositions.AnyAsync(p => p.FullName == fullName || p.ShortName == shortName, ct))
+            var genitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName);
+            var genitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName);
+
+            if (await context.TeacherPositions.AnyAsync(
+                    p => p.FullName == fullName || p.GenitiveFullName == genitiveFullName,
+                    ct))
             {
-                return ErrorDetails.Conflict("TeacherPosition.AlreadyExists", "Teacher position with the same name already exists.");
+                return ErrorDetails.Conflict("TeacherPosition.AlreadyExists", "Teacher position with the same full name already exists.");
             }
 
             var position = new TeacherPosition(fullName, shortName)
             {
-                GenitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName),
-                GenitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName),
+                GenitiveFullName = genitiveFullName,
+                GenitiveShortName = genitiveShortName,
                 IsActive = request.IsActive ?? true
             };
             await context.TeacherPositions.AddAsync(position, ct);
@@ -164,15 +169,21 @@ public static class ManageTeacherPositions
 
             var fullName = request.FullName.Trim();
             var shortName = request.ShortName.Trim();
-            if (await context.TeacherPositions.AnyAsync(p => p.Id != positionId && (p.FullName == fullName || p.ShortName == shortName), ct))
+            var genitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName);
+            var genitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName);
+
+            if (await context.TeacherPositions.AnyAsync(
+                    p => p.Id != positionId
+                         && (p.FullName == fullName || p.GenitiveFullName == genitiveFullName),
+                    ct))
             {
-                return ErrorDetails.Conflict("TeacherPosition.AlreadyExists", "Teacher position with the same name already exists.");
+                return ErrorDetails.Conflict("TeacherPosition.AlreadyExists", "Teacher position with the same full name already exists.");
             }
 
             position.FullName = fullName;
             position.ShortName = shortName;
-            position.GenitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName);
-            position.GenitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName);
+            position.GenitiveFullName = genitiveFullName;
+            position.GenitiveShortName = genitiveShortName;
             position.IsActive = request.IsActive ?? position.IsActive;
             await context.SaveChangesAsync(ct);
             return Map(position);

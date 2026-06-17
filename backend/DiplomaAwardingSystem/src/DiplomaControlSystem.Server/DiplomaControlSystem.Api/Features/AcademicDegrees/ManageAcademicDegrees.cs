@@ -132,15 +132,20 @@ public static class ManageAcademicDegrees
 
             var fullName = request.FullName.Trim();
             var shortName = request.ShortName.Trim();
-            if (await context.AcademicDegrees.AnyAsync(d => d.FullName == fullName || d.ShortName == shortName, ct))
+            var genitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName);
+            var genitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName);
+
+            if (await context.AcademicDegrees.AnyAsync(
+                    d => d.FullName == fullName || d.GenitiveFullName == genitiveFullName,
+                    ct))
             {
-                return ErrorDetails.Conflict("AcademicDegree.AlreadyExists", "Academic degree with the same name already exists.");
+                return ErrorDetails.Conflict("AcademicDegree.AlreadyExists", "Academic degree with the same full name already exists.");
             }
 
             var degree = new AcademicDegree(fullName, shortName)
             {
-                GenitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName),
-                GenitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName),
+                GenitiveFullName = genitiveFullName,
+                GenitiveShortName = genitiveShortName,
                 IsActive = request.IsActive ?? true
             };
             await context.AcademicDegrees.AddAsync(degree, ct);
@@ -164,15 +169,21 @@ public static class ManageAcademicDegrees
 
             var fullName = request.FullName.Trim();
             var shortName = request.ShortName.Trim();
-            if (await context.AcademicDegrees.AnyAsync(d => d.Id != degreeId && (d.FullName == fullName || d.ShortName == shortName), ct))
+            var genitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName);
+            var genitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName);
+
+            if (await context.AcademicDegrees.AnyAsync(
+                    d => d.Id != degreeId
+                         && (d.FullName == fullName || d.GenitiveFullName == genitiveFullName),
+                    ct))
             {
-                return ErrorDetails.Conflict("AcademicDegree.AlreadyExists", "Academic degree with the same name already exists.");
+                return ErrorDetails.Conflict("AcademicDegree.AlreadyExists", "Academic degree with the same full name already exists.");
             }
 
             degree.FullName = fullName;
             degree.ShortName = shortName;
-            degree.GenitiveFullName = NormalizeOptional(request.GenitiveFullName, fullName);
-            degree.GenitiveShortName = NormalizeOptional(request.GenitiveShortName, shortName);
+            degree.GenitiveFullName = genitiveFullName;
+            degree.GenitiveShortName = genitiveShortName;
             degree.IsActive = request.IsActive ?? degree.IsActive;
             await context.SaveChangesAsync(ct);
             return Map(degree);

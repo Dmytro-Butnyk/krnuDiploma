@@ -67,6 +67,8 @@ type PanelMode =
   | 'commission-head-edit'
   | 'specialty-create'
   | 'specialty-edit'
+  | 'specialty-teachers'
+  | 'specialty-secretaries'
   | 'teacher-create'
   | 'teacher-edit'
   | 'secretary-create'
@@ -460,12 +462,25 @@ export function ManagementPage() {
   }
 
   const beginSpecialtyEdit = (specialty: SpecialtyDto) => {
+    setSelectedSpecialtyId(specialty.id)
     setSpecialtyForm({
       code: specialty.code,
       name: specialty.name,
       isActive: specialty.isActive,
     })
     setPanelMode('specialty-edit')
+  }
+
+  const beginSpecialtyTeachers = (specialty: SpecialtyDto) => {
+    setSelectedSpecialtyId(specialty.id)
+    setSelectedTeacherId(undefined)
+    setPanelMode('specialty-teachers')
+  }
+
+  const beginSpecialtySecretaries = (specialty: SpecialtyDto) => {
+    setSelectedSpecialtyId(specialty.id)
+    setSelectedSecretaryId(undefined)
+    setPanelMode('specialty-secretaries')
   }
 
   const beginTeacherCreate = () => {
@@ -752,32 +767,70 @@ export function ManagementPage() {
                       : activeTab === 'commission-heads'
                         ? idEquals(item.id, effectiveSelectedCommissionHeadId)
                         : idEquals(item.id, effectiveSelectedSpecialtyId)
-                const label = sidebarLabel(item)
+                const label = activeTab === 'positions' && 'fullName' in item ? item.fullName : sidebarLabel(item)
 
                 return (
-                  <button
-                    key={String(item.id)}
-                    type="button"
-                    onClick={() => {
-                      if (activeTab === 'degrees') {
-                        setSelectedDegreeId(item.id)
-                      } else if (activeTab === 'positions') {
-                        setSelectedPositionId(item.id)
-                      } else if (activeTab === 'commission-heads') {
-                        setSelectedCommissionHeadId(item.id)
-                      } else {
-                        setSelectedSpecialtyId(item.id)
-                      }
-                      setPanelMode('details')
-                    }}
-                    className={[
-                      'flex h-16 w-full items-center justify-between rounded-[18px] px-6 text-left text-2xl font-extrabold transition',
-                      active ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-white/80',
-                    ].join(' ')}
-                  >
-                    <span>{label}</span>
-                    {isSidebarItemInactive(item) && <span className="text-sm font-bold uppercase opacity-75">архів</span>}
-                  </button>
+                  <div key={String(item.id)} className="space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeTab === 'degrees') {
+                          setSelectedDegreeId(item.id)
+                          setPanelMode('details')
+                        } else if (activeTab === 'positions') {
+                          setSelectedPositionId(item.id)
+                          setPanelMode('details')
+                        } else if (activeTab === 'commission-heads') {
+                          setSelectedCommissionHeadId(item.id)
+                          setPanelMode('details')
+                        } else {
+                          beginSpecialtyEdit(item as SpecialtyDto)
+                        }
+                      }}
+                      className={[
+                        'flex min-h-16 w-full items-center justify-between gap-4 rounded-[18px] px-6 py-4 text-left text-2xl font-extrabold transition',
+                        active && panelMode !== 'specialty-teachers' && panelMode !== 'specialty-secretaries'
+                          ? 'bg-blue-600 text-white'
+                          : activeTab === 'specialties' && active
+                            ? 'border-2 border-blue-600 bg-white/65 text-blue-600'
+                            : active
+                              ? 'bg-blue-600 text-white'
+                              : 'text-slate-500 hover:bg-white/80',
+                      ].join(' ')}
+                    >
+                      <span className="min-w-0 whitespace-normal break-words leading-tight">{label}</span>
+                      {isSidebarItemInactive(item) && <span className="text-sm font-bold uppercase opacity-75">архів</span>}
+                    </button>
+
+                    {activeTab === 'specialties' && active && (
+                      <div className="ml-10 space-y-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => beginSpecialtyTeachers(item as SpecialtyDto)}
+                          className={[
+                            'h-14 w-full rounded-[18px] px-6 text-left text-2xl font-extrabold transition',
+                            panelMode === 'specialty-teachers'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-slate-500 hover:bg-white/80',
+                          ].join(' ')}
+                        >
+                          Викладачі
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => beginSpecialtySecretaries(item as SpecialtyDto)}
+                          className={[
+                            'h-14 w-full rounded-[18px] px-6 text-left text-2xl font-extrabold transition',
+                            panelMode === 'specialty-secretaries'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-slate-500 hover:bg-white/80',
+                          ].join(' ')}
+                        >
+                          Секретарі
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
@@ -836,7 +889,7 @@ export function ManagementPage() {
 
     return (
       <div>
-        <PanelHeader title={lookupLabel(currentLookupItem)}>
+        <PanelHeader title={activeTab === 'positions' ? currentLookupItem.fullName : lookupLabel(currentLookupItem)}>
           {!currentLookupItem.isActive && (
             <ActionButton label="Поновити" icon={<RotateCcw size={22} />} onClick={() => restoreLookup(currentLookupItem)} />
           )}
@@ -912,7 +965,11 @@ export function ManagementPage() {
           <SpecialtyFields value={specialtyForm} onChange={setSpecialtyForm} />
           <FormFooter>
             {panelMode === 'specialty-edit' && selectedSpecialty && (
-              <DangerButton onClick={() => confirmDeleteSpecialty(selectedSpecialty)} />
+              selectedSpecialty.isActive ? (
+                <DangerButton onClick={() => confirmDeleteSpecialty(selectedSpecialty)} />
+              ) : (
+                <SecondaryButton label="Поновити" onClick={() => runMutation.mutate(() => restoreSpecialty(selectedSpecialty.id))} />
+              )
             )}
             <SubmitButton label={panelMode === 'specialty-create' ? 'Додати' : 'Зберегти зміни'} />
           </FormFooter>
@@ -971,57 +1028,44 @@ export function ManagementPage() {
       return <EmptyPanel title="Спеціальності" />
     }
 
-    return (
-      <div>
-        <PanelHeader title="Викладачі">
-          {!selectedSpecialty.isActive && (
-            <ActionButton label="Поновити" icon={<RotateCcw size={22} />} onClick={() => runMutation.mutate(() => restoreSpecialty(selectedSpecialty.id))} />
-          )}
-          <ActionButton label="Змінити спеціальність" onClick={() => beginSpecialtyEdit(selectedSpecialty)} />
-          <ActionButton label="Додати секретаря" tone="success" icon={<ShieldCheck size={22} />} onClick={beginSecretaryCreate} />
-          <ActionButton label="Додати викладача" tone="success" icon={<UserPlus size={22} />} onClick={beginTeacherCreate} />
-        </PanelHeader>
-
-        <div className="mt-4 flex items-center justify-between rounded-full bg-white/70 px-6 py-3">
-          <div>
-            <p className="text-xl font-extrabold text-blue-600">{selectedSpecialty.code}</p>
-            <p className="text-sm font-bold text-slate-500">{selectedSpecialty.name}</p>
-          </div>
-          <span className={`text-base font-extrabold ${activeClass(selectedSpecialty.isActive)}`}>
-            {itemStatus(selectedSpecialty.isActive)}
-          </span>
-        </div>
-
-        <div className="mt-9 grid grid-cols-2 gap-8">
-          <PeopleList
-            title="Викладачі"
+    if (panelMode === 'specialty-teachers') {
+      return (
+        <div>
+          <PanelHeader title="Викладачі">
+            <ActionButton label="Додати викладача" tone="success" icon={<UserPlus size={22} />} onClick={beginTeacherCreate} />
+          </PanelHeader>
+          <PeoplePreviewTable
+            columns={['ПІБ', 'Короткий ПІБ', 'Науковий ступінь', 'Посада', 'Статус']}
             emptyText={teachersQueryResult.isLoading ? 'Завантаження...' : 'Викладачів ще немає'}
           >
             {teachers.map((teacher) => (
-              <PersonButton
-                key={String(teacher.id)}
-                title={teacher.shortName || teacher.fullName}
-                subtitle={`${teacher.academicDegree}, ${teacher.teacherPosition}`}
-                isActive={teacher.isActive}
-                onClick={() => beginTeacherEdit(teacher)}
-              />
+              <TeacherPreviewRow key={String(teacher.id)} teacher={teacher} onClick={() => beginTeacherEdit(teacher)} />
             ))}
-          </PeopleList>
-
-          <PeopleList title="Секретарі" emptyText="Секретарів ще немає">
-            {specialtySecretaries.map((item) => (
-              <PersonButton
-                key={String(item.id)}
-                title={item.fullName}
-                subtitle={`${item.email}${item.isSuperSecretary ? ' · супер-секретар' : ''}`}
-                isActive={item.isActive}
-                onClick={() => beginSecretaryEdit(item)}
-              />
-            ))}
-          </PeopleList>
+          </PeoplePreviewTable>
         </div>
-      </div>
-    )
+      )
+    }
+
+    if (panelMode === 'specialty-secretaries') {
+      return (
+        <div>
+          <PanelHeader title="Секретарі">
+            <ActionButton label="Додати секретаря" tone="success" icon={<ShieldCheck size={22} />} onClick={beginSecretaryCreate} />
+          </PanelHeader>
+          <PeoplePreviewTable
+            columns={['ПІБ', 'Пошта', 'Роль', 'Статус']}
+            emptyText="Секретарів ще немає"
+            columnsClassName="grid-cols-[1.2fr_1.4fr_1fr_120px]"
+          >
+            {specialtySecretaries.map((item) => (
+              <SecretaryPreviewRow key={String(item.id)} secretary={item} onClick={() => beginSecretaryEdit(item)} />
+            ))}
+          </PeoplePreviewTable>
+        </div>
+      )
+    }
+
+    return <EmptyPanel title={selectedSpecialty.code} />
   }
 }
 
@@ -1136,6 +1180,56 @@ function SelectField({
         {children}
       </select>
     </label>
+  )
+}
+
+function TeacherPositionSelectField({
+  label,
+  value,
+  positions,
+  onChange,
+}: {
+  label: string
+  value: string
+  positions: TeacherPositionDto[]
+  onChange: (value: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const selectedPosition = positions.find((position) => idEquals(position.id, value))
+
+  return (
+    <div className="grid grid-cols-[210px_minmax(0,1fr)] items-start gap-6 text-xl font-extrabold text-slate-600">
+      <span className="pt-2">{label}</span>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen((current) => !current)}
+          className="min-h-10 w-full rounded-xl border bg-white px-4 py-2 text-left font-bold leading-snug text-slate-600 outline-none transition hover:bg-slate-50 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+        >
+          {selectedPosition?.fullName || 'Оберіть посаду'}
+        </button>
+        {isOpen && (
+          <div className="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white py-2 shadow-lg">
+            {positions.map((position) => (
+              <button
+                key={String(position.id)}
+                type="button"
+                onClick={() => {
+                  onChange(String(position.id))
+                  setIsOpen(false)
+                }}
+                className={[
+                  'w-full px-4 py-3 text-left text-base font-bold leading-snug transition hover:bg-blue-50',
+                  idEquals(position.id, value) ? 'bg-blue-600 text-white hover:bg-blue-600' : 'text-slate-600',
+                ].join(' ')}
+              >
+                {position.fullName}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -1258,10 +1352,12 @@ function TeacherFields({
         <option value="">Оберіть ступінь</option>
         {degrees.map((degree) => <option key={String(degree.id)} value={String(degree.id)}>{lookupLabel(degree)}</option>)}
       </SelectField>
-      <SelectField label="Посада" value={value.teacherPositionId} onChange={(teacherPositionId) => onChange({ ...value, teacherPositionId })}>
-        <option value="">Оберіть посаду</option>
-        {positions.map((position) => <option key={String(position.id)} value={String(position.id)}>{lookupLabel(position)}</option>)}
-      </SelectField>
+      <TeacherPositionSelectField
+        label="Посада"
+        value={value.teacherPositionId}
+        positions={positions}
+        onChange={(teacherPositionId) => onChange({ ...value, teacherPositionId })}
+      />
       <SelectField label="Спеціальність" value={value.specialtyId} onChange={(specialtyId) => onChange({ ...value, specialtyId })}>
         <option value="">Оберіть спеціальність</option>
         {specialties.map((specialty) => <option key={String(specialty.id)} value={String(specialty.id)}>{specialty.code} · {specialty.name}</option>)}
@@ -1363,42 +1459,82 @@ function SecondaryButton({ label, onClick }: { label: string; onClick: () => voi
   )
 }
 
-function PeopleList({ title, emptyText, children }: { title: string; emptyText: string; children: ReactNode }) {
+function PeoplePreviewTable({
+  columns,
+  children,
+  emptyText,
+  columnsClassName = 'grid-cols-[1.2fr_1fr_1fr_1fr_120px]',
+}: {
+  columns: string[]
+  children: ReactNode
+  emptyText: string
+  columnsClassName?: string
+}) {
   return (
-    <section>
-      <h2 className="text-2xl font-extrabold text-blue-600">{title}</h2>
-      <div className="mt-5 space-y-3">
+    <div className="mt-20">
+      <div className={`grid ${columnsClassName} border-b border-slate-300 px-5 pb-6 text-center text-base font-extrabold text-slate-500`}>
+        {columns.map((column) => (
+          <span key={column}>{column}</span>
+        ))}
+      </div>
+      <div className="divide-y divide-slate-200">
         {children}
         {Array.isArray(children) && children.length === 0 && (
-          <p className="rounded-[18px] bg-white/55 px-6 py-5 text-xl font-bold text-slate-400">{emptyText}</p>
+          <p className="px-5 py-8 text-center text-xl font-bold text-slate-400">{emptyText}</p>
         )}
       </div>
-    </section>
+    </div>
   )
 }
 
-function PersonButton({
-  title,
-  subtitle,
-  isActive,
+function TeacherPreviewRow({ teacher, onClick }: { teacher: TeacherDto; onClick: () => void }) {
+  return (
+    <PreviewRow columnsClassName="grid-cols-[1.2fr_1fr_1fr_1fr_120px]" onClick={onClick}>
+      <span>{teacher.fullName}</span>
+      <span>{teacher.shortName || '-'}</span>
+      <span>{teacher.academicDegree || '-'}</span>
+      <span>{teacher.teacherPosition || '-'}</span>
+      <StatusCell isActive={teacher.isActive} />
+    </PreviewRow>
+  )
+}
+
+function SecretaryPreviewRow({ secretary, onClick }: { secretary: SecretaryDto; onClick: () => void }) {
+  return (
+    <PreviewRow columnsClassName="grid-cols-[1.2fr_1.4fr_1fr_120px]" onClick={onClick}>
+      <span>{secretary.fullName}</span>
+      <span>{secretary.email}</span>
+      <span>{secretary.isSuperSecretary ? 'Супер-секретар' : 'Секретар'}</span>
+      <StatusCell isActive={secretary.isActive} />
+    </PreviewRow>
+  )
+}
+
+function PreviewRow({
+  children,
+  columnsClassName,
   onClick,
 }: {
-  title: string
-  subtitle: string
-  isActive: boolean
+  children: ReactNode
+  columnsClassName: string
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-16 w-full items-center justify-between rounded-[18px] px-6 py-4 text-left transition hover:bg-white/80"
+      className={`grid min-h-20 w-full ${columnsClassName} items-center px-5 py-5 text-center text-base font-bold text-slate-500 transition hover:bg-white/70 focus:outline-none focus:ring-4 focus:ring-blue-100`}
     >
-      <span>
-        <span className="block text-2xl font-extrabold text-slate-500">{title}</span>
-        <span className="mt-1 block text-sm font-bold text-slate-400">{subtitle}</span>
-      </span>
-      {isActive ? <CheckCircle2 className="text-green-500" size={24} /> : <span className="text-sm font-bold uppercase text-slate-400">архів</span>}
+      {children}
     </button>
+  )
+}
+
+function StatusCell({ isActive }: { isActive: boolean }) {
+  return (
+    <span className={`inline-flex items-center justify-center gap-2 font-extrabold ${activeClass(isActive)}`}>
+      {isActive && <CheckCircle2 size={20} />}
+      {itemStatus(isActive)}
+    </span>
   )
 }
