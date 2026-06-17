@@ -3763,9 +3763,6 @@ function CommissionFormDialog({
     if (consultantIds.length !== new Set(consultantIds).size) {
       messages.push('Консультанти мають бути різними викладачами.')
     }
-    if (consultantIds.some((consultantId) => memberIds.includes(consultantId))) {
-      messages.push('Консультанти не можуть збігатися з членами комісії.')
-    }
     return messages
   }
   const submit = () => {
@@ -3905,7 +3902,6 @@ function CommissionFormDialog({
                     key={teacher.id}
                     value={teacher.id}
                     disabled={
-                      selectedMemberIds.includes(asString(teacher.id)) ||
                       (selectedConsultantIds.includes(asString(teacher.id)) &&
                         asString(teacher.id) !== form.firstConsultantId)
                     }
@@ -3925,7 +3921,6 @@ function CommissionFormDialog({
                     key={teacher.id}
                     value={teacher.id}
                     disabled={
-                      selectedMemberIds.includes(asString(teacher.id)) ||
                       (selectedConsultantIds.includes(asString(teacher.id)) &&
                         asString(teacher.id) !== form.secondConsultantId)
                     }

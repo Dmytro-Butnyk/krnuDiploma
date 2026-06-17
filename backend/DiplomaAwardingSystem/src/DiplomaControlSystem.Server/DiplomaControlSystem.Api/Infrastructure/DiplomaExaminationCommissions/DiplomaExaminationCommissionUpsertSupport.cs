@@ -244,13 +244,6 @@ internal static class DiplomaExaminationCommissionUpsertSupport
                 "Consultant roles must be assigned to different teachers.");
         }
 
-        if (consultantIds.Any(id => teacherIds.Contains(id)))
-        {
-            return ErrorDetails.Conflict(
-                "DiplomaExaminationCommission.ConsultantIsMember",
-                "Commission member cannot be assigned as consultant.");
-        }
-
         var allTeacherIds = teacherIds
             .Concat(consultantIds)
             .Distinct()
