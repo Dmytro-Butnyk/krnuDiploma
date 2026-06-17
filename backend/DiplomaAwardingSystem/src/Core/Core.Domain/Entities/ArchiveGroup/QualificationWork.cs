@@ -11,14 +11,16 @@ public sealed class QualificationWork : BaseEntity
     public int PagesCount { get; set; }
     public float PlagiarismPercent { get; set; }
     public float UniquePercent { get; set; }
-    public int SupervisorScore { get; set; }
-    public int ReviewerScore { get; set; }
     public int CommissionScore { get; set; }
     public EctsGrade EctsGrade { get; set; }
     public NationalGrade NationalGrade { get; set; }
     public string PracticeBase { get; set; }
     public bool HasDiplomaWithHonors { get; set; }
     public DateOnly? DefenceDate { get; set; }
+    public int? ProtocolNumber { get; set; }
+    public int? DurationOfDefenceMinutes { get; set; }
+    public int? PresentationSheets { get; set; }
+    public int? WorkSheets { get; set; }
     public ICollection<DefenceQuestion> DefenceQuestions { get; init; } = new List<DefenceQuestion>();
 
     // 1-to-1 with Student
@@ -42,14 +44,12 @@ public sealed class QualificationWork : BaseEntity
         PracticeBase = string.Empty;
     }
 
-    public QualificationWork(string topic, int pagesCount, float plagiarismPercent, float uniquePercent, int supervisorScore, int reviewerScore, int commissionScore, EctsGrade ectsGrade, NationalGrade nationalGrade, string practiceBase, bool hasDiplomaWithHonors, int studentId, int? teacherId, int? reviewerId)
+    public QualificationWork(string topic, int pagesCount, float plagiarismPercent, float uniquePercent, int commissionScore, EctsGrade ectsGrade, NationalGrade nationalGrade, string practiceBase, bool hasDiplomaWithHonors, int studentId, int? teacherId, int? reviewerId)
     {
         Topic = topic;
         PagesCount = pagesCount;
         PlagiarismPercent = plagiarismPercent;
         UniquePercent = uniquePercent;
-        SupervisorScore = supervisorScore;
-        ReviewerScore = reviewerScore;
         CommissionScore = commissionScore;
         EctsGrade = ectsGrade;
         NationalGrade = nationalGrade;
@@ -67,8 +67,6 @@ public sealed class QualificationWork : BaseEntity
             pagesCount: 0,
             plagiarismPercent: 0,
             uniquePercent: 0,
-            supervisorScore: 0,
-            reviewerScore: 0,
             commissionScore: 0,
             ectsGrade: EctsGrade.None,
             nationalGrade: NationalGrade.None,

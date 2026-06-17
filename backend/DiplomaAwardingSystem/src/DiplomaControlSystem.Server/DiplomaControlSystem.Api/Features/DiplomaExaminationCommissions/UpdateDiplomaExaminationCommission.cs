@@ -111,10 +111,14 @@ public static class UpdateDiplomaExaminationCommission
             commission.OrderNumber = validated.OrderNumber;
             commission.StartDate = request.StartDate;
             commission.EndDate = request.EndDate;
+            commission.MeetingStart = request.MeetingStart;
+            commission.MeetingEnd = request.MeetingEnd;
             commission.CommissionHeadId = validated.CommissionHeadId;
             commission.FirstMemberTeacherId = request.FirstMemberTeacherId;
             commission.SecondMemberTeacherId = request.SecondMemberTeacherId;
             commission.ThirdMemberTeacherId = request.ThirdMemberTeacherId;
+            commission.FirstConsultantId = request.FirstConsultantId;
+            commission.SecondConsultantId = request.SecondConsultantId;
             commission.SecretaryId = validated.SecretaryId;
 
             await context.SaveChangesAsync(ct);

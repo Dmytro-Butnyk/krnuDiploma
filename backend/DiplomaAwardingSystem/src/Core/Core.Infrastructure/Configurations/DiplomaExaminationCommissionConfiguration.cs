@@ -14,6 +14,8 @@ public sealed class DiplomaExaminationCommissionConfiguration : IEntityTypeConfi
         builder.Property(dec => dec.OrderNumber).IsRequired().HasMaxLength(64);
         builder.Property(dec => dec.EducationLevel).IsRequired().HasConversion<string>();
         builder.Property(dec => dec.DefenseYear).IsRequired().HasMaxLength(20);
+        builder.Property(dec => dec.MeetingStart).IsRequired().HasMaxLength(5);
+        builder.Property(dec => dec.MeetingEnd).IsRequired().HasMaxLength(5);
 
         builder.HasIndex(dec => new
         {
@@ -57,6 +59,16 @@ public sealed class DiplomaExaminationCommissionConfiguration : IEntityTypeConfi
         builder.HasOne(dec => dec.ThirdMemberTeacher)
             .WithMany()
             .HasForeignKey(dec => dec.ThirdMemberTeacherId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(dec => dec.FirstConsultant)
+            .WithMany()
+            .HasForeignKey(dec => dec.FirstConsultantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(dec => dec.SecondConsultant)
+            .WithMany()
+            .HasForeignKey(dec => dec.SecondConsultantId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(dec => dec.Secretary)

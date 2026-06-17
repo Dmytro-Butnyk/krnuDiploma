@@ -11,7 +11,11 @@ import type {
   GroupStudentResponse,
   ImportGroupDefenceResultsRequest,
   ImportGroupDefenceResultsResponse,
+  ImportTableColumnsResponse,
+  PracticeBaseRatingResponse,
+  PreviousYearComparisonResponse,
   QualificationWorkOptionsResponse,
+  SupervisorWorkloadResponse,
   StudentDetailsResponse,
   UpdateGroupRequest,
   UpdateGroupResponse,
@@ -52,6 +56,36 @@ export function getGroupStatistics(groupId: EntityId, _secretaryEmail: string) {
   void _secretaryEmail
 
   return apiRequest<GroupStatisticsResponse>(`/api/groups/${groupId}/statistics`)
+}
+
+export function getStudentImportColumns(_secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<ImportTableColumnsResponse>('/api/groups/student-import/columns')
+}
+
+export function getDefenceResultsImportColumns(_secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<ImportTableColumnsResponse>('/api/groups/defence-results/import/columns')
+}
+
+export function getPreviousYearComparison(groupId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<PreviousYearComparisonResponse>(`/api/groups/${groupId}/statistics/previous-year-comparison`)
+}
+
+export function getSupervisorWorkload(groupId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<SupervisorWorkloadResponse>(`/api/groups/${groupId}/statistics/supervisor-workload`)
+}
+
+export function getPracticeBaseRating(groupId: EntityId, _secretaryEmail: string) {
+  void _secretaryEmail
+
+  return apiRequest<PracticeBaseRatingResponse>(`/api/groups/${groupId}/statistics/practice-bases`)
 }
 
 export function createGroup(request: CreateGroupRequest) {

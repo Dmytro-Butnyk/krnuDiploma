@@ -5,6 +5,4 @@ internal sealed record DefenceResultImportRow(
     string SupervisorShortName,
     float? PlagiarismPercent,
     int? CommissionScore,
-    int? SupervisorScore,
-    int? ReviewerScore,
     string DefenceDate);

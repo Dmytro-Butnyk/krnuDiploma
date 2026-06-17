@@ -96,11 +96,15 @@ public static class CreateDiplomaExaminationCommission
                 validated.DefenseYear,
                 request.StartDate,
                 request.EndDate,
+                request.MeetingStart,
+                request.MeetingEnd,
                 validated.SpecialtyId,
                 validated.CommissionHeadId,
                 request.FirstMemberTeacherId,
                 request.SecondMemberTeacherId,
                 request.ThirdMemberTeacherId,
+                request.FirstConsultantId,
+                request.SecondConsultantId,
                 validated.SecretaryId);
 
             foreach (var group in validated.Groups)

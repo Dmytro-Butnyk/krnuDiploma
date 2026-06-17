@@ -11,55 +11,6 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
 {
     private const int MaxRowsCount = 500;
 
-    private static readonly HashSet<string> StudentFullNameHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u041f\u0406\u0411 \u0421\u0422\u0423\u0414\u0415\u041d\u0422\u0410",
-        "STUDENT",
-        "STUDENT NAME",
-        "FULL NAME",
-        "FULLNAME"
-    };
-
-    private static readonly HashSet<string> PlagiarismHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u041f\u0420\u041e\u0426\u0415\u041d\u0422 \u0417\u0410\u041f\u041e\u0417\u0418\u0427\u0415\u041d\u042c",
-        "PLAGIARISM PERCENT"
-    };
-
-    private static readonly HashSet<string> SupervisorHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u041f\u0406\u0411 \u041a\u0415\u0420\u0406\u0412\u041d\u0418\u041a\u0410",
-        "\u041a\u0415\u0420\u0406\u0412\u041d\u0418\u041a",
-        "SUPERVISOR",
-        "SUPERVISOR NAME"
-    };
-
-    private static readonly HashSet<string> CommissionScoreHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u0417\u0410\u0413\u0410\u041b\u042c\u041d\u0410 \u041e\u0426\u0406\u041d\u041a\u0410",
-        "COMMISSION SCORE",
-        "TOTAL SCORE"
-    };
-
-    private static readonly HashSet<string> SupervisorScoreHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u041e\u0426\u0406\u041d\u041a\u0410 \u041a\u0415\u0420\u0406\u0412\u041d\u0418\u041a\u0410",
-        "SUPERVISOR SCORE"
-    };
-
-    private static readonly HashSet<string> ReviewerScoreHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u041e\u0426\u0406\u041d\u041a\u0410 \u0420\u0415\u0426\u0415\u041d\u0417\u0415\u041d\u0422\u0410",
-        "REVIEWER SCORE"
-    };
-
-    private static readonly HashSet<string> DefenceDateHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u0414\u0410\u0422\u0410 \u0417\u0410\u0425\u0418\u0421\u0422\u0423",
-        "DEFENCE DATE",
-        "DEFENSE DATE"
-    };
-
     static DefenceResultImportReader()
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -199,25 +150,11 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
             return commissionScoreResult.ErrorDetails;
         }
 
-        var supervisorScoreResult = ReadOptionalScore(reader, columns.SupervisorScoreColumnIndex, fullName, "Оцінка керівника");
-        if (supervisorScoreResult.IsFailure)
-        {
-            return supervisorScoreResult.ErrorDetails;
-        }
-
-        var reviewerScoreResult = ReadOptionalScore(reader, columns.ReviewerScoreColumnIndex, fullName, "Оцінка рецензента");
-        if (reviewerScoreResult.IsFailure)
-        {
-            return reviewerScoreResult.ErrorDetails;
-        }
-
         return new DefenceResultImportRow(
             fullName,
             GetOptionalCellValue(reader, columns.SupervisorColumnIndex),
             plagiarismResult.Value,
             commissionScoreResult.Value,
-            supervisorScoreResult.Value,
-            reviewerScoreResult.Value,
             GetOptionalCellValue(reader, columns.DefenceDateColumnIndex));
     }
 
@@ -278,14 +215,12 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
         int? supervisorColumnIndex = null;
         int? plagiarismColumnIndex = null;
         int? commissionScoreColumnIndex = null;
-        int? supervisorScoreColumnIndex = null;
-        int? reviewerScoreColumnIndex = null;
         int? defenceDateColumnIndex = null;
 
         for (var i = 0; i < reader.FieldCount; i++)
         {
             var value = NormalizeHeaderValue(reader.GetValue(i));
-            if (StudentFullNameHeaderNames.Contains(value))
+            if (DefenceResultImportColumnDefinitions.StudentFullNameHeaderNames.Contains(value))
             {
                 studentFullNameColumnIndex = i;
             }
@@ -293,23 +228,15 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
             {
                 supervisorColumnIndex = i;
             }
-            else if (PlagiarismHeaderNames.Contains(value))
+            else if (DefenceResultImportColumnDefinitions.PlagiarismHeaderNames.Contains(value))
             {
                 plagiarismColumnIndex = i;
             }
-            else if (CommissionScoreHeaderNames.Contains(value))
+            else if (DefenceResultImportColumnDefinitions.CommissionScoreHeaderNames.Contains(value))
             {
                 commissionScoreColumnIndex = i;
             }
-            else if (SupervisorScoreHeaderNames.Contains(value))
-            {
-                supervisorScoreColumnIndex = i;
-            }
-            else if (ReviewerScoreHeaderNames.Contains(value))
-            {
-                reviewerScoreColumnIndex = i;
-            }
-            else if (DefenceDateHeaderNames.Contains(value))
+            else if (DefenceResultImportColumnDefinitions.DefenceDateHeaderNames.Contains(value))
             {
                 defenceDateColumnIndex = i;
             }
@@ -322,8 +249,6 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
                 supervisorColumnIndex,
                 plagiarismColumnIndex,
                 commissionScoreColumnIndex,
-                supervisorScoreColumnIndex,
-                reviewerScoreColumnIndex,
                 defenceDateColumnIndex);
     }
 
@@ -357,7 +282,7 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
 
     private static bool IsSupervisorNameHeader(string value)
     {
-        if (SupervisorHeaderNames.Contains(value))
+        if (DefenceResultImportColumnDefinitions.SupervisorHeaderNames.Contains(value))
         {
             return true;
         }
@@ -449,8 +374,6 @@ internal sealed partial class DefenceResultImportReader(IHttpClientFactory httpC
         int? SupervisorColumnIndex,
         int? PlagiarismColumnIndex,
         int? CommissionScoreColumnIndex,
-        int? SupervisorScoreColumnIndex,
-        int? ReviewerScoreColumnIndex,
         int? DefenceDateColumnIndex);
 
     private sealed record GoogleDownloadSource(Uri Url, string FileName);

@@ -13,47 +13,6 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
     private const int TopicMaxLength = 500;
     private const int PracticeBaseMaxLength = 256;
 
-    private static readonly HashSet<string> StudentFullNameHeaderNames = new(StringComparer.Ordinal)
-    {
-        "FULLNAME",
-        "FULL NAME",
-        "STUDENT",
-        "STUDENT NAME",
-        "NAME",
-        "\u041f\u0406\u0411",
-        "\u0424\u0418\u041e",
-        "\u0406\u041c'\u042f \u0421\u0422\u0423\u0414\u0415\u041d\u0422\u0410",
-        "\u0406\u041c\u042f \u0421\u0422\u0423\u0414\u0415\u041d\u0422\u0410",
-        "\u0418\u041c\u042f \u0421\u0422\u0423\u0414\u0415\u041d\u0422\u0410",
-        "\u041f\u0420\u0406\u0417\u0412\u0418\u0429\u0415 \u0406\u041c'\u042f \u041f\u041e \u0411\u0410\u0422\u042c\u041a\u041e\u0412\u0406",
-        "\u041f\u0420\u0406\u0417\u0412\u0418\u0429\u0415 \u0406\u041c\u042f \u041f\u041e \u0411\u0410\u0422\u042c\u041A\u041E\u0412\u0406",
-        "\u041f\u0406\u0411 \u0421\u0422\u0423\u0414\u0415\u041d\u0422\u0410"
-    };
-
-    private static readonly HashSet<string> SupervisorHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u041f\u0406\u0411 \u041a\u0415\u0420\u0406\u0412\u041d\u0418\u041a\u0410",
-        "\u041a\u0415\u0420\u0406\u0412\u041d\u0418\u041a",
-        "SUPERVISOR",
-        "SUPERVISOR NAME"
-    };
-
-    private static readonly HashSet<string> TopicHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u0422\u0415\u041c\u0410 \u0420\u041e\u0411\u041e\u0422\u0418",
-        "\u0422\u0415\u041c\u0410",
-        "TOPIC",
-        "WORK TOPIC"
-    };
-
-    private static readonly HashSet<string> PracticeBaseHeaderNames = new(StringComparer.Ordinal)
-    {
-        "\u041c\u0406\u0421\u0426\u0415 \u041f\u0420\u0410\u041a\u0422\u0418\u041a\u0418",
-        "\u041c\u0406\u0421\u0426\u0415 \u041f\u0420\u041e\u0425\u041e\u0414\u0416\u0415\u041d\u041d\u042f \u041f\u0420\u0410\u041a\u0422\u0418\u041a\u0418",
-        "PRACTICE BASE",
-        "PRACTICE PLACE"
-    };
-
     static StudentImportReader()
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -244,7 +203,7 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
         for (var i = 0; i < reader.FieldCount; i++)
         {
             var value = NormalizeHeaderValue(reader.GetValue(i));
-            if (StudentFullNameHeaderNames.Contains(value))
+            if (StudentImportColumnDefinitions.StudentFullNameHeaderNames.Contains(value))
             {
                 studentFullNameColumnIndex = i;
             }
@@ -252,11 +211,11 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
             {
                 supervisorColumnIndex = i;
             }
-            else if (TopicHeaderNames.Contains(value))
+            else if (StudentImportColumnDefinitions.TopicHeaderNames.Contains(value))
             {
                 topicColumnIndex = i;
             }
-            else if (PracticeBaseHeaderNames.Contains(value))
+            else if (StudentImportColumnDefinitions.PracticeBaseHeaderNames.Contains(value))
             {
                 practiceBaseColumnIndex = i;
             }
@@ -293,7 +252,7 @@ internal sealed partial class StudentImportReader(IHttpClientFactory httpClientF
 
     private static bool IsSupervisorNameHeader(string value)
     {
-        if (SupervisorHeaderNames.Contains(value))
+        if (StudentImportColumnDefinitions.SupervisorHeaderNames.Contains(value))
         {
             return true;
         }

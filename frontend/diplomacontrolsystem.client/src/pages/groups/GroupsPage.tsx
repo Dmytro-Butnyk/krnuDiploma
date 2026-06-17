@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, ChevronDown, ChevronUp, Maximize2, Minimize2, Plus, Upload, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronUp, Maximize2, Minimize2, Plus, Upload, X } from 'lucide-react'
 import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../features/auth/model/useAuth'
@@ -12,6 +12,7 @@ import {
 import type {
   CommissionHeadDto,
   DiplomaExaminationCommissionResponse,
+  MemberDto,
 } from '../../features/commissions/api/types'
 import {
   commissionOptionsQuery,
@@ -45,23 +46,32 @@ import type {
   EctsGrade,
   GroupDto,
   GroupStudentResponse,
+  ImportTableColumnDto,
   NationalGrade,
   PersonNameFormsDto,
   PhysicalChecklistDto,
   CreateGroupResponse,
-  PreviousYearStatisticsDto,
+  PracticeBaseRatingItemDto,
+  StatisticItemKey,
   StatisticItemDto,
+  StatisticSectionKey,
   StatisticSectionDto,
+  SupervisorWorkloadItemDto,
   StudentDetailsResponse,
   UpdateGroupResponse,
 } from '../../features/groups/api/types'
 import {
   academicYearsQuery,
+  defenceResultsImportColumnsQuery,
   groupStatisticsQuery,
   groupStudentsQuery,
   groupsQueryKeys,
+  practiceBaseRatingQuery,
+  previousYearComparisonQuery,
   qualificationWorkOptionsQuery,
   studentDetailsQuery,
+  studentImportColumnsQuery,
+  supervisorWorkloadQuery,
 } from '../../features/groups/model/groupsQueries'
 import { ApiError } from '../../shared/api/client'
 import { getApiErrorMessage, getApiErrorMessages } from '../../shared/api/errorMessage'
@@ -204,7 +214,7 @@ function isApiNotFound(error: unknown) {
 
 function currentDefenseYears() {
   const currentYear = currentUkraineYear()
-  return [currentYear, currentYear + 1, currentYear + 2].map(String)
+  return [currentYear - 2, currentYear - 1, currentYear].map(String)
 }
 
 function currentUkraineYear() {
@@ -256,19 +266,65 @@ interface StatisticAccent {
   bar: string
 }
 
-function statisticAccent(sectionIndex: number, itemIndex: number, item: StatisticItemDto): StatisticAccent {
-  const label = item.label.toLowerCase()
+const statisticSectionLabels: Record<StatisticSectionKey, string> = {
+  gradesAndRecommendations: 'Оцінки ЕК та рекомендації',
+  workCharacter: 'Характер виконання дипломних проєктів та робіт',
+  complexDiplomaDesign: 'Комплексне дипломне проєктування',
+  additional: 'Додатково',
+  performanceIndicators: 'Показники якості та успішності',
+}
 
-  if (label.includes('якість') || label.includes('відмінно') || itemIndex === 0) {
+const statisticItemLabels: Record<StatisticItemKey, string> = {
+  excellent: 'Відмінно',
+  good: 'Добре',
+  satisfactory: 'Задовільно',
+  diplomaWithHonors: 'Диплом з відзнакою',
+  recommendedForMaster: 'Рекомендовано в магістратуру',
+  researchBased: 'Дослідного характеру',
+  realProjects: 'З реальними проєктами та конструкторсько-технологічними розробками',
+  ecoFriendly:
+    'З раціонального природовикористання, ресурсозбереження та охорони навколишнього середовища',
+  enterpriseOrdered: 'За замовленням підприємства',
+  interuniversity: 'Міжвузівські',
+  interdepartmental: 'Міжкафедральні',
+  departmental: 'Кафедральні',
+  complexProjectParticipant: 'Студ., які брали участь у комплексному проєкті',
+  recommendedForImplementation: 'До впровадження',
+  defendedAtEnterprise: 'Захищено на підприємстві',
+  educationQuality: 'Якість навчання',
+  overallSuccess: 'Загальна успішність',
+}
+
+const statisticItemOrder: Record<StatisticSectionKey, StatisticItemKey[]> = {
+  gradesAndRecommendations: ['excellent', 'good', 'satisfactory', 'diplomaWithHonors', 'recommendedForMaster'],
+  workCharacter: ['researchBased', 'realProjects', 'ecoFriendly', 'enterpriseOrdered'],
+  complexDiplomaDesign: ['interuniversity', 'interdepartmental', 'departmental', 'complexProjectParticipant'],
+  additional: ['recommendedForImplementation', 'defendedAtEnterprise'],
+  performanceIndicators: ['educationQuality', 'overallSuccess'],
+}
+
+const statisticSectionOrder: StatisticSectionKey[] = [
+  'gradesAndRecommendations',
+  'workCharacter',
+  'complexDiplomaDesign',
+  'additional',
+  'performanceIndicators',
+]
+
+function statisticAccent(sectionIndex: number, itemIndex: number, item: StatisticItemDto): StatisticAccent {
+  if (item.key === 'excellent' || item.key === 'educationQuality' || item.key === 'recommendedForImplementation') {
     return { text: 'text-green-500', bar: 'bg-green-500' }
   }
-  if (label.includes('успішність') || label.includes('магістрат') || sectionIndex > 2) {
+
+  if (item.key === 'recommendedForMaster' || sectionIndex > 2) {
     return { text: 'text-purple-600', bar: 'bg-purple-600' }
   }
-  if (label.includes('добре') || itemIndex === 1) {
+
+  if (item.key === 'good' || item.key === 'overallSuccess' || itemIndex === 1) {
     return { text: 'text-blue-600', bar: 'bg-blue-600' }
   }
-  if (label.includes('задовіль') || itemIndex === 2) {
+
+  if (item.key === 'satisfactory' || itemIndex === 2) {
     return { text: 'text-orange-600', bar: 'bg-orange-500' }
   }
 
@@ -290,69 +346,60 @@ function formatStatisticPercent(value: number) {
 }
 
 function isGraduationRecommendationItem(item: StatisticItemDto | undefined) {
-  return Boolean(item?.label.toLowerCase().includes('магістрат'))
+  return item?.key === 'recommendedForMaster'
 }
 
 function isGradeStatisticSection(section: StatisticSectionDto) {
-  const value = `${section.key} ${section.title}`.toLowerCase()
-  return value.includes('оцін') || value.includes('grade') || value.includes('recommend')
+  return section.key === 'gradesAndRecommendations'
 }
 
 function isQualityStatisticSection(section: StatisticSectionDto) {
-  const value = `${section.key} ${section.title}`.toLowerCase()
-  return value.includes('якіст') || value.includes('успіш') || value.includes('quality') || value.includes('success')
+  return section.key === 'performanceIndicators'
 }
 
 function orderStatisticSections(sections: StatisticSectionDto[]) {
-  return [
-    ...sections.filter((section) => !isQualityStatisticSection(section)),
-    ...sections.filter(isQualityStatisticSection),
-  ]
+  return [...sections].sort((left, right) => {
+    const leftIndex = statisticSectionOrder.indexOf(left.key)
+    const rightIndex = statisticSectionOrder.indexOf(right.key)
+
+    return (leftIndex === -1 ? statisticSectionOrder.length : leftIndex) -
+      (rightIndex === -1 ? statisticSectionOrder.length : rightIndex)
+  })
+}
+
+function orderStatisticItems(section: StatisticSectionDto) {
+  const order = statisticItemOrder[section.key] ?? []
+
+  return [...section.items].sort((left, right) => {
+    const leftIndex = order.indexOf(left.key)
+    const rightIndex = order.indexOf(right.key)
+
+    return (leftIndex === -1 ? order.length : leftIndex) - (rightIndex === -1 ? order.length : rightIndex)
+  })
 }
 
 function displayStatisticTitle(section: StatisticSectionDto) {
-  const title = section.title
-
-  if (isQualityStatisticSection(section)) {
-    return 'ПОКАЗНИКИ ЯКОСТІ ТА УСПІШНОСТІ'
-  }
-  if (title.toLowerCase().includes('комплексне дипломне проектування')) {
-    return 'Комплексне дипломне проєктування'
-  }
-
-  return title
+  return statisticSectionLabels[section.key] ?? section.key
 }
 
 function displayStatisticLabel(item: StatisticItemDto) {
-  const label = item.label
-  const lower = label.toLowerCase()
-
-  if (lower.includes('раціонального природовикористання')) {
-    return 'З раціонального природовикористання, ресурсозбереження та ох. навк. серед.'
-  }
-  if (lower.includes('студенти, які брали участь у комплексному проекті')) {
-    return 'Студ., які брали участь у комплексному проєкті'
-  }
-
-  return label
+  return statisticItemLabels[item.key] ?? item.key
 }
 
 function isGradeComparisonItem(item: StatisticItemDto) {
-  const label = item.label.toLowerCase()
-  return label.includes('відмінно') || label.includes('добре') || label.includes('задовіль')
+  return item.key === 'excellent' || item.key === 'good' || item.key === 'satisfactory'
 }
 
 function comparisonItemLabel(item: StatisticItemDto) {
-  const label = item.label
-  const lower = label.toLowerCase()
+  if (item.key === 'realProjects') {
+    return 'З реальними проєктами та конструкторсько-технологічними розробками'
+  }
 
-  if (lower.includes('реальними проектами')) {
-    return 'Реальні проєкти'
+  if (item.key === 'ecoFriendly') {
+    return 'З раціонального природовикористання, ресурсозбереження та ох. навк. серед.'
   }
-  if (lower.includes('раціонального')) {
-    return 'Раціональне природовикористання'
-  }
-  if (lower.includes('замовленням')) {
+
+  if (item.key === 'enterpriseOrdered') {
     return 'За замовленням підприємства'
   }
 
@@ -360,25 +407,21 @@ function comparisonItemLabel(item: StatisticItemDto) {
 }
 
 function findPreviousStatisticSection(section: StatisticSectionDto, previousSections: StatisticSectionDto[]) {
-  return (
-    previousSections.find((previousSection) => previousSection.key === section.key) ??
-    previousSections.find((previousSection) => previousSection.title === section.title)
-  )
+  return previousSections.find((previousSection) => previousSection.key === section.key)
 }
 
 function findPreviousStatisticItem(item: StatisticItemDto, previousItems: StatisticItemDto[]) {
-  return (
-    previousItems.find((previousItem) => previousItem.key === item.key) ??
-    previousItems.find((previousItem) => previousItem.label === item.label)
-  )
+  return previousItems.find((previousItem) => previousItem.key === item.key)
 }
 
 function comparisonItemsForSection(section: StatisticSectionDto) {
+  const items = orderStatisticItems(section)
+
   if (isGradeStatisticSection(section)) {
-    return section.items.filter(isGradeComparisonItem).slice(0, 3)
+    return items.filter(isGradeComparisonItem).slice(0, 3)
   }
 
-  return section.items.slice(0, 4)
+  return items.slice(0, 4)
 }
 
 function getStatusClass(isAdmitted: boolean) {
@@ -602,6 +645,10 @@ function commissionHeadPosition(commission: DiplomaExaminationCommissionResponse
   return [commission.head.position, commission.head.company].filter(Boolean).join(', ')
 }
 
+function isCommissionMember(value: MemberDto | null): value is MemberDto {
+  return value !== null
+}
+
 function CommissionDetails({
   commission,
   onEdit,
@@ -663,6 +710,20 @@ function CommissionDetails({
             </div>
           </section>
 
+          {(commission.firstConsultant || commission.secondConsultant) && (
+            <section>
+              <h2 className="text-sm font-bold uppercase text-slate-500">Консультанти</h2>
+              <div className="mt-5 space-y-5">
+                {[commission.firstConsultant, commission.secondConsultant].filter(isCommissionMember).map((consultant) => (
+                  <div key={consultant.teacherId}>
+                    <p className="text-2xl font-bold text-slate-800">{consultant.fullName}</p>
+                    <p className="mt-2 max-w-[520px] text-base font-bold text-slate-500">{consultant.position}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section>
             <h2 className="text-sm font-bold uppercase text-slate-500">Секретар комісії</h2>
             <p className="mt-5 text-2xl font-bold text-slate-800">{commission.secretary.fullName}</p>
@@ -677,6 +738,10 @@ function CommissionDetails({
               <span className="text-orange-600">{displayDate(commission.startDate)}</span>
               <span className="text-slate-500">Кінець роботи</span>
               <span className="text-orange-600">{displayDate(commission.endDate)}</span>
+              <span className="text-slate-500">Початок засідання</span>
+              <span className="text-orange-600">{commission.meetingStart}</span>
+              <span className="text-slate-500">Кінець засідання</span>
+              <span className="text-orange-600">{commission.meetingEnd}</span>
             </div>
           </section>
 
@@ -1052,6 +1117,90 @@ function AdmissionScreen({
   )
 }
 
+type StatisticsView = 'results' | 'previous-year-comparison' | 'supervisor-workload' | 'practice-bases'
+
+const statisticViewLabels: Record<StatisticsView, string> = {
+  results: 'Результати захисту',
+  'previous-year-comparison': 'Порівняння з минулим роком',
+  'supervisor-workload': 'Навантаженість керівників',
+  'practice-bases': 'Рейтинг місць проходження практики',
+}
+
+function StatisticsPageShell({
+  activeView,
+  title,
+  group,
+  educationLevel,
+  defenseYear,
+  children,
+}: {
+  activeView: StatisticsView
+  title: string
+  group: GroupDto
+  educationLevel: EducationLevel
+  defenseYear: string
+  children: ReactNode
+}) {
+  return (
+    <div className="overflow-x-auto pb-2">
+      <article className="min-w-[1120px] rounded-[22px] bg-white/65 p-9 shadow-sm">
+        <div className="flex items-center gap-5">
+          <Link to={makePath(`/groups/${defenseYear}/${group.id}`, educationLevel)} className="text-slate-500">
+            <ArrowLeft size={38} />
+          </Link>
+          <h1 className="text-4xl font-bold uppercase text-blue-600">{title}</h1>
+        </div>
+        <StatisticsNavigation
+          activeView={activeView}
+          group={group}
+          educationLevel={educationLevel}
+          defenseYear={defenseYear}
+        />
+        <div className="mt-4 rounded-[18px] bg-white/50 p-5">{children}</div>
+      </article>
+    </div>
+  )
+}
+
+function StatisticsNavigation({
+  activeView,
+  group,
+  educationLevel,
+  defenseYear,
+}: {
+  activeView: StatisticsView
+  group: GroupDto
+  educationLevel: EducationLevel
+  defenseYear: string
+}) {
+  const views: StatisticsView[] = ['results', 'previous-year-comparison', 'supervisor-workload', 'practice-bases']
+
+  return (
+    <nav className="mt-7 flex flex-wrap items-center gap-3" aria-label="Навігація статистики групи">
+      {views.map((view) => {
+        const isActive = view === activeView
+        const pathView = view === 'results' ? 'results' : view
+
+        return (
+          <Link
+            key={view}
+            to={makePath(`/groups/${defenseYear}/${group.id}/${pathView}`, educationLevel)}
+            className={[
+              'inline-flex h-10 items-center gap-2 rounded-full border-2 px-4 text-sm font-bold transition',
+              isActive
+                ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
+                : 'border-blue-600 bg-white text-blue-600 hover:bg-blue-600 hover:text-white',
+            ].join(' ')}
+          >
+            <span>{statisticViewLabels[view]} {view === 'results' ? group.name : ''}</span>
+            <ArrowRight size={22} />
+          </Link>
+        )
+      })}
+    </nav>
+  )
+}
+
 function ResultsScreen({
   group,
   educationLevel,
@@ -1065,44 +1214,31 @@ function ResultsScreen({
 }) {
   const statisticsQuery = useQuery(groupStatisticsQuery(group.id, secretaryEmail))
   const orderedSections = statisticsQuery.data ? orderStatisticSections(statisticsQuery.data.sections) : []
+  const groupName = statisticsQuery.data?.groupName ?? group.name
 
   return (
-    <div className="overflow-x-auto pb-2">
-      <article className="min-w-[1120px] rounded-[22px] bg-white/65 p-9 shadow-sm">
-        <div className="flex items-center gap-5">
-          <Link to={makePath(`/groups/${defenseYear}/${group.id}`, educationLevel)} className="text-slate-500">
-            <ArrowLeft size={38} />
-          </Link>
-          <h1 className="text-4xl font-bold uppercase text-blue-600">Результати захисту {group.name}</h1>
+    <StatisticsPageShell
+      activeView="results"
+      title={`Результати захисту ${groupName}`}
+      group={group}
+      educationLevel={educationLevel}
+      defenseYear={defenseYear}
+    >
+      {statisticsQuery.isLoading && <SectionMessage>Завантажуємо статистику...</SectionMessage>}
+      {statisticsQuery.error && <ErrorMessage error={statisticsQuery.error} />}
+      {statisticsQuery.data && orderedSections.length === 0 && (
+        <SectionMessage>Для цієї групи ще немає статистичних даних.</SectionMessage>
+      )}
+      {statisticsQuery.data && orderedSections.length > 0 && (
+        <div className="rounded-[18px] bg-white/60 p-5">
+          <div className="space-y-6">
+            {orderedSections.map((section, sectionIndex) => (
+              <ResultStatisticCard key={section.key} section={section} sectionIndex={sectionIndex} />
+            ))}
+          </div>
         </div>
-        <div className="mt-10">
-          {statisticsQuery.isLoading && <SectionMessage>Завантажуємо статистику...</SectionMessage>}
-          {statisticsQuery.error && <ErrorMessage error={statisticsQuery.error} />}
-          {statisticsQuery.data && (
-            <div
-              className={[
-                'grid',
-                statisticsQuery.data.previousYearStatistics ? 'grid-cols-[0.92fr_0.72fr] gap-3' : 'grid-cols-1 gap-8',
-              ].join(' ')}
-            >
-              <div className="rounded-[18px] bg-white/60 p-5">
-                <div className="space-y-6">
-                  {orderedSections.map((section, sectionIndex) => (
-                    <ResultStatisticCard key={section.key} section={section} sectionIndex={sectionIndex} />
-                  ))}
-                </div>
-              </div>
-              {statisticsQuery.data.previousYearStatistics && (
-                <ComparisonColumn
-                  sections={orderedSections}
-                  previousYearStatistics={statisticsQuery.data.previousYearStatistics}
-                />
-              )}
-            </div>
-          )}
-        </div>
-      </article>
-    </div>
+      )}
+    </StatisticsPageShell>
   )
 }
 
@@ -1113,9 +1249,9 @@ function ResultStatisticCard({
   section: StatisticSectionDto
   sectionIndex: number
 }) {
-  const highlightedLastItem = isGraduationRecommendationItem(section.items.at(-1))
-  const regularItems = highlightedLastItem ? section.items.slice(0, -1) : section.items
-  const highlightedItem = highlightedLastItem ? section.items.at(-1) : null
+  const items = orderStatisticItems(section)
+  const highlightedItem = items.find(isGraduationRecommendationItem) ?? null
+  const regularItems = highlightedItem ? items.filter((item) => item.key !== highlightedItem.key) : items
   const colorLabels = isGradeStatisticSection(section) || isQualityStatisticSection(section)
 
   return (
@@ -1187,41 +1323,65 @@ function RecommendationStatisticRow({ item }: { item: StatisticItemDto }) {
   )
 }
 
-function ComparisonColumn({
-  sections,
-  previousYearStatistics,
+function PreviousYearComparisonScreen({
+  group,
+  educationLevel,
+  defenseYear,
+  secretaryEmail,
 }: {
-  sections: StatisticSectionDto[]
-  previousYearStatistics: PreviousYearStatisticsDto
+  group: GroupDto
+  educationLevel: EducationLevel
+  defenseYear: string
+  secretaryEmail: string
 }) {
-  const previousSections = previousYearStatistics.sections
-  const comparableSections = sections
+  const comparisonQuery = useQuery(previousYearComparisonQuery(group.id, secretaryEmail))
+  const groupName = comparisonQuery.data?.groupName ?? group.name
+  const currentSections = comparisonQuery.data
+    ? orderStatisticSections(comparisonQuery.data.currentGroup.sections)
+    : []
+  const previousSections = comparisonQuery.data?.previousYear?.sections ?? []
+  const comparableSections = currentSections
     .map((section, sectionIndex) => ({
       current: section,
       previous: findPreviousStatisticSection(section, previousSections),
       sectionIndex,
     }))
-    .filter((entry) => entry.previous)
-    .slice(0, 3)
-
-  if (comparableSections.length === 0) {
-    return null
-  }
+    .filter((entry): entry is { current: StatisticSectionDto; previous: StatisticSectionDto; sectionIndex: number } =>
+      Boolean(entry.previous),
+    )
 
   return (
-    <div className="rounded-[18px] bg-white/60 p-5">
-      <div className="space-y-6">
-        {comparableSections.map((entry, index) => (
-          <ComparisonChartCard
-            key={entry.current.key}
-            currentSection={entry.current}
-            previousSection={entry.previous as StatisticSectionDto}
-            sectionIndex={entry.sectionIndex}
-            showTitle={index === 0}
-          />
-        ))}
-      </div>
-    </div>
+    <StatisticsPageShell
+      activeView="previous-year-comparison"
+      title={`${groupName}: порівняння з минулим роком`}
+      group={group}
+      educationLevel={educationLevel}
+      defenseYear={defenseYear}
+    >
+      {comparisonQuery.isLoading && <SectionMessage>Завантажуємо порівняння...</SectionMessage>}
+      {comparisonQuery.error && <ErrorMessage error={comparisonQuery.error} />}
+      {comparisonQuery.data?.previousYear === null && (
+        <SectionMessage>Немає даних минулого року для порівняння з цією групою.</SectionMessage>
+      )}
+      {comparisonQuery.data?.previousYear && comparableSections.length === 0 && (
+        <SectionMessage>Немає спільних показників для порівняння.</SectionMessage>
+      )}
+      {comparisonQuery.data?.previousYear && comparableSections.length > 0 && (
+        <div className="rounded-[18px] bg-white p-6">
+          <ComparisonLegend />
+          <div className="mt-3 grid grid-cols-12 gap-3">
+            {comparableSections.map((entry) => (
+              <ComparisonChartCard
+                key={entry.current.key}
+                currentSection={entry.current}
+                previousSection={entry.previous}
+                sectionIndex={entry.sectionIndex}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </StatisticsPageShell>
   )
 }
 
@@ -1229,29 +1389,34 @@ function ComparisonChartCard({
   currentSection,
   previousSection,
   sectionIndex,
-  showTitle,
 }: {
   currentSection: StatisticSectionDto
   previousSection: StatisticSectionDto
   sectionIndex: number
-  showTitle: boolean
 }) {
   const items = comparisonItemsForSection(currentSection)
     .map((item) => ({ current: item, previous: findPreviousStatisticItem(item, previousSection.items) }))
     .filter((item) => item.previous)
+  const cardWidth = currentSection.key === 'workCharacter'
+    ? 'col-span-8'
+    : currentSection.key === 'complexDiplomaDesign'
+      ? 'col-span-6'
+      : currentSection.key === 'gradesAndRecommendations'
+        ? 'col-span-4'
+        : 'col-span-3'
 
   if (items.length === 0) {
     return null
   }
 
   return (
-    <section className="rounded-[18px] border border-slate-300 bg-white p-6">
-      {showTitle && <h2 className="text-xl font-bold uppercase text-slate-500">Порівняння з минулим роком</h2>}
+    <section className={['rounded-[18px] border border-slate-300 bg-white p-6', cardWidth].join(' ')}>
+      <h2 className="min-h-10 text-sm font-bold uppercase text-slate-500">{displayStatisticTitle(currentSection)}</h2>
       <div
         className={[
           'grid items-start',
-          items.length > 3 ? 'min-h-[250px] gap-3' : 'min-h-[270px] gap-7',
-          showTitle ? 'mt-8' : 'mt-2',
+          items.length > 3 ? 'min-h-[230px] gap-3' : 'min-h-[230px] gap-7',
+          'mt-5',
         ].join(' ')}
         style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
       >
@@ -1310,7 +1475,7 @@ function ComparisonBar({ percent, colorClass, compact }: { percent: number; colo
 
 function ComparisonLegend() {
   return (
-    <div className="mt-5 space-y-1 pl-1 text-xs font-bold text-slate-500">
+    <div className="space-y-1 pl-1 text-xs font-bold text-slate-500">
       <div className="flex items-center gap-2">
         <span className="h-3 w-3 bg-purple-600" aria-hidden="true" />
         <span>Поточна група</span>
@@ -1321,6 +1486,160 @@ function ComparisonLegend() {
       </div>
     </div>
   )
+}
+
+function SupervisorWorkloadScreen({
+  group,
+  educationLevel,
+  defenseYear,
+  secretaryEmail,
+}: {
+  group: GroupDto
+  educationLevel: EducationLevel
+  defenseYear: string
+  secretaryEmail: string
+}) {
+  const workloadQuery = useQuery(supervisorWorkloadQuery(group.id, secretaryEmail))
+  const groupName = workloadQuery.data?.groupName ?? group.name
+
+  return (
+    <StatisticsPageShell
+      activeView="supervisor-workload"
+      title={`${groupName}: навантаженість керівників`}
+      group={group}
+      educationLevel={educationLevel}
+      defenseYear={defenseYear}
+    >
+      {workloadQuery.isLoading && <SectionMessage>Завантажуємо навантаженість керівників...</SectionMessage>}
+      {workloadQuery.error && <ErrorMessage error={workloadQuery.error} />}
+      {workloadQuery.data && workloadQuery.data.items.length === 0 && (
+        <SectionMessage>У групі ще немає студентів або призначених керівників.</SectionMessage>
+      )}
+      {workloadQuery.data && workloadQuery.data.items.length > 0 && (
+        <section className="rounded-[18px] border border-slate-300 bg-white px-10 py-12">
+          <table className="w-full table-fixed border-collapse text-center font-bold text-slate-500">
+            <thead className="border-b border-slate-300 text-sm">
+              <tr>
+                <th className="w-[30%] py-4">ПІБ</th>
+                <th className="py-4 text-blue-600">Призначена кількість дипломників</th>
+                <th className="py-4 text-green-500">Середній бал дипломників</th>
+                <th className="py-4">Дипломи з відзнакою</th>
+                <th className="py-4">Середній відсоток запозичення робіт</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 text-lg">
+              {workloadQuery.data.items.map((item) => (
+                <SupervisorWorkloadRow key={`${item.key}-${item.teacherId ?? 'missing'}`} item={item} />
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-12 border-t border-slate-300 px-5 pt-5 text-2xl font-bold">
+            <div className="grid grid-cols-[1fr_220px] gap-y-6">
+              <span className="text-slate-500">Всього керівників</span>
+              <span className="text-slate-500">{workloadQuery.data.summary.totalSupervisors} керівників</span>
+              <span className="text-blue-600">Всього студентів</span>
+              <span className="text-blue-600">{workloadQuery.data.summary.totalStudents} студентів</span>
+            </div>
+          </div>
+        </section>
+      )}
+    </StatisticsPageShell>
+  )
+}
+
+function SupervisorWorkloadRow({ item }: { item: SupervisorWorkloadItemDto }) {
+  const isSynthetic = item.key === 'withoutSupervisor'
+  const name = isSynthetic ? 'Студенти без керівника' : item.shortName || item.fullName || 'Не призначено'
+
+  return (
+    <tr className={isSynthetic ? 'bg-slate-50 text-slate-400' : ''}>
+      <td className="py-5 text-left">{name}</td>
+      <td className="py-5 text-blue-600">{item.studentsCount}</td>
+      <td className="py-5 text-green-500">{formatNullableMetric(item.averageScore)}</td>
+      <td className="py-5">{item.diplomasWithHonorsCount}</td>
+      <td className="py-5">{formatNullableMetric(item.averagePlagiarismPercent, '%')}</td>
+    </tr>
+  )
+}
+
+function PracticeBaseRatingScreen({
+  group,
+  educationLevel,
+  defenseYear,
+  secretaryEmail,
+}: {
+  group: GroupDto
+  educationLevel: EducationLevel
+  defenseYear: string
+  secretaryEmail: string
+}) {
+  const ratingQuery = useQuery(practiceBaseRatingQuery(group.id, secretaryEmail))
+  const groupName = ratingQuery.data?.groupName ?? group.name
+
+  return (
+    <StatisticsPageShell
+      activeView="practice-bases"
+      title={`${groupName}: рейтинг місць проходження практики`}
+      group={group}
+      educationLevel={educationLevel}
+      defenseYear={defenseYear}
+    >
+      {ratingQuery.isLoading && <SectionMessage>Завантажуємо рейтинг баз практики...</SectionMessage>}
+      {ratingQuery.error && <ErrorMessage error={ratingQuery.error} />}
+      {ratingQuery.data && ratingQuery.data.items.length === 0 && (
+        <SectionMessage>У групі ще немає заповнених баз практики.</SectionMessage>
+      )}
+      {ratingQuery.data && ratingQuery.data.items.length > 0 && (
+        <section className="min-h-[620px] rounded-[18px] border border-slate-300 bg-white px-10 py-7">
+          <h2 className="text-sm font-bold uppercase text-slate-500">Популярні бази практики</h2>
+          <table className="mt-16 w-full table-fixed border-collapse text-center text-lg font-bold text-slate-500">
+            <thead className="border-b border-slate-300 text-sm">
+              <tr>
+                <th className="w-[20%] py-5">Рейтинг</th>
+                <th className="py-5">Назва місця практики</th>
+                <th className="w-[24%] py-5 text-blue-600">Кількість студентів</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {ratingQuery.data.items.map((item) => (
+                <PracticeBaseRatingRow key={`${item.key}-${item.rank ?? 'missing'}-${item.practiceBase ?? 'empty'}`} item={item} />
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
+    </StatisticsPageShell>
+  )
+}
+
+function PracticeBaseRatingRow({ item }: { item: PracticeBaseRatingItemDto }) {
+  const isSynthetic = item.key === 'withoutPracticeBase'
+  const rank = Number(item.rank)
+  const highlightClass = rank === 1
+    ? 'bg-yellow-100'
+    : rank === 2
+      ? 'bg-slate-100'
+      : rank === 3
+        ? 'bg-orange-100'
+        : ''
+
+  return (
+    <tr className={[highlightClass, isSynthetic ? 'bg-slate-50 text-slate-400' : ''].join(' ')}>
+      <td className="py-6">{isSynthetic ? '' : item.rank}</td>
+      <td className="py-6 text-slate-600">{isSynthetic ? 'Студенти без бази практики' : item.practiceBase}</td>
+      <td className="py-6 text-blue-600">{item.studentsCount}</td>
+    </tr>
+  )
+}
+
+function formatNullableMetric(value: number | null, suffix = '') {
+  if (value === null || !Number.isFinite(value)) {
+    return '-'
+  }
+
+  const normalized = Number.isInteger(value) ? String(value) : value.toFixed(1)
+
+  return `${normalized}${suffix}`
 }
 
 interface StudentFormState {
@@ -1335,10 +1654,12 @@ interface StudentFormState {
   physical: PhysicalChecklistDto
   electronic: ElectronicChecklistDto
   defenceDate: string
+  protocolNumber: string
+  durationOfDefenceMinutes: string
+  presentationSheets: string
+  workSheets: string
   plagiarismPercent: string
   uniquePercent: string
-  supervisorScore: string
-  reviewerScore: string
   commissionScore: string
   ectsGrade: EctsGrade
   nationalGrade: NationalGrade
@@ -1426,10 +1747,12 @@ function studentFormFromDetails(details: StudentDetailsResponse): StudentFormSta
     physical: details.physicalChecklist ?? emptyPhysicalChecklist,
     electronic: details.electronicChecklist ?? emptyElectronicChecklist,
     defenceDate: details.defenceInfo?.defenceDate ?? '',
+    protocolNumber: asString(details.defenceInfo?.protocolNumber ?? undefined),
+    durationOfDefenceMinutes: asString(details.defenceInfo?.durationOfDefenceMinutes ?? undefined),
+    presentationSheets: asString(details.defenceInfo?.presentationSheets ?? undefined),
+    workSheets: asString(details.defenceInfo?.workSheets ?? undefined),
     plagiarismPercent: asString(details.defenceResults?.plagiarismPercent ?? 0),
     uniquePercent: asString(details.defenceResults?.uniquePercent ?? 0),
-    supervisorScore: asString(details.defenceResults?.supervisorScore ?? 0),
-    reviewerScore: asString(details.defenceResults?.reviewerScore ?? 0),
     commissionScore: asString(details.defenceResults?.commissionScore ?? 0),
       ectsGrade: normalizeEctsGrade(details.defenceResults?.ectsGrade),
       nationalGrade: normalizeNationalGrade(details.defenceResults?.nationalGrade),
@@ -1591,8 +1914,23 @@ function StudentDetailsPanel({
         requests.push(updateElectronicChecklist(studentId, { secretaryEmail, ...current.electronic }))
       }
 
-      if (hasChanged(original.defenceDate, current.defenceDate)) {
-        requests.push(updateStudentDefence(studentId, { secretaryEmail, defenceDate: current.defenceDate || null }))
+      const originalDefenceInfo = {
+        defenceDate: original.defenceDate || null,
+        protocolNumber: toNullablePositiveNumber(original.protocolNumber),
+        durationOfDefenceMinutes: toNullablePositiveNumber(original.durationOfDefenceMinutes),
+        presentationSheets: toNullablePositiveNumber(original.presentationSheets),
+        workSheets: toNullablePositiveNumber(original.workSheets),
+      }
+      const currentDefenceInfo = {
+        defenceDate: current.defenceDate || null,
+        protocolNumber: toNullablePositiveNumber(current.protocolNumber),
+        durationOfDefenceMinutes: toNullablePositiveNumber(current.durationOfDefenceMinutes),
+        presentationSheets: toNullablePositiveNumber(current.presentationSheets),
+        workSheets: toNullablePositiveNumber(current.workSheets),
+      }
+
+      if (hasChanged(originalDefenceInfo, currentDefenceInfo)) {
+        requests.push(updateStudentDefence(studentId, { secretaryEmail, ...currentDefenceInfo }))
       }
 
       if (
@@ -1600,8 +1938,6 @@ function StudentDetailsPanel({
           {
             plagiarismPercent: original.plagiarismPercent,
             uniquePercent: original.uniquePercent,
-            supervisorScore: original.supervisorScore,
-            reviewerScore: original.reviewerScore,
             commissionScore: original.commissionScore,
             ectsGrade: original.ectsGrade,
             nationalGrade: original.nationalGrade,
@@ -1610,8 +1946,6 @@ function StudentDetailsPanel({
           {
             plagiarismPercent: current.plagiarismPercent,
             uniquePercent: current.uniquePercent,
-            supervisorScore: current.supervisorScore,
-            reviewerScore: current.reviewerScore,
             commissionScore: current.commissionScore,
             ectsGrade: current.ectsGrade,
             nationalGrade: current.nationalGrade,
@@ -1624,8 +1958,6 @@ function StudentDetailsPanel({
             secretaryEmail,
             plagiarismPercent: withDefaultScore(current.plagiarismPercent),
             uniquePercent: withDefaultScore(current.uniquePercent),
-            supervisorScore: withDefaultScore(current.supervisorScore),
-            reviewerScore: withDefaultScore(current.reviewerScore),
             commissionScore: withDefaultScore(current.commissionScore),
             ectsGrade: current.ectsGrade,
             nationalGrade: current.nationalGrade,
@@ -1700,7 +2032,7 @@ function StudentDetailsPanel({
   }
   const removeDefenceQuestion = (index: number) =>
     updateForm({ defenceQuestions: form.defenceQuestions.filter((_, currentIndex) => currentIndex !== index) })
-  const updateScoreForm = (patch: Partial<Pick<StudentFormState, 'supervisorScore' | 'reviewerScore' | 'commissionScore'>>) => {
+  const updateScoreForm = (patch: Partial<Pick<StudentFormState, 'commissionScore'>>) => {
     const nextCommissionScore = patch.commissionScore ?? form.commissionScore
 
     updateForm({ ...patch, ...calculateDefenceGrades(nextCommissionScore) })
@@ -1740,6 +2072,17 @@ function StudentDetailsPanel({
 
     if (form.supervisorId && form.reviewerId && form.supervisorId === form.reviewerId) {
       showError('Керівник і рецензент не можуть бути одним і тим самим викладачем.')
+      return
+    }
+
+    const invalidDefenceNumberField = [
+      form.protocolNumber,
+      form.durationOfDefenceMinutes,
+      form.presentationSheets,
+      form.workSheets,
+    ].some(hasInvalidNullablePositiveNumber)
+    if (invalidDefenceNumberField) {
+      showError('Числові поля захисту мають бути порожніми або більшими за 0.')
       return
     }
 
@@ -1919,6 +2262,10 @@ function StudentDetailsPanel({
           <section className="space-y-3">
             <h2 className="text-sm font-bold uppercase text-slate-500">Інформація про захист</h2>
             <InputField label="Дата захисту" value={form.defenceDate} disabled={!isEditing} type="date" onChange={(defenceDate) => updateForm({ defenceDate })} />
+            <InputField label="Номер протоколу" value={form.protocolNumber} disabled={!isEditing} onChange={(protocolNumber) => updateForm({ protocolNumber: normalizePositiveInteger(protocolNumber) })} />
+            <InputField label="Тривалість захисту, хв." value={form.durationOfDefenceMinutes} disabled={!isEditing} onChange={(durationOfDefenceMinutes) => updateForm({ durationOfDefenceMinutes: normalizePositiveInteger(durationOfDefenceMinutes) })} />
+            <InputField label="Кількість сторінок презентації" value={form.presentationSheets} disabled={!isEditing} onChange={(presentationSheets) => updateForm({ presentationSheets: normalizePositiveInteger(presentationSheets) })} />
+            <InputField label="Кількість сторінок пояснювальної записки" value={form.workSheets} disabled={!isEditing} onChange={(workSheets) => updateForm({ workSheets: normalizePositiveInteger(workSheets) })} />
             <DefenceQuestionsEditor
               questions={form.defenceQuestions}
               authorOptions={defenceQuestionAuthorOptions}
@@ -1932,8 +2279,6 @@ function StudentDetailsPanel({
             <h2 className="text-sm font-bold uppercase text-slate-500">Результати захисту</h2>
             <InputField label="Відсоток запозичення" value={form.plagiarismPercent} disabled={!isEditing} onChange={(plagiarismPercent) => updateForm({ plagiarismPercent: normalizeDecimalPercent(plagiarismPercent) })} />
             <InputField label="Унікальність роботи" value={form.uniquePercent} disabled={!isEditing} onChange={(uniquePercent) => updateForm({ uniquePercent: normalizeDecimalPercent(uniquePercent) })} />
-            <InputField label="Оцінка керівника" value={form.supervisorScore} disabled={!isEditing} onChange={(supervisorScore) => updateScoreForm({ supervisorScore: normalizeScore(supervisorScore) })} />
-            <InputField label="Оцінка рецензента" value={form.reviewerScore} disabled={!isEditing} onChange={(reviewerScore) => updateScoreForm({ reviewerScore: normalizeScore(reviewerScore) })} />
             <InputField label="Оцінка ДЕК" value={form.commissionScore} disabled={!isEditing} onChange={(commissionScore) => updateScoreForm({ commissionScore: normalizeScore(commissionScore) })} />
             <InputField label="Оцінка ECTS" value={displayEctsGrade(form.ectsGrade)} disabled onChange={() => undefined} />
             <InputField label="Національна шкала" value={displayNationalGrade(form.nationalGrade)} disabled onChange={() => undefined} />
@@ -2075,6 +2420,10 @@ function StudentCollapsedSections({ details, form }: { details: StudentDetailsRe
       content: (
         <div className="grid gap-5">
           <ReadOnlyRow label="Дата захисту" value={formatDateOnly(form.defenceDate)} />
+          <ReadOnlyRow label="Номер протоколу" value={form.protocolNumber} />
+          <ReadOnlyRow label="Тривалість захисту, хв." value={form.durationOfDefenceMinutes} />
+          <ReadOnlyRow label="Кількість сторінок презентації" value={form.presentationSheets} />
+          <ReadOnlyRow label="Кількість сторінок пояснювальної записки" value={form.workSheets} />
           <ReadOnlyDefenceQuestions questions={form.defenceQuestions} />
         </div>
       ),
@@ -2086,8 +2435,6 @@ function StudentCollapsedSections({ details, form }: { details: StudentDetailsRe
         <div className="grid gap-3">
           <ReadOnlyRow label="Відсоток запозичення" value={form.plagiarismPercent} />
           <ReadOnlyRow label="Унікальність роботи" value={form.uniquePercent} />
-            <ReadOnlyRow label="Оцінка керівника" value={form.supervisorScore} />
-            <ReadOnlyRow label="Оцінка рецензента" value={form.reviewerScore} />
             <ReadOnlyRow label="Оцінка ДЕК" value={form.commissionScore} />
             <ReadOnlyRow label="Оцінка ECTS" value={displayEctsGrade(form.ectsGrade)} />
             <ReadOnlyRow label="Національна шкала" value={displayNationalGrade(form.nationalGrade)} />
@@ -2327,7 +2674,6 @@ interface GroupNameParts {
   index: string
   startYear: string
   number: string
-  letter: string
   isDistance: boolean
 }
 
@@ -2335,7 +2681,6 @@ const emptyGroupNameParts: GroupNameParts = {
   index: '',
   startYear: '',
   number: '',
-  letter: '',
   isDistance: false,
 }
 
@@ -2356,20 +2701,12 @@ function normalizeGroupNumber(value: string) {
   return value.replace(/\D/g, '').slice(0, 3)
 }
 
-function normalizeGroupLetter(value: string) {
-  return value
-    .replace(/[^А-ЯЄІЇҐа-яєіїґ]/g, '')
-    .toLocaleLowerCase('uk-UA')
-    .slice(0, 1)
-}
-
 function makeGroupName(parts: GroupNameParts, educationLevel: EducationLevel) {
   const base = `${parts.index}-${parts.startYear}-${parts.number}`
-  const letter = parts.letter ? `(${parts.letter})` : ''
   const distance = parts.isDistance ? 'з' : ''
   const master = educationLevel === 'Master' ? 'м' : ''
 
-  return `${base}${letter}${distance}${master}`
+  return `${base}${distance}${master}`
 }
 
 function parseGroupName(name: string, educationLevel: EducationLevel): GroupNameParts {
@@ -2384,7 +2721,6 @@ function parseGroupName(name: string, educationLevel: EducationLevel): GroupName
     index: match[1] ?? '',
     startYear: match[2] ?? '',
     number: match[3] ?? '',
-    letter: match[4] ?? '',
     isDistance: Boolean(match[5]),
   }
 }
@@ -2486,8 +2822,29 @@ function normalizeScore(value: string) {
   return normalized
 }
 
+function normalizePositiveInteger(value: string) {
+  return normalizeDigitsOnly(value)
+}
+
+function toNullablePositiveNumber(value: string) {
+  const normalized = normalizePositiveInteger(value)
+
+  if (!normalized) {
+    return null
+  }
+
+  const numericValue = Number(normalized)
+  return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : null
+}
+
+function hasInvalidNullablePositiveNumber(value: string) {
+  return Boolean(value.trim()) && toNullablePositiveNumber(value) === null
+}
+
 function withDefaultScore(value: string) {
-  return value.trim() || '0'
+  const numericValue = Number(value.trim() || '0')
+
+  return Number.isFinite(numericValue) ? numericValue : 0
 }
 
 function GroupNameSegmentedInput({
@@ -2531,15 +2888,6 @@ function GroupNameSegmentedInput({
           aria-label="Номер групи"
           className="h-12 w-20 rounded-xl border border-slate-300 bg-transparent px-3 text-center outline-none focus:border-blue-500"
         />
-        <span className="text-xl text-slate-500">(</span>
-        <input
-          value={value.letter}
-          onChange={(event) => update({ letter: normalizeGroupLetter(event.target.value) })}
-          placeholder="а"
-          aria-label="Літера групи"
-          className="h-12 w-14 rounded-xl border border-slate-300 bg-transparent px-3 text-center outline-none focus:border-blue-500"
-        />
-        <span className="text-xl text-slate-500">)</span>
         <label className="ml-2 inline-flex h-12 items-center gap-2 rounded-xl border border-slate-300 px-3 text-base text-slate-600">
           <input
             type="checkbox"
@@ -2555,6 +2903,83 @@ function GroupNameSegmentedInput({
         )}
       </div>
     </div>
+  )
+}
+
+function ImportColumnsHint({
+  title,
+  description,
+  columns,
+  isLoading,
+  error,
+}: {
+  title: string
+  description: string
+  columns: ImportTableColumnDto[] | undefined
+  isLoading: boolean
+  error: unknown
+}) {
+  if (isLoading) {
+    return (
+      <section className="rounded-[18px] border border-blue-100 bg-white/70 px-5 py-4 text-sm font-bold text-slate-500">
+        Завантажуємо список колонок, які читає сервер...
+      </section>
+    )
+  }
+
+  if (error) {
+    return <ErrorMessage error={error} />
+  }
+
+  if (!columns?.length) {
+    return (
+      <section className="rounded-[18px] border border-blue-100 bg-white/70 px-5 py-4 text-sm font-bold text-slate-500">
+        Список підтримуваних колонок поки недоступний.
+      </section>
+    )
+  }
+
+  return (
+    <section className="rounded-[22px] border border-blue-100 bg-blue-50/70 p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-bold uppercase text-blue-600">{title}</h4>
+          <p className="mt-2 max-w-[820px] text-sm font-semibold leading-relaxed text-slate-500">{description}</p>
+        </div>
+        <span className="rounded-full bg-white px-4 py-2 text-xs font-bold uppercase text-slate-500 shadow-sm">
+          Регістр не важливий
+        </span>
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {columns.map((column) => (
+          <article key={column.key} className="rounded-[16px] border border-slate-200 bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h5 className="min-w-0 flex-1 text-base font-bold leading-snug text-slate-700">
+                {column.displayName}
+              </h5>
+              <span
+                className={[
+                  'rounded-full px-3 py-1 text-xs font-bold',
+                  column.required ? 'bg-orange-50 text-orange-600' : 'bg-slate-100 text-slate-500',
+                ].join(' ')}
+              >
+                {column.required ? 'Обов’язкова' : 'Необов’язкова'}
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {column.acceptedHeaders.map((header) => (
+                <span
+                  key={header}
+                  className="max-w-full rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-600 [overflow-wrap:anywhere]"
+                >
+                  {header}
+                </span>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -2582,6 +3007,7 @@ function GroupDialog({
   const [year, setYear] = useState(initialYear ?? currentDefenseYears()[0])
   const [driveUrl, setDriveUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const importColumnsQuery = useQuery(studentImportColumnsQuery(secretaryEmail, mode === 'create'))
   const name = makeGroupName(nameParts, educationLevel)
   const handleSelectedFile = (selectedFile: File | null) => {
     if (!selectedFile) {
@@ -2690,7 +3116,7 @@ function GroupDialog({
               <p className="mt-2 text-xl font-bold text-slate-500">
                 Завантажте файл з переліком студентів групи, або залиште посилання на Google Drive
               </p>
-              <div className="mt-8 grid grid-cols-[1fr_80px_1fr] items-center gap-8">
+              <div className="mt-8 grid grid-cols-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_80px_minmax(0,1fr)] xl:items-center xl:gap-8">
                 <label
                   onDragOver={handleFileDrag}
                   onDrop={handleFileDrop}
@@ -2716,6 +3142,15 @@ function GroupDialog({
                   onChange={(event) => setDriveUrl(event.target.value)}
                   placeholder="Приклад: посилання Google Drive"
                   className="min-h-56 rounded-xl border border-slate-300 bg-transparent p-5 text-xl font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
+                />
+              </div>
+              <div className="mt-6">
+                <ImportColumnsHint
+                  title="Колонки таблиці студентів"
+                  description="Сервер знайде ці поля за будь-яким із допустимих заголовків. Основну назву можна використовувати як підказку для шаблону таблиці."
+                  columns={importColumnsQuery.data?.columns}
+                  isLoading={importColumnsQuery.isLoading}
+                  error={importColumnsQuery.error}
                 />
               </div>
             </div>
@@ -2753,6 +3188,7 @@ function ImportDefenceResultsDialog({
   const { showError, showSuccess } = useToast()
   const [driveUrl, setDriveUrl] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const importColumnsQuery = useQuery(defenceResultsImportColumnsQuery(secretaryEmail))
   const handleSelectedFile = (selectedFile: File | null) => {
     if (!selectedFile) {
       setFile(null)
@@ -2806,21 +3242,21 @@ function ImportDefenceResultsDialog({
       onDragOver={handleFileDrag}
       onDrop={handleFileDrop}
     >
-      <section className="mx-auto min-h-[520px] max-w-[1040px] rounded-[28px] bg-white/80 p-10 shadow-xl">
+      <section className="mx-auto min-h-[520px] max-w-[1120px] rounded-[28px] bg-white/80 p-10 shadow-xl">
         <div className="flex items-start justify-between">
           <h2 className="text-4xl font-bold uppercase text-blue-600">Завантаження результатів захисту</h2>
           <button type="button" onClick={onClose} aria-label="Закрити" className="text-red-500">
             <X size={42} />
           </button>
         </div>
-        <div className="mt-10 max-w-[920px] space-y-8">
+        <div className="mt-10 max-w-[1000px] space-y-8">
           <div>
             <h3 className="text-sm font-bold uppercase text-slate-500">{group.name}</h3>
             <p className="mt-2 text-xl font-bold text-slate-500">
               Завантажте таблицю з результатами захисту або залиште посилання на Google Drive.
             </p>
           </div>
-          <div className="grid grid-cols-[1fr_80px_1fr] items-center gap-8">
+          <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_80px_minmax(0,1fr)] xl:items-center xl:gap-8">
             <label
               onDragOver={handleFileDrag}
               onDrop={handleFileDrop}
@@ -2848,6 +3284,13 @@ function ImportDefenceResultsDialog({
               className="min-h-56 rounded-xl border border-slate-300 bg-transparent p-5 text-xl font-bold outline-none placeholder:text-slate-400 focus:border-blue-500"
             />
           </div>
+          <ImportColumnsHint
+            title="Колонки таблиці результатів захисту"
+            description="Це заголовки, які backend розпізнає під час імпорту результатів. Можна використовувати будь-який варіант із переліку."
+            columns={importColumnsQuery.data?.columns}
+            isLoading={importColumnsQuery.isLoading}
+            error={importColumnsQuery.error}
+          />
         </div>
         <div className="mt-12 flex justify-end gap-3">
           <button
@@ -2943,9 +3386,13 @@ interface CommissionFormState {
   firstMemberTeacherId: string
   secondMemberTeacherId: string
   thirdMemberTeacherId: string
+  firstConsultantId: string
+  secondConsultantId: string
   secretaryId: string
   startDate: string
   endDate: string
+  meetingStart: string
+  meetingEnd: string
 }
 
 const emptyCommissionForm: CommissionFormState = {
@@ -2954,9 +3401,13 @@ const emptyCommissionForm: CommissionFormState = {
   firstMemberTeacherId: '',
   secondMemberTeacherId: '',
   thirdMemberTeacherId: '',
+  firstConsultantId: '',
+  secondConsultantId: '',
   secretaryId: '',
   startDate: '',
   endDate: '',
+  meetingStart: '09:00',
+  meetingEnd: '17:00',
 }
 
 function makeDefaultCommissionForm(defenseYear: string): CommissionFormState {
@@ -2981,6 +3432,10 @@ function commissionFormFromResponse(commission?: DiplomaExaminationCommissionRes
     secretaryId: asString(commission.secretary.id),
     startDate: commission.startDate,
     endDate: commission.endDate,
+    meetingStart: commission.meetingStart,
+    meetingEnd: commission.meetingEnd,
+    firstConsultantId: asString(commission.firstConsultant?.teacherId ?? undefined),
+    secondConsultantId: asString(commission.secondConsultant?.teacherId ?? undefined),
   }
 }
 
@@ -3037,6 +3492,10 @@ function CommissionSelectField({
       </select>
     </label>
   )
+}
+
+function isStrictTime(value: string) {
+  return /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)
 }
 
 function AddCommissionHeadDialog({
@@ -3202,6 +3661,7 @@ function CommissionFormDialog({
     form.secondMemberTeacherId,
     form.thirdMemberTeacherId,
   ].filter(Boolean)
+  const selectedConsultantIds = [form.firstConsultantId, form.secondConsultantId].filter(Boolean)
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -3225,8 +3685,12 @@ function CommissionFormDialog({
           firstMemberTeacherId: form.firstMemberTeacherId,
           secondMemberTeacherId: form.secondMemberTeacherId,
           thirdMemberTeacherId: form.thirdMemberTeacherId,
+          firstConsultantId: form.firstConsultantId || null,
+          secondConsultantId: form.secondConsultantId || null,
           startDate: form.startDate,
           endDate: form.endDate,
+          meetingStart: form.meetingStart,
+          meetingEnd: form.meetingEnd,
         })
       }
 
@@ -3238,8 +3702,12 @@ function CommissionFormDialog({
         firstMemberTeacherId: form.firstMemberTeacherId,
         secondMemberTeacherId: form.secondMemberTeacherId,
         thirdMemberTeacherId: form.thirdMemberTeacherId,
+        firstConsultantId: form.firstConsultantId || null,
+        secondConsultantId: form.secondConsultantId || null,
         startDate: form.startDate,
         endDate: form.endDate,
+        meetingStart: form.meetingStart,
+        meetingEnd: form.meetingEnd,
       })
     },
     onSuccess: async (response) => {
@@ -3254,6 +3722,7 @@ function CommissionFormDialog({
   const validate = () => {
     const messages: string[] = []
     const memberIds = [form.firstMemberTeacherId, form.secondMemberTeacherId, form.thirdMemberTeacherId]
+    const consultantIds = [form.firstConsultantId, form.secondConsultantId].filter(Boolean)
 
     if (!form.orderNumber.trim()) {
       messages.push('Вкажіть № комісії.')
@@ -3282,8 +3751,20 @@ function CommissionFormDialog({
     if (form.startDate && form.endDate && form.endDate < form.startDate) {
       messages.push('Кінець роботи має бути не раніше початку.')
     }
+    if (!isStrictTime(form.meetingStart) || !isStrictTime(form.meetingEnd)) {
+      messages.push('Час засідання має бути у форматі HH:mm.')
+    }
+    if (isStrictTime(form.meetingStart) && isStrictTime(form.meetingEnd) && form.meetingEnd <= form.meetingStart) {
+      messages.push('Кінець засідання має бути пізніше початку.')
+    }
     if (memberIds.filter(Boolean).length !== new Set(memberIds.filter(Boolean)).size) {
       messages.push('Члени комісії мають бути різними викладачами.')
+    }
+    if (consultantIds.length !== new Set(consultantIds).size) {
+      messages.push('Консультанти мають бути різними викладачами.')
+    }
+    if (consultantIds.some((consultantId) => memberIds.includes(consultantId))) {
+      messages.push('Консультанти не можуть збігатися з членами комісії.')
     }
     return messages
   }
@@ -3414,6 +3895,46 @@ function CommissionFormDialog({
                 ))}
               </CommissionSelectField>
               <CommissionSelectField
+                label="1-й консультант"
+                value={form.firstConsultantId}
+                onChange={(firstConsultantId) => updateForm({ firstConsultantId })}
+              >
+                <option value="">Не призначено</option>
+                {options.teachers.map((teacher) => (
+                  <option
+                    key={teacher.id}
+                    value={teacher.id}
+                    disabled={
+                      selectedMemberIds.includes(asString(teacher.id)) ||
+                      (selectedConsultantIds.includes(asString(teacher.id)) &&
+                        asString(teacher.id) !== form.firstConsultantId)
+                    }
+                  >
+                    {teacher.fullName}
+                  </option>
+                ))}
+              </CommissionSelectField>
+              <CommissionSelectField
+                label="2-й консультант"
+                value={form.secondConsultantId}
+                onChange={(secondConsultantId) => updateForm({ secondConsultantId })}
+              >
+                <option value="">Не призначено</option>
+                {options.teachers.map((teacher) => (
+                  <option
+                    key={teacher.id}
+                    value={teacher.id}
+                    disabled={
+                      selectedMemberIds.includes(asString(teacher.id)) ||
+                      (selectedConsultantIds.includes(asString(teacher.id)) &&
+                        asString(teacher.id) !== form.secondConsultantId)
+                    }
+                  >
+                    {teacher.fullName}
+                  </option>
+                ))}
+              </CommissionSelectField>
+              <CommissionSelectField
                 label="Секретар комісії"
                 value={form.secretaryId}
                 onChange={(secretaryId) => updateForm({ secretaryId })}
@@ -3445,6 +3966,28 @@ function CommissionFormDialog({
                     type="date"
                     value={form.endDate}
                     onChange={(event) => updateForm({ endDate: event.target.value })}
+                    className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 outline-none focus:border-blue-500"
+                  />
+                </label>
+              </div>
+              <div className="grid max-w-[620px] grid-cols-2 gap-8">
+                <label className="space-y-3 text-lg font-bold text-slate-700">
+                  <span>Початок засідання</span>
+                  <input
+                    type="time"
+                    step="60"
+                    value={form.meetingStart}
+                    onChange={(event) => updateForm({ meetingStart: event.target.value })}
+                    className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 outline-none focus:border-blue-500"
+                  />
+                </label>
+                <label className="space-y-3 text-lg font-bold text-slate-700">
+                  <span>Кінець засідання</span>
+                  <input
+                    type="time"
+                    step="60"
+                    value={form.meetingEnd}
+                    onChange={(event) => updateForm({ meetingEnd: event.target.value })}
                     className="h-12 w-full rounded-xl border border-slate-300 bg-transparent px-4 outline-none focus:border-blue-500"
                   />
                 </label>
@@ -3576,8 +4119,15 @@ export function GroupsPage() {
     await queryClient.invalidateQueries({ queryKey: commissionQueryKeys.all })
     navigate(makePath(`/groups/${nextCommission.defenseYear}/commission`, educationLevel))
   }
-  const isExpandedGroupView =
-    view === 'admission' || view === 'material-components' || view === 'electronic-components' || view === 'results'
+  const statisticView = view === 'statistics' ? 'results' : view
+  const isStudentExpandedGroupView =
+    view === 'admission' || view === 'material-components' || view === 'electronic-components'
+  const isStatisticsView =
+    statisticView === 'results' ||
+    statisticView === 'previous-year-comparison' ||
+    statisticView === 'supervisor-workload' ||
+    statisticView === 'practice-bases'
+  const isExpandedGroupView = isStudentExpandedGroupView || isStatisticsView
 
   return (
     <section className="space-y-12">
@@ -3595,7 +4145,7 @@ export function GroupsPage() {
 
       {!defenseYear && years.length > 0 && <YearCards years={years} educationLevel={educationLevel} />}
 
-      {defenseYear && selectedYear && !studentId && isExpandedGroupView && selectedGroup && studentsQuery.data && (
+      {defenseYear && selectedYear && !studentId && isStudentExpandedGroupView && selectedGroup && studentsQuery.data && (
         <>
           {view === 'admission' && (
             <AdmissionScreen
@@ -3625,22 +4175,50 @@ export function GroupsPage() {
               defenseYear={selectedYear.defenseYear}
             />
           )}
-          {view === 'results' && (
-            <ResultsScreen
-              group={selectedGroup}
-              educationLevel={educationLevel}
-              defenseYear={selectedYear.defenseYear}
-              secretaryEmail={secretaryEmail}
-            />
-          )}
         </>
       )}
 
-      {defenseYear && selectedYear && !studentId && isExpandedGroupView && selectedGroup && studentsQuery.isLoading && (
+      {defenseYear && selectedYear && !studentId && isStatisticsView && selectedGroup && statisticView === 'results' && (
+        <ResultsScreen
+          group={selectedGroup}
+          educationLevel={educationLevel}
+          defenseYear={selectedYear.defenseYear}
+          secretaryEmail={secretaryEmail}
+        />
+      )}
+
+      {defenseYear && selectedYear && !studentId && isStatisticsView && selectedGroup && statisticView === 'previous-year-comparison' && (
+        <PreviousYearComparisonScreen
+          group={selectedGroup}
+          educationLevel={educationLevel}
+          defenseYear={selectedYear.defenseYear}
+          secretaryEmail={secretaryEmail}
+        />
+      )}
+
+      {defenseYear && selectedYear && !studentId && isStatisticsView && selectedGroup && statisticView === 'supervisor-workload' && (
+        <SupervisorWorkloadScreen
+          group={selectedGroup}
+          educationLevel={educationLevel}
+          defenseYear={selectedYear.defenseYear}
+          secretaryEmail={secretaryEmail}
+        />
+      )}
+
+      {defenseYear && selectedYear && !studentId && isStatisticsView && selectedGroup && statisticView === 'practice-bases' && (
+        <PracticeBaseRatingScreen
+          group={selectedGroup}
+          educationLevel={educationLevel}
+          defenseYear={selectedYear.defenseYear}
+          secretaryEmail={secretaryEmail}
+        />
+      )}
+
+      {defenseYear && selectedYear && !studentId && isStudentExpandedGroupView && selectedGroup && studentsQuery.isLoading && (
         <SectionMessage>Завантажуємо студентів...</SectionMessage>
       )}
 
-      {defenseYear && selectedYear && !studentId && isExpandedGroupView && selectedGroup && studentsQuery.error && (
+      {defenseYear && selectedYear && !studentId && isStudentExpandedGroupView && selectedGroup && studentsQuery.error && (
         <ErrorMessage error={studentsQuery.error} />
       )}
 

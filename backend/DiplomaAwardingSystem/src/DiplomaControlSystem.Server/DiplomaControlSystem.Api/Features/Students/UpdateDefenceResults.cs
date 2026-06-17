@@ -18,8 +18,6 @@ public static class UpdateDefenceResults
     public sealed record UpdateDefenceResultsRequest(
         float PlagiarismPercent,
         float UniquePercent,
-        int SupervisorScore,
-        int ReviewerScore,
         int CommissionScore,
         string EctsGrade,
         string NationalGrade,
@@ -29,8 +27,6 @@ public static class UpdateDefenceResults
         int StudentId,
         float PlagiarismPercent,
         float UniquePercent,
-        int SupervisorScore,
-        int ReviewerScore,
         int CommissionScore,
         string EctsGrade,
         string NationalGrade,
@@ -44,12 +40,6 @@ public static class UpdateDefenceResults
                 .InclusiveBetween(0, 100);
 
             RuleFor(x => x.UniquePercent)
-                .InclusiveBetween(0, 100);
-
-            RuleFor(x => x.SupervisorScore)
-                .InclusiveBetween(0, 100);
-
-            RuleFor(x => x.ReviewerScore)
                 .InclusiveBetween(0, 100);
 
             RuleFor(x => x.CommissionScore)
@@ -144,8 +134,6 @@ public static class UpdateDefenceResults
             var qualificationWork = StudentDiplomaDataInitializer.EnsureQualificationWork(student);
             qualificationWork.PlagiarismPercent = request.PlagiarismPercent;
             qualificationWork.UniquePercent = request.UniquePercent;
-            qualificationWork.SupervisorScore = request.SupervisorScore;
-            qualificationWork.ReviewerScore = request.ReviewerScore;
             qualificationWork.CommissionScore = request.CommissionScore;
             qualificationWork.EctsGrade = Enum.Parse<EctsGrade>(request.EctsGrade, ignoreCase: true);
             qualificationWork.NationalGrade = Enum.Parse<NationalGrade>(request.NationalGrade, ignoreCase: true);
@@ -157,8 +145,6 @@ public static class UpdateDefenceResults
                 student.Id,
                 qualificationWork.PlagiarismPercent,
                 qualificationWork.UniquePercent,
-                qualificationWork.SupervisorScore,
-                qualificationWork.ReviewerScore,
                 qualificationWork.CommissionScore,
                 qualificationWork.EctsGrade.ToString(),
                 qualificationWork.NationalGrade.ToString(),

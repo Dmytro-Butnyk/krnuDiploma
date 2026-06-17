@@ -11,6 +11,8 @@ public sealed class DiplomaExaminationCommission : BaseEntity
     public string DefenseYear { get; set; }
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
+    public string MeetingStart { get; set; }
+    public string MeetingEnd { get; set; }
 
     public int SpecialtyId { get; set; }
     public Specialty? Specialty { get; set; }
@@ -27,6 +29,12 @@ public sealed class DiplomaExaminationCommission : BaseEntity
     public int ThirdMemberTeacherId { get; set; }
     public Teacher? ThirdMemberTeacher { get; set; }
 
+    public int? FirstConsultantId { get; set; }
+    public Teacher? FirstConsultant { get; set; }
+
+    public int? SecondConsultantId { get; set; }
+    public Teacher? SecondConsultant { get; set; }
+
     public int SecretaryId { get; set; }
     public Secretary? Secretary { get; set; }
 
@@ -37,6 +45,8 @@ public sealed class DiplomaExaminationCommission : BaseEntity
     {
         OrderNumber = string.Empty;
         DefenseYear = string.Empty;
+        MeetingStart = string.Empty;
+        MeetingEnd = string.Empty;
     }
 
     public DiplomaExaminationCommission(
@@ -45,11 +55,15 @@ public sealed class DiplomaExaminationCommission : BaseEntity
         string defenseYear,
         DateOnly startDate,
         DateOnly endDate,
+        string meetingStart,
+        string meetingEnd,
         int specialtyId,
         int commissionHeadId,
         int firstMemberTeacherId,
         int secondMemberTeacherId,
         int thirdMemberTeacherId,
+        int? firstConsultantId,
+        int? secondConsultantId,
         int secretaryId)
     {
         OrderNumber = orderNumber;
@@ -57,11 +71,15 @@ public sealed class DiplomaExaminationCommission : BaseEntity
         DefenseYear = defenseYear;
         StartDate = startDate;
         EndDate = endDate;
+        MeetingStart = meetingStart;
+        MeetingEnd = meetingEnd;
         SpecialtyId = specialtyId;
         CommissionHeadId = commissionHeadId;
         FirstMemberTeacherId = firstMemberTeacherId;
         SecondMemberTeacherId = secondMemberTeacherId;
         ThirdMemberTeacherId = thirdMemberTeacherId;
+        FirstConsultantId = firstConsultantId;
+        SecondConsultantId = secondConsultantId;
         SecretaryId = secretaryId;
     }
 }

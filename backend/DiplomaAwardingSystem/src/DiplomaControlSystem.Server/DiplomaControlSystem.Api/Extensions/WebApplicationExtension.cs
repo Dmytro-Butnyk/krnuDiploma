@@ -41,8 +41,13 @@ public static class WebApplicationExtension
         CreateGroup.Endpoint.MapEndpoint(apiGroup);
         DeleteGroup.Endpoint.MapEndpoint(apiGroup);
         GetAcademicYearsOverview.Endpoint.MapEndpoint(apiGroup);
+        GetDefenceResultImportColumns.Endpoint.MapEndpoint(apiGroup);
+        GetGroupPracticeBaseStatistics.Endpoint.MapEndpoint(apiGroup);
+        GetGroupPreviousYearStatistics.Endpoint.MapEndpoint(apiGroup);
         GetGroupStatistics.Endpoint.MapEndpoint(apiGroup);
         GetGroupStudents.Endpoint.MapEndpoint(apiGroup);
+        GetGroupSupervisorWorkloadStatistics.Endpoint.MapEndpoint(apiGroup);
+        GetStudentImportColumns.Endpoint.MapEndpoint(apiGroup);
         ImportGroupDefenceResults.Endpoint.MapEndpoint(apiGroup);
         UpdateGroup.Endpoint.MapEndpoint(apiGroup);
 

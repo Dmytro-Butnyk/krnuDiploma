@@ -42,13 +42,16 @@ public static class GetStudentDetails
         bool HasReviewDoc,
         bool HasPresentationPpt);
 
-    public sealed record DefenceInfoDto(DateOnly? DefenceDate);
+    public sealed record DefenceInfoDto(
+        DateOnly? DefenceDate,
+        int? ProtocolNumber,
+        int? DurationOfDefenceMinutes,
+        int? PresentationSheets,
+        int? WorkSheets);
 
     public sealed record DefenceResultsDto(
         float PlagiarismPercent,
         float UniquePercent,
-        int SupervisorScore,
-        int ReviewerScore,
         int CommissionScore,
         string EctsGrade,
         string NationalGrade,
@@ -167,12 +170,6 @@ public static class GetStudentDetails
                     UniquePercent = s.QualificationWork != null
                         ? (float?)s.QualificationWork.UniquePercent
                         : null,
-                    SupervisorScore = s.QualificationWork != null
-                        ? (int?)s.QualificationWork.SupervisorScore
-                        : null,
-                    ReviewerScore = s.QualificationWork != null
-                        ? (int?)s.QualificationWork.ReviewerScore
-                        : null,
                     CommissionScore = s.QualificationWork != null
                         ? (int?)s.QualificationWork.CommissionScore
                         : null,
@@ -187,6 +184,18 @@ public static class GetStudentDetails
                         : null,
                     DefenceDate = s.QualificationWork != null
                         ? s.QualificationWork.DefenceDate
+                        : null,
+                    ProtocolNumber = s.QualificationWork != null
+                        ? s.QualificationWork.ProtocolNumber
+                        : null,
+                    DurationOfDefenceMinutes = s.QualificationWork != null
+                        ? s.QualificationWork.DurationOfDefenceMinutes
+                        : null,
+                    PresentationSheets = s.QualificationWork != null
+                        ? s.QualificationWork.PresentationSheets
+                        : null,
+                    WorkSheets = s.QualificationWork != null
+                        ? s.QualificationWork.WorkSheets
                         : null,
                     HasDefence = s.QualificationWork != null,
                     HasPhysicalChecklist = s.PhysicalComponentsChecklist != null,
@@ -310,7 +319,12 @@ public static class GetStudentDetails
         private static DefenceInfoDto? MapDefenceInfo(StudentDetailsProjection student)
         {
             return student.HasDefence
-                ? new DefenceInfoDto(student.DefenceDate)
+                ? new DefenceInfoDto(
+                    student.DefenceDate,
+                    student.ProtocolNumber,
+                    student.DurationOfDefenceMinutes,
+                    student.PresentationSheets,
+                    student.WorkSheets)
                 : null;
         }
 
@@ -324,8 +338,6 @@ public static class GetStudentDetails
             return new DefenceResultsDto(
                 student.PlagiarismPercent ?? 0,
                 student.UniquePercent ?? 0,
-                student.SupervisorScore ?? 0,
-                student.ReviewerScore ?? 0,
                 student.CommissionScore ?? 0,
                 (student.EctsGrade ?? EctsGrade.None).ToString(),
                 (student.NationalGrade ?? NationalGrade.None).ToString(),
@@ -373,13 +385,15 @@ public static class GetStudentDetails
         public IReadOnlyCollection<DefenceQuestionDto> DefenceQuestions { get; init; } = [];
         public float? PlagiarismPercent { get; init; }
         public float? UniquePercent { get; init; }
-        public int? SupervisorScore { get; init; }
-        public int? ReviewerScore { get; init; }
         public int? CommissionScore { get; init; }
         public EctsGrade? EctsGrade { get; init; }
         public NationalGrade? NationalGrade { get; init; }
         public bool? HasDiplomaWithHonors { get; init; }
         public DateOnly? DefenceDate { get; init; }
+        public int? ProtocolNumber { get; init; }
+        public int? DurationOfDefenceMinutes { get; init; }
+        public int? PresentationSheets { get; init; }
+        public int? WorkSheets { get; init; }
         public bool HasDefence { get; init; }
         public bool HasPhysicalChecklist { get; init; }
         public bool PhysicalHasStudentCard { get; init; }

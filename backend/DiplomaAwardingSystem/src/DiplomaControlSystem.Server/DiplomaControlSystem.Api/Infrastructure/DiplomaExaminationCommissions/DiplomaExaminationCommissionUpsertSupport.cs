@@ -221,6 +221,14 @@ internal static class DiplomaExaminationCommissionUpsertSupport
             request.SecondMemberTeacherId,
             request.ThirdMemberTeacherId
         };
+        var consultantIds = new[]
+            {
+                request.FirstConsultantId,
+                request.SecondConsultantId
+            }
+            .Where(id => id is not null)
+            .Select(id => id!.Value)
+            .ToArray();
 
         if (teacherIds.Distinct().Count() != teacherIds.Length)
         {
@@ -229,19 +237,38 @@ internal static class DiplomaExaminationCommissionUpsertSupport
                 "Commission roles must be assigned to different teachers.");
         }
 
+        if (consultantIds.Distinct().Count() != consultantIds.Length)
+        {
+            return ErrorDetails.Conflict(
+                "DiplomaExaminationCommission.DuplicateConsultants",
+                "Consultant roles must be assigned to different teachers.");
+        }
+
+        if (consultantIds.Any(id => teacherIds.Contains(id)))
+        {
+            return ErrorDetails.Conflict(
+                "DiplomaExaminationCommission.ConsultantIsMember",
+                "Commission member cannot be assigned as consultant.");
+        }
+
+        var allTeacherIds = teacherIds
+            .Concat(consultantIds)
+            .Distinct()
+            .ToArray();
+
         var existingTeacherIds = await context.Teachers
             .AsNoTracking()
             .Where(teacher => teacher.SpecialtyId == specialtyId)
             .Where(teacher => teacher.IsActive)
-            .Where(teacher => teacherIds.Contains(teacher.Id))
+            .Where(teacher => allTeacherIds.Contains(teacher.Id))
             .Select(teacher => teacher.Id)
             .ToListAsync(ct);
 
-        if (existingTeacherIds.Count != teacherIds.Length)
+        if (existingTeacherIds.Count != allTeacherIds.Length)
         {
             return ErrorDetails.NotFound(
                 "Teacher.NotFound",
-                "One or more commission teachers were not found in secretary specialty.");
+                "One or more commission teachers or consultants were not found in secretary specialty.");
         }
 
         return Result.Success();

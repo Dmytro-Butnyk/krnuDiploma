@@ -35,8 +35,12 @@ export interface DiplomaExaminationCommissionResponse {
   defenseYear: string
   startDate: string
   endDate: string
+  meetingStart: string
+  meetingEnd: string
   head: CommissionHeadDto
   members: MemberDto[]
+  firstConsultant: MemberDto | null
+  secondConsultant: MemberDto | null
   secretary: SecretaryDto
   groups: GroupDto[]
 }
@@ -68,8 +72,12 @@ export interface CreateDiplomaExaminationCommissionRequest {
   firstMemberTeacherId: EntityId
   secondMemberTeacherId: EntityId
   thirdMemberTeacherId: EntityId
+  firstConsultantId: EntityId | null
+  secondConsultantId: EntityId | null
   startDate: string
   endDate: string
+  meetingStart: string
+  meetingEnd: string
 }
 
 export type UpdateDiplomaExaminationCommissionRequest = Omit<

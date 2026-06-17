@@ -26,8 +26,12 @@ public static class DiplomaExaminationCommissionContracts
         string DefenseYear,
         DateOnly StartDate,
         DateOnly EndDate,
+        string MeetingStart,
+        string MeetingEnd,
         CommissionHeadDto Head,
         IReadOnlyCollection<MemberDto> Members,
+        MemberDto? FirstConsultant,
+        MemberDto? SecondConsultant,
         SecretaryDto Secretary,
         IReadOnlyCollection<GroupDto> Groups);
 
@@ -39,8 +43,12 @@ public static class DiplomaExaminationCommissionContracts
         public int FirstMemberTeacherId { get; init; }
         public int SecondMemberTeacherId { get; init; }
         public int ThirdMemberTeacherId { get; init; }
+        public int? FirstConsultantId { get; init; }
+        public int? SecondConsultantId { get; init; }
         public DateOnly StartDate { get; init; }
         public DateOnly EndDate { get; init; }
+        public string MeetingStart { get; init; } = string.Empty;
+        public string MeetingEnd { get; init; } = string.Empty;
     }
 
     public abstract class DiplomaExaminationCommissionCreateRequest : DiplomaExaminationCommissionUpdateRequest

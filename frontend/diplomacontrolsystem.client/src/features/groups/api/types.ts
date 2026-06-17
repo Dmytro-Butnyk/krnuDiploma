@@ -79,6 +79,17 @@ export interface StudentImportStatisticsDto {
   practiceBasesImported: EntityId
 }
 
+export interface ImportTableColumnDto {
+  key: string
+  displayName: string
+  required: boolean
+  acceptedHeaders: string[]
+}
+
+export interface ImportTableColumnsResponse {
+  columns: ImportTableColumnDto[]
+}
+
 export interface ImportGroupDefenceResultsResponse {
   groupId: EntityId
   groupName: string
@@ -117,20 +128,44 @@ export interface AddStudentResponse {
   groupId: EntityId
 }
 
+export type StatisticSectionKey =
+  | 'gradesAndRecommendations'
+  | 'workCharacter'
+  | 'complexDiplomaDesign'
+  | 'additional'
+  | 'performanceIndicators'
+
+export type StatisticItemKey =
+  | 'excellent'
+  | 'good'
+  | 'satisfactory'
+  | 'diplomaWithHonors'
+  | 'recommendedForMaster'
+  | 'researchBased'
+  | 'realProjects'
+  | 'ecoFriendly'
+  | 'enterpriseOrdered'
+  | 'interuniversity'
+  | 'interdepartmental'
+  | 'departmental'
+  | 'complexProjectParticipant'
+  | 'recommendedForImplementation'
+  | 'defendedAtEnterprise'
+  | 'educationQuality'
+  | 'overallSuccess'
+
 export interface StatisticItemDto {
-  key: string
-  label: string
+  key: StatisticItemKey
   count: EntityId
   percentage: number | string
 }
 
 export interface StatisticSectionDto {
-  key: string
-  title: string
+  key: StatisticSectionKey
   items: StatisticItemDto[]
 }
 
-export interface PreviousYearStatisticsDto {
+export interface StatisticsSnapshotDto {
   defenseYear: string
   groupsCount: EntityId
   totalStudents: EntityId
@@ -142,7 +177,49 @@ export interface GroupStatisticsResponse {
   groupName: string
   totalStudents: EntityId
   sections: StatisticSectionDto[]
-  previousYearStatistics: PreviousYearStatisticsDto | null
+}
+
+export interface PreviousYearComparisonResponse {
+  groupId: EntityId
+  groupName: string
+  currentGroup: StatisticsSnapshotDto
+  previousYear: StatisticsSnapshotDto | null
+}
+
+export interface SupervisorWorkloadResponse {
+  groupId: EntityId
+  groupName: string
+  summary: {
+    totalSupervisors: EntityId
+    totalStudents: EntityId
+  }
+  items: SupervisorWorkloadItemDto[]
+}
+
+export interface SupervisorWorkloadItemDto {
+  key: 'supervisor' | 'withoutSupervisor'
+  teacherId: EntityId | null
+  fullName: string | null
+  shortName: string | null
+  studentsCount: EntityId
+  averageScore: number | null
+  diplomasWithHonorsCount: EntityId
+  averagePlagiarismPercent: number | null
+}
+
+export interface PracticeBaseRatingResponse {
+  groupId: EntityId
+  groupName: string
+  totalStudents: EntityId
+  totalPracticeBases: EntityId
+  items: PracticeBaseRatingItemDto[]
+}
+
+export interface PracticeBaseRatingItemDto {
+  key: 'practiceBase' | 'withoutPracticeBase'
+  rank: EntityId | null
+  practiceBase: string | null
+  studentsCount: EntityId
 }
 
 export interface StudentNameDto {
@@ -175,17 +252,19 @@ export interface DefenceQuestionAuthorOptionDto {
 
 export interface DefenceInfoDto {
   defenceDate: string | null
+  protocolNumber: number | null
+  durationOfDefenceMinutes: number | null
+  presentationSheets: number | null
+  workSheets: number | null
 }
 
 export type EctsGrade = 'None' | 'A' | 'B' | 'C' | 'D' | 'E'
 export type NationalGrade = 'None' | 'Excellent' | 'Good' | 'Satisfactory'
 
 export interface DefenceResultsDto {
-  plagiarismPercent: number | string
-  uniquePercent: number | string
-  supervisorScore: EntityId
-  reviewerScore: EntityId
-  commissionScore: EntityId
+  plagiarismPercent: number
+  uniquePercent: number
+  commissionScore: number
   ectsGrade: EctsGrade
   nationalGrade: NationalGrade
   hasDiplomaWithHonors: boolean
@@ -247,6 +326,10 @@ export interface UpdateStudentQualificationWorkRequest {
 export interface UpdateStudentDefenceRequest {
   secretaryEmail: string
   defenceDate: string | null
+  protocolNumber: number | null
+  durationOfDefenceMinutes: number | null
+  presentationSheets: number | null
+  workSheets: number | null
 }
 
 export type UpdatePhysicalChecklistRequest = PhysicalChecklistDto & { secretaryEmail: string }

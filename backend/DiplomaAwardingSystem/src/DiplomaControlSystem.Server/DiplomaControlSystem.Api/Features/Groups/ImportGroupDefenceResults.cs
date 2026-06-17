@@ -216,8 +216,6 @@ public static partial class ImportGroupDefenceResults
                 qualificationWork.UniquePercent = importedRow.PlagiarismPercent is null
                     ? 0
                     : 100 - importedRow.PlagiarismPercent.Value;
-                qualificationWork.SupervisorScore = importedRow.SupervisorScore ?? 0;
-                qualificationWork.ReviewerScore = importedRow.ReviewerScore ?? 0;
                 qualificationWork.CommissionScore = importedRow.CommissionScore ?? 0;
                 qualificationWork.EctsGrade = DefenceGradeCalculator.CalculateEctsGrade(qualificationWork.CommissionScore);
                 qualificationWork.NationalGrade = DefenceGradeCalculator.CalculateNationalGrade(qualificationWork.CommissionScore);
@@ -234,9 +232,7 @@ public static partial class ImportGroupDefenceResults
                     plagiarismImported++;
                 }
 
-                if (importedRow.CommissionScore is not null
-                    || importedRow.SupervisorScore is not null
-                    || importedRow.ReviewerScore is not null)
+                if (importedRow.CommissionScore is not null)
                 {
                     scoresImported++;
                 }

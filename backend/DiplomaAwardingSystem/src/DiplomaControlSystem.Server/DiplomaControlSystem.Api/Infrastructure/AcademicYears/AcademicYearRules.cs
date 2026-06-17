@@ -5,7 +5,7 @@ namespace DiplomaControlSystem.Api.Infrastructure.AcademicYears;
 
 internal static partial class AcademicYearRules
 {
-    private const int MaxFutureDefenseYearOffset = 2;
+    private const int MinPastDefenseYearOffset = -2;
 
     private static readonly Lazy<TimeZoneInfo> UkraineTimeZone = new(FindUkraineTimeZone);
 
@@ -56,13 +56,13 @@ internal static partial class AcademicYearRules
         var currentYear = GetCurrentUkraineYear();
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"Defense year must be between {currentYear} and {currentYear + MaxFutureDefenseYearOffset}.");
+            $"Defense year must be between {currentYear + MinPastDefenseYearOffset} and {currentYear}.");
     }
 
     private static bool IsAllowedDefenseYear(int defenseYear)
     {
         var currentYear = GetCurrentUkraineYear();
-        return defenseYear >= currentYear && defenseYear <= currentYear + MaxFutureDefenseYearOffset;
+        return defenseYear >= currentYear + MinPastDefenseYearOffset && defenseYear <= currentYear;
     }
 
     private static int GetCurrentUkraineYear()

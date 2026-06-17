@@ -61,6 +61,22 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
             .ThenInclude(t => t!.TeacherPosition)
             .Include(s => s.Group)
             .ThenInclude(g => g!.DiplomaExaminationCommission)
+            .ThenInclude(dec => dec!.FirstConsultant)
+            .ThenInclude(t => t!.AcademicDegree)
+            .Include(s => s.Group)
+            .ThenInclude(g => g!.DiplomaExaminationCommission)
+            .ThenInclude(dec => dec!.FirstConsultant)
+            .ThenInclude(t => t!.TeacherPosition)
+            .Include(s => s.Group)
+            .ThenInclude(g => g!.DiplomaExaminationCommission)
+            .ThenInclude(dec => dec!.SecondConsultant)
+            .ThenInclude(t => t!.AcademicDegree)
+            .Include(s => s.Group)
+            .ThenInclude(g => g!.DiplomaExaminationCommission)
+            .ThenInclude(dec => dec!.SecondConsultant)
+            .ThenInclude(t => t!.TeacherPosition)
+            .Include(s => s.Group)
+            .ThenInclude(g => g!.DiplomaExaminationCommission)
             .ThenInclude(dec => dec!.Secretary)
             .Include(s => s.QualificationWork)
             .ThenInclude(qw => qw!.Teacher)
@@ -85,8 +101,8 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
 
         var qualificationWork = student.QualificationWork;
         var commission = student.Group?.DiplomaExaminationCommission;
-        var startTime = GetOptionalParameter(context, "MeetingStartTime");
-        var endTime = GetOptionalParameter(context, "MeetingEndTime");
+        var startTime = commission?.MeetingStart;
+        var endTime = commission?.MeetingEnd;
         var questionRows = BuildQuestionRows(qualificationWork);
         var computed = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
         {
@@ -98,8 +114,15 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
             ["EducationLevel"] = FormatEducationLevel(student.Group?.EducationLevel),
             ["QualificationWorkKindGenitive"] = FormatQualificationWorkKindGenitive(student.Group?.EducationLevel),
             ["SpecialtyLine"] = BuildSpecialtyLine(student.Group?.Specialty),
+            ["ProtocolNumber"] = FormatNullableInt(qualificationWork?.ProtocolNumber),
+            ["DurationMinutes"] = FormatNullableInt(qualificationWork?.DurationOfDefenceMinutes),
+            ["PresentationSheets"] = FormatNullableInt(qualificationWork?.PresentationSheets),
+            ["WorkSheets"] = FormatNullableInt(qualificationWork?.WorkSheets),
+            ["CompetencyLevel"] = FormatCompetencyLevel(qualificationWork?.CommissionScore),
             ["SupervisorLine"] = BuildTeacherWorkLine(qualificationWork?.Teacher),
             ["ReviewerLine"] = BuildReviewerLine(qualificationWork?.Reviewer),
+            ["Consultant1Line"] = BuildConsultantLine(commission?.FirstConsultant),
+            ["Consultant2Line"] = BuildConsultantLine(commission?.SecondConsultant),
             ["CommissionHeadPresentLine"] = BuildCommissionHeadPresentLine(commission?.CommissionHead),
             ["CommissionHeadSignatureName"] = commission?.CommissionHead?.NameForms.Signature ?? string.Empty,
             ["FirstMemberPresentLine"] = BuildTeacherPresentLine(commission?.FirstMemberTeacher),
@@ -155,13 +178,6 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
                 $"Scenario helper input '{inputKey}' has unexpected value type.");
     }
 
-    private static string? GetOptionalParameter(DocumentScenarioContext context, string inputKey)
-    {
-        return context.Parameters.TryGetValue(inputKey, out var value) && !string.IsNullOrWhiteSpace(value)
-            ? value.Trim()
-            : null;
-    }
-
     private static string BuildTeacherPresentLine(Teacher? teacher)
     {
         if (teacher is null)
@@ -201,6 +217,11 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
             teacher.NameForms.Nominative);
     }
 
+    private static string BuildConsultantLine(Teacher? teacher)
+    {
+        return BuildTeacherWorkLine(teacher);
+    }
+
     private static string BuildCommissionHeadPresentLine(CommissionHead? head)
     {
         if (head is null)
@@ -219,6 +240,22 @@ public sealed class SingleQualificationWorkProtocolScenarioHelper(DbDocGenContex
     private static string FormatDayMonth(DateOnly? date)
     {
         return date?.ToString("dd.MM", UkrainianCulture) ?? string.Empty;
+    }
+
+    private static string FormatNullableInt(int? value)
+    {
+        return value?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+    }
+
+    private static string FormatCompetencyLevel(int? commissionScore)
+    {
+        return commissionScore switch
+        {
+            >= 60 and <= 73 => "достатній",
+            >= 74 and <= 89 => "середній",
+            >= 90 and <= 100 => "високий",
+            _ => string.Empty
+        };
     }
 
     private static string? FormatDegreeOrPosition(string? value)
